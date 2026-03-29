@@ -1,0 +1,57 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Midnight Terminal - dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.6.0/p5.js"></script>
+    <style>
+        body { font-family: monospace; margin: 0; padding: 0; }
+        .glass { background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="bg-[#0a0a0f] text-[#00ff88] min-h-screen p-8">
+    <nav class="flex justify-between items-center mb-8 border-b border-[#12121a] pb-4">
+        <h1 class="text-2xl font-bold uppercase tracking-widest text-[#ff3366]">Midnight Terminal</h1>
+        <div class="flex gap-4">
+            <a href="dashboard.html" class="hover:opacity-70 border-b-2 border-[#12121a]">DASHBOARD</a><a href="trading.html" class="hover:opacity-70 ">TRADING</a><a href="bots.html" class="hover:opacity-70 ">BOTS</a>
+        </div>
+    </nav>
+    <main class="grid grid-cols-12 gap-6">
+        <aside class="col-span-3 glass p-6 rounded-lg border-[#12121a] border">
+            <h2 class="text-xl mb-4 font-semibold">Trading Details</h2>
+            <div class="space-y-4">
+                <div class="h-10 rounded bg-white/5"></div>
+                <div class="h-10 rounded bg-white/5"></div>
+                <div class="h-10 rounded bg-white/5"></div>
+            </div>
+            <p class="mt-8 text-sm opacity-50">Algorithmic Art Chart Generator</p>
+        </aside>
+        <div class="col-span-9 glass p-6 rounded-lg border-[#12121a] border relative overflow-hidden" style="height: 60vh;">
+            <div id="p5-canvas" class="absolute inset-0"></div>
+            <div class="relative z-10 pointer-events-none p-4">
+                <h2 class="text-2xl font-bold mix-blend-difference filter invert">DASHBOARD VIEW</h2>
+            </div>
+        </div>
+    </main>
+    <script>
+        function setup() {
+            let canvas = createCanvas(windowWidth, windowHeight);
+            canvas.parent('p5-canvas');
+            background(0, 0);
+            stroke(255, 50);
+            noFill();
+            let numLines = 46;
+            for(let i=0; i<numLines; i++) {
+                beginShape();
+                for(let x=0; x<width; x+=50) {
+                    let y = noise(x * 0.01, i * 0.1, frameCount * 0.01) * height;
+                    curveVertex(x, y);
+                }
+                endShape();
+            }
+        }
+        function draw() {}
+    </script>
+</body>
+</html>

@@ -40,6 +40,7 @@ export class RiskManager {
   private currentDay: string = "";
 
   constructor(config: RiskConfig, initialEquity: number) {
+    if (initialEquity < 0) throw new Error("Initial equity must be non-negative");
     this.config = config;
     this.initialEquity = initialEquity;
     this.peakEquity = initialEquity;
@@ -63,15 +64,17 @@ export class RiskManager {
     }
 
     // Update daily tracking
-    if (timestamp) {
-      const day = new Date(timestamp).toISOString().split("T")[0]!;
-      if (day !== this.currentDay) {
-        this.currentDay = day;
-        this.dailyStartEquity = currentEquity;
-      }
+    const ts = timestamp ?? Date.now();
+    const day = new Date(ts).toISOString().split("T")[0]!;
+    if (day !== this.currentDay) {
+      this.currentDay = day;
+      this.dailyStartEquity = currentEquity;
     }
 
     // Check 1: Position size limit
+    if (currentEquity <= 0) {
+      return { allowed: false, reason: "Current equity is zero or negative" };
+    }
     const positionSizePercent = (orderCost / currentEquity) * 100;
     if (positionSizePercent > this.config.maxPositionSizePercent) {
       return {

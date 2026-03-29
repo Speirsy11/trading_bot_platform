@@ -13,6 +13,7 @@ import type {
 
 interface PendingOrder extends Order {
   stopPrice?: number;
+  reservedCost?: number;
 }
 
 /**
@@ -98,7 +99,7 @@ export class BacktestExchange implements IExchange {
           fillPrice = order.price ?? candle.open;
           filled = true;
         }
-      } else if (order.type === "stop" || order.type === "stop_limit") {
+      } else if (order.type === "stop") {
         const stopPrice = order.stopPrice ?? order.price ?? 0;
         if (order.side === "sell" && candle.low <= stopPrice) {
           fillPrice = stopPrice;
@@ -107,6 +108,18 @@ export class BacktestExchange implements IExchange {
         } else if (order.side === "buy" && candle.high >= stopPrice) {
           fillPrice = stopPrice;
           feeRate = this.fees.taker;
+          filled = true;
+        }
+      } else if (order.type === "stop_limit") {
+        const triggerPrice = order.stopPrice ?? order.price ?? 0;
+        const limitPrice = order.price ?? triggerPrice;
+        if (order.side === "sell" && candle.low <= triggerPrice) {
+          fillPrice = limitPrice;
+          feeRate = this.fees.maker;
+          filled = true;
+        } else if (order.side === "buy" && candle.high >= triggerPrice) {
+          fillPrice = limitPrice;
+          feeRate = this.fees.maker;
           filled = true;
         }
       }
@@ -131,10 +144,9 @@ export class BacktestExchange implements IExchange {
     const [base, quote] = this.parseSymbol(order.symbol);
 
     if (order.side === "buy") {
-      this.balance.free[quote] =
-        (this.balance.free[quote] ?? 0) + (order.cost || order.amount * (order.price ?? 0));
-      this.balance.used[quote] =
-        (this.balance.used[quote] ?? 0) - (order.cost || order.amount * (order.price ?? 0));
+      const reserved = order.reservedCost ?? order.amount * (order.price ?? 0);
+      this.balance.free[quote] = (this.balance.free[quote] ?? 0) + reserved;
+      this.balance.used[quote] = (this.balance.used[quote] ?? 0) - reserved;
 
       const totalCost = cost + fee;
       if ((this.balance.free[quote] ?? 0) < totalCost) {
@@ -172,6 +184,22 @@ export class BacktestExchange implements IExchange {
     order.status = "closed";
     order.timestamp = this.currentTime;
     this.closedOrders.push(order);
+
+    this.trades.push({
+      id: `trade-${this.trades.length + 1}`,
+      orderId: order.id,
+      symbol: order.symbol,
+      side: order.side,
+      type: order.type,
+      amount: order.amount,
+      price: fillPrice,
+      cost,
+      fee: roundTo(fee, 8),
+      pnl: 0,
+      entryPrice: fillPrice,
+      exitPrice: fillPrice,
+      timestamp: this.currentTime,
+    });
   }
 
   private parseSymbol(symbol: string): [string, string] {
@@ -245,6 +273,7 @@ export class BacktestExchange implements IExchange {
     // Validate balance
     if (side === "buy") {
       const orderCost = amount * (price ?? this.currentCandle?.close ?? 0);
+      if (orderCost === 0) throw new Error("Cannot determine order cost: no price or candle data");
       if ((this.balance.free[quote] ?? 0) < orderCost) {
         throw new Error(
           `Insufficient ${quote} balance: need ${orderCost}, have ${this.balance.free[quote] ?? 0}`
@@ -272,6 +301,7 @@ export class BacktestExchange implements IExchange {
       amount,
       price,
       stopPrice,
+      reservedCost: side === "buy" ? amount * (price ?? this.currentCandle?.close ?? 0) : undefined,
       filled: 0,
       remaining: amount,
       cost: 0,
@@ -299,7 +329,7 @@ export class BacktestExchange implements IExchange {
 
     // Release reserved funds
     if (order.side === "buy") {
-      const reserved = order.amount * (order.price ?? 0);
+      const reserved = order.reservedCost ?? order.amount * (order.price ?? 0);
       this.balance.free[quote] = (this.balance.free[quote] ?? 0) + reserved;
       this.balance.used[quote] = (this.balance.used[quote] ?? 0) - reserved;
     } else {

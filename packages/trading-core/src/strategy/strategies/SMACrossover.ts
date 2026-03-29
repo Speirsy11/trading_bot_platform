@@ -13,10 +13,14 @@ export class SMACrossover implements IStrategy {
   readonly name = "SMA Crossover";
   readonly description = "Buy when fast SMA crosses above slow SMA, sell on cross below";
 
-  readonly paramsSchema = z.object({
-    fastPeriod: z.number().int().min(2).max(200).default(9),
-    slowPeriod: z.number().int().min(5).max(500).default(21),
-  });
+  readonly paramsSchema = z
+    .object({
+      fastPeriod: z.number().int().min(2).max(200).default(9),
+      slowPeriod: z.number().int().min(5).max(500).default(21),
+    })
+    .refine((p) => p.fastPeriod < p.slowPeriod, {
+      message: "fastPeriod must be less than slowPeriod",
+    });
 
   private ctx!: StrategyContext;
   private params!: { fastPeriod: number; slowPeriod: number };

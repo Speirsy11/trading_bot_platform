@@ -36,7 +36,10 @@ export class BotRunner {
       undefined,
       2
     );
-    if (initialCandles.length > 0) {
+    if (initialCandles.length > 1) {
+      // Use second-to-last candle to avoid treating an in-progress candle as completed
+      this.lastCandleTime = initialCandles[initialCandles.length - 2]!.time;
+    } else if (initialCandles.length > 0) {
       this.lastCandleTime = initialCandles[initialCandles.length - 1]!.time;
     }
 
@@ -68,8 +71,9 @@ export class BotRunner {
       );
 
       // Process only completed candles (skip the latest incomplete one)
+      const candleMs = timeframeToMs(this.timeframe);
       const completedCandles = candles.filter(
-        (c) => c.time > this.lastCandleTime && c.time < Date.now()
+        (c) => c.time > this.lastCandleTime && c.time + candleMs <= Date.now()
       );
 
       for (const candle of completedCandles) {
@@ -86,6 +90,7 @@ export class BotRunner {
    */
   async feedCandle(candle: Candle): Promise<void> {
     if (!this.running) return;
+    if (candle.time <= this.lastCandleTime) return;
     await this.bot.processCandle(candle);
     this.lastCandleTime = candle.time;
   }

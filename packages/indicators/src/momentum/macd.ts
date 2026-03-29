@@ -13,6 +13,12 @@ export function macd(
   slowPeriod: number = 26,
   signalPeriod: number = 9
 ): MACDResult {
+  if (!Number.isInteger(fastPeriod) || fastPeriod < 1)
+    throw new Error("MACD fast period must be a positive integer");
+  if (!Number.isInteger(slowPeriod) || slowPeriod < 1)
+    throw new Error("MACD slow period must be a positive integer");
+  if (!Number.isInteger(signalPeriod) || signalPeriod < 1)
+    throw new Error("MACD signal period must be a positive integer");
   if (fastPeriod >= slowPeriod) throw new Error("Fast period must be less than slow period");
   if (values.length < slowPeriod + signalPeriod - 1) return { macd: [], signal: [], histogram: [] };
 

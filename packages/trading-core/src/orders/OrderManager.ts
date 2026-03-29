@@ -20,7 +20,9 @@ export class OrderManager {
       this.openOrders.set(order.id, order);
     } else {
       this.openOrders.delete(order.id);
-      this.closedOrders.push(order);
+      if (!this.closedOrders.some((o) => o.id === order.id)) {
+        this.closedOrders.push(order);
+      }
     }
   }
 
@@ -39,9 +41,9 @@ export class OrderManager {
   cancelOrder(orderId: string): boolean {
     const order = this.openOrders.get(orderId);
     if (!order) return false;
-    order.status = "canceled";
+    const cancelled = { ...order, status: "canceled" as const };
     this.openOrders.delete(orderId);
-    this.closedOrders.push(order);
+    this.closedOrders.push(cancelled);
     return true;
   }
 

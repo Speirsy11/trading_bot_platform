@@ -14,6 +14,7 @@ export function stochastic(
   dPeriod: number = 3
 ): StochasticResult {
   if (kPeriod < 1) throw new Error("Stochastic K period must be >= 1");
+  if (dPeriod < 1) throw new Error("Stochastic D period must be >= 1");
   const len = Math.min(highs.length, lows.length, closes.length);
   if (len < kPeriod) return { k: [], d: [] };
 

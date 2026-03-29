@@ -59,8 +59,6 @@ export class Bot {
   }
 
   async start(): Promise<void> {
-    this.stateMachine.transition("start");
-
     const ctx = new StrategyContext(
       this.exchange,
       {
@@ -74,6 +72,7 @@ export class Bot {
     );
 
     await this.strategy.initialize(ctx);
+    this.stateMachine.transition("start");
     this.logger.info(`Bot "${this.name}" started`);
   }
 
@@ -131,8 +130,9 @@ export class Bot {
     if (this.config.closePositionsOnStop) {
       const pos = this.positionManager.getPosition(this.config.symbol);
       if (pos) {
+        const closeSide = pos.side === "short" ? "buy" : "sell";
         try {
-          await this.exchange.createOrder(this.config.symbol, "market", "sell", pos.amount);
+          await this.exchange.createOrder(this.config.symbol, "market", closeSide, pos.amount);
         } catch {
           this.logger.warn("Failed to close position on stop");
         }
@@ -145,16 +145,18 @@ export class Bot {
   }
 
   private async executeSignal(signal: Signal, candle: Candle): Promise<void> {
-    const [, quote] = this.config.symbol.split("/") as [string, string];
+    const parts = this.config.symbol.split("/");
+    const quote = parts[1] ?? "USDT";
 
     if (signal.action === "CLOSE_LONG" || signal.action === "CLOSE_SHORT") {
       const pos = this.positionManager.getPosition(signal.symbol);
       if (!pos) return;
+      const closeSide = signal.action === "CLOSE_SHORT" ? "buy" : "sell";
       try {
         const order = await this.exchange.createOrder(
           signal.symbol,
           signal.orderType,
-          "sell",
+          closeSide,
           pos.amount,
           signal.price
         );

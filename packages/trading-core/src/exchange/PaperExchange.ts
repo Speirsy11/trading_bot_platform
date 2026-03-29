@@ -62,8 +62,10 @@ export class PaperExchange implements IExchange {
     };
   }
 
-  async fetchOpenOrders(_symbol?: string): Promise<Order[]> {
-    return [...this.orders.values()];
+  async fetchOpenOrders(symbol?: string): Promise<Order[]> {
+    const orders = [...this.orders.values()];
+    if (symbol) return orders.filter((o) => o.symbol === symbol);
+    return orders;
   }
 
   async fetchClosedOrders(_symbol?: string, _since?: number, limit?: number): Promise<Order[]> {
@@ -79,6 +81,7 @@ export class PaperExchange implements IExchange {
     price?: number,
     _stopPrice?: number
   ): Promise<Order> {
+    if (amount <= 0) throw new Error("Order amount must be positive");
     const orderId = `paper-${++this.orderCounter}`;
     const [base, quote] = this.parseSymbol(symbol);
 
@@ -130,6 +133,10 @@ export class PaperExchange implements IExchange {
     }
 
     // Limit/stop orders — store as pending
+    if ((type === "limit" || type === "stop_limit") && (price == null || price <= 0)) {
+      throw new Error("Limit/stop-limit orders require a positive price");
+    }
+
     const order: Order = {
       id: orderId,
       symbol,
@@ -157,6 +164,9 @@ export class PaperExchange implements IExchange {
 
   private parseSymbol(symbol: string): [string, string] {
     const parts = symbol.split("/");
-    return [parts[0] ?? "BTC", parts[1] ?? "USDT"];
+    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+      throw new Error(`Invalid symbol format: ${symbol}. Expected "BASE/QUOTE"`);
+    }
+    return [parts[0], parts[1]];
   }
 }

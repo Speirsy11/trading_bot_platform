@@ -39,14 +39,16 @@ export class OrderSimulator {
       filled = true;
     } else if (order.type === "limit") {
       feeRate = this.fees.maker;
-      if (order.side === "buy" && candle.low <= (order.price ?? 0)) {
-        fillPrice = order.price ?? candle.open;
+      const limitPrice = order.price ?? 0;
+      if (limitPrice <= 0) return { filled: false, fillPrice: 0, fee: 0, feeRate: 0 };
+      if (order.side === "buy" && candle.low <= limitPrice) {
+        fillPrice = limitPrice;
         filled = true;
-      } else if (order.side === "sell" && candle.high >= (order.price ?? 0)) {
-        fillPrice = order.price ?? candle.open;
+      } else if (order.side === "sell" && candle.high >= limitPrice) {
+        fillPrice = limitPrice;
         filled = true;
       }
-    } else if (order.type === "stop" || order.type === "stop_limit") {
+    } else if (order.type === "stop") {
       const triggerPrice = stopPrice ?? order.price ?? 0;
       if (order.side === "sell" && candle.low <= triggerPrice) {
         fillPrice = triggerPrice;
@@ -55,6 +57,18 @@ export class OrderSimulator {
       } else if (order.side === "buy" && candle.high >= triggerPrice) {
         fillPrice = triggerPrice;
         feeRate = this.fees.taker;
+        filled = true;
+      }
+    } else if (order.type === "stop_limit") {
+      const triggerPrice = stopPrice ?? order.price ?? 0;
+      const limitPrice = order.price ?? triggerPrice;
+      if (order.side === "sell" && candle.low <= triggerPrice) {
+        fillPrice = limitPrice;
+        feeRate = this.fees.maker;
+        filled = true;
+      } else if (order.side === "buy" && candle.high >= triggerPrice) {
+        fillPrice = limitPrice;
+        feeRate = this.fees.maker;
         filled = true;
       }
     }

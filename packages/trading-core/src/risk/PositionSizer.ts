@@ -20,6 +20,9 @@ export class PositionSizer {
    * Caps at maxPositionSizePercent of portfolio.
    */
   calculate(portfolioValue: number, entryPrice: number, stopLossPrice?: number): number {
+    if (portfolioValue <= 0) return 0;
+    if (entryPrice <= 0) return 0;
+
     const riskAmount = portfolioValue * (this.config.riskPerTradePercent / 100);
 
     let positionSize: number;

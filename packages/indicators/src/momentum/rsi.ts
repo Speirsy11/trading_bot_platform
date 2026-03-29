@@ -25,7 +25,9 @@ export function rsi(values: number[], period: number = 14): number[] {
   avgLoss /= period;
 
   const result: number[] = [];
-  result.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+  result.push(
+    avgGain === 0 && avgLoss === 0 ? 50 : avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+  );
 
   // Wilder's smoothing for subsequent values
   for (let i = period; i < changes.length; i++) {
@@ -36,7 +38,13 @@ export function rsi(values: number[], period: number = 14): number[] {
     avgGain = (avgGain * (period - 1) + gain) / period;
     avgLoss = (avgLoss * (period - 1) + loss) / period;
 
-    result.push(avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss));
+    result.push(
+      avgGain === 0 && avgLoss === 0
+        ? 50
+        : avgLoss === 0
+          ? 100
+          : 100 - 100 / (1 + avgGain / avgLoss)
+    );
   }
 
   return result;

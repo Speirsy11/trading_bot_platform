@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { atr } from "../volatility/atr.js";
+import { atr } from "./atr.js";
 
 describe("ATR", () => {
   it("calculates ATR correctly", () => {

@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { StrategyRegistry } from "../strategy/StrategyRegistry.js";
-import { RSIMeanReversion } from "../strategy/strategies/RSIMeanReversion.js";
-import { SMACrossover } from "../strategy/strategies/SMACrossover.js";
+import { StrategyRegistry } from "./StrategyRegistry.js";
+import { RSIMeanReversion } from "./strategies/RSIMeanReversion.js";
+import { SMACrossover } from "./strategies/SMACrossover.js";
 
 describe("StrategyRegistry", () => {
   beforeEach(() => {

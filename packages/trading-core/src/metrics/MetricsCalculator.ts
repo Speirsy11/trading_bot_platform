@@ -31,9 +31,12 @@ export class MetricsCalculator {
     // CAGR
     const startTime = equityCurve.length > 0 ? equityCurve[0]!.time : 0;
     const endTime = equityCurve.length > 0 ? equityCurve[equityCurve.length - 1]!.time : 0;
-    const years = Math.max((endTime - startTime) / (365.25 * 24 * 60 * 60 * 1000), 1 / 365);
+    const durationMs = endTime - startTime;
+    const years = durationMs > 0 ? durationMs / (365.25 * 24 * 60 * 60 * 1000) : 1 / 365;
     const cagr =
-      initialBalance > 0 ? (Math.pow(finalBalance / initialBalance, 1 / years) - 1) * 100 : 0;
+      initialBalance > 0 && years > 0
+        ? (Math.pow(finalBalance / initialBalance, 1 / years) - 1) * 100
+        : 0;
 
     // Max Drawdown
     const { maxDrawdown, maxDrawdownDuration } = this.calcDrawdown(equityCurve);
@@ -160,21 +163,23 @@ export class MetricsCalculator {
   private calcAvgHoldTime(trades: TradeRecord[]): number {
     if (trades.length < 2) return 0;
 
-    // Group trades by symbol to find entry/exit pairs
+    // Group trades by symbol to find entry/exit pairs (FIFO)
     let totalHoldTime = 0;
     let pairCount = 0;
 
-    const entryMap = new Map<string, number>();
+    const entryMap = new Map<string, number[]>();
 
     for (const trade of trades) {
       if (trade.side === "buy") {
-        entryMap.set(trade.symbol, trade.timestamp);
+        const entries = entryMap.get(trade.symbol) ?? [];
+        entries.push(trade.timestamp);
+        entryMap.set(trade.symbol, entries);
       } else if (trade.side === "sell") {
-        const entryTime = entryMap.get(trade.symbol);
-        if (entryTime) {
+        const entries = entryMap.get(trade.symbol);
+        if (entries && entries.length > 0) {
+          const entryTime = entries.shift()!;
           totalHoldTime += trade.timestamp - entryTime;
           pairCount++;
-          entryMap.delete(trade.symbol);
         }
       }
     }

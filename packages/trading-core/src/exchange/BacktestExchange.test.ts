@@ -1,7 +1,7 @@
 import type { Candle } from "@tb/types";
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { BacktestExchange } from "../exchange/BacktestExchange.js";
+import { BacktestExchange } from "./BacktestExchange.js";
 
 function makeCandle(overrides: Partial<Candle> & { time: number }): Candle {
   return {

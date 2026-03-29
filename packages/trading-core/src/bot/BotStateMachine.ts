@@ -41,7 +41,11 @@ export class BotStateMachine {
     this.state = valid.to;
 
     for (const listener of this.listeners) {
-      listener(from, valid.to);
+      try {
+        listener(from, valid.to);
+      } catch {
+        // Prevent one bad listener from stopping others
+      }
     }
   }
 

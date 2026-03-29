@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { RiskManager, DEFAULT_RISK_CONFIG, type RiskConfig } from "../risk/RiskManager.js";
+import { RiskManager, DEFAULT_RISK_CONFIG, type RiskConfig } from "./RiskManager.js";
 
 function makeBalance(free: number) {
   return {

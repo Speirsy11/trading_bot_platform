@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { ema } from "../trend/ema.js";
+import { ema } from "./ema.js";
 
 describe("EMA", () => {
   it("calculates EMA correctly for period 10", () => {

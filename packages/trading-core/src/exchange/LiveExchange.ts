@@ -82,9 +82,10 @@ export class LiveExchange implements IExchange {
     side: OrderSide,
     amount: number,
     price?: number,
-    _stopPrice?: number
+    stopPrice?: number
   ): Promise<Order> {
-    const raw = await this.exchange.createOrder(symbol, type, side, amount, price);
+    const params = stopPrice ? { stopPrice } : undefined;
+    const raw = await this.exchange.createOrder(symbol, type, side, amount, price, params);
     return this.mapOrder(raw);
   }
 
@@ -116,6 +117,8 @@ export class LiveExchange implements IExchange {
       case "closed":
         return "closed";
       case "canceled":
+        return "canceled";
+      case "rejected":
         return "canceled";
       case "expired":
         return "expired";

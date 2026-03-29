@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
 
 import type { TradeRecord } from "../exchange/types.js";
-import { MetricsCalculator } from "../metrics/MetricsCalculator.js";
-import type { EquityPoint } from "../metrics/types.js";
+
+import { MetricsCalculator } from "./MetricsCalculator.js";
+import type { EquityPoint } from "./types.js";
 
 function makeTrade(overrides: Partial<TradeRecord> = {}): TradeRecord {
   return {

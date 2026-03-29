@@ -73,6 +73,7 @@ export class BacktestEngine {
     await strat.initialize(ctx);
 
     const windowSize = config.historyWindowSize ?? 500;
+    const processedOrderIds = new Set<string>();
 
     // 5. Feed candles one by one
     for (let i = 0; i < candles.length; i++) {
@@ -84,7 +85,8 @@ export class BacktestEngine {
       // b. Sync filled orders with position manager
       const closedOrders = await exchange.fetchClosedOrders();
       for (const order of closedOrders) {
-        if (order.status === "closed" && order.filled > 0) {
+        if (order.status === "closed" && order.filled > 0 && !processedOrderIds.has(order.id)) {
+          processedOrderIds.add(order.id);
           positionManager.processFilledOrder(order);
         }
       }
@@ -157,11 +159,12 @@ export class BacktestEngine {
       const pos = positionManager.getPosition(signal.symbol);
       if (!pos) return;
 
+      const side = signal.action === "CLOSE_SHORT" ? "buy" : "sell";
       try {
         const order = await exchange.createOrder(
           signal.symbol,
           signal.orderType,
-          "sell",
+          side,
           pos.amount,
           signal.price
         );

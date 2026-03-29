@@ -3,7 +3,8 @@
  * Average of the last `period` values.
  */
 export function sma(values: number[], period: number): number[] {
-  if (period < 1) throw new Error("SMA period must be >= 1");
+  if (!Number.isInteger(period) || period < 1)
+    throw new Error("SMA period must be a positive integer");
   if (values.length < period) return [];
 
   const result: number[] = [];

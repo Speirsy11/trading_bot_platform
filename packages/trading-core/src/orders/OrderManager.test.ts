@@ -1,7 +1,7 @@
 import type { Order } from "@tb/types";
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { OrderManager } from "../orders/OrderManager.js";
+import { OrderManager } from "./OrderManager.js";
 
 function makeOrder(overrides: Partial<Order> = {}): Order {
   return {

@@ -127,7 +127,7 @@ export class PositionManager {
       entryPrice: position.entryPrice,
       exitPrice,
       timestamp: order.timestamp,
-      reason: order.fee?.currency,
+      reason: "strategy",
     };
     this.closedTrades.push(trade);
 
@@ -137,6 +137,22 @@ export class PositionManager {
 
     if (position.amount <= 1e-10) {
       this.positions.delete(position.symbol);
+
+      // If fill exceeds position, open a new position in the opposite direction
+      const excess = order.filled - closedAmount;
+      if (excess > 1e-10) {
+        const newSide = position.side === "long" ? "short" : "long";
+        this.positions.set(order.symbol, {
+          symbol: order.symbol,
+          side: newSide,
+          amount: excess,
+          entryPrice: exitPrice,
+          currentPrice: exitPrice,
+          unrealisedPnl: 0,
+          realisedPnl: 0,
+          timestamp: order.timestamp,
+        });
+      }
     }
 
     return trade;

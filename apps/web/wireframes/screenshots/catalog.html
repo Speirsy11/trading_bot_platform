@@ -1,0 +1,204 @@
+<!doctype html>
+  <html lang="en">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Wireframe Screenshot Catalog</title>
+      <style>
+        :root { color-scheme: dark; }
+        body {
+          margin: 0;
+          font-family: "Instrument Sans", sans-serif;
+          background: #040711;
+          color: #f8fafc;
+          padding: 40px;
+        }
+        h1, h2, p { margin: 0; }
+        h1 { font-size: 32px; }
+        .intro { max-width: 860px; margin-bottom: 32px; color: #cbd5e1; line-height: 1.6; }
+        .legend { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 40px; }
+        .legend span { border: 1px solid rgba(148,163,184,0.24); border-radius: 999px; padding: 8px 12px; color: #cbd5e1; }
+        .theme-group {
+          margin-bottom: 40px;
+          border: 1px solid rgba(148,163,184,0.18);
+          border-radius: 28px;
+          padding: 24px;
+          background: rgba(15, 23, 42, 0.4);
+        }
+        .theme-group header p { color: #94a3b8; }
+        .eyebrow { text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; }
+        .shots {
+          display: grid;
+          gap: 18px;
+          margin-top: 20px;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+        .shot {
+          margin: 0;
+          border-radius: 20px;
+          overflow: hidden;
+          background: rgba(15, 23, 42, 0.66);
+          border: 1px solid rgba(148,163,184,0.18);
+        }
+        .shot figcaption {
+          padding: 14px 16px;
+          text-transform: capitalize;
+          color: #cbd5e1;
+          border-bottom: 1px solid rgba(148,163,184,0.12);
+        }
+        .shot img { display: block; width: 100%; height: auto; }
+        @media (max-width: 1200px) { .shots { grid-template-columns: 1fr; } }
+      </style>
+    </head>
+    <body>
+      <h1>Wireframe Screenshot Catalog</h1>
+      <p class="intro">This catalog is generated automatically from the standalone Vite wireframes app.</p>
+      <div class="legend">
+        <span>homepage: marketing or landing page</span>
+        <span>dashboard: portfolio, bots, recent trades</span>
+        <span>trading: chart, order book, order form</span>
+        <span>bots: filters, inventory, metrics</span>
+      </div>
+      
+        <section class="theme-group">
+          <header>
+            <p class="eyebrow">theme-1</p>
+            <h2>Obsidian Vault</h2>
+          </header>
+          <div class="shots">
+            <figure class="shot">
+              <figcaption>homepage</figcaption>
+              <img src="./theme-1-homepage.png" alt="Obsidian Vault homepage" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>dashboard</figcaption>
+              <img src="./theme-1-dashboard.png" alt="Obsidian Vault dashboard" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>trading</figcaption>
+              <img src="./theme-1-trading.png" alt="Obsidian Vault trading" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>bots</figcaption>
+              <img src="./theme-1-bots.png" alt="Obsidian Vault bots" />
+            </figure>
+          </div>
+        </section>
+      
+        <section class="theme-group">
+          <header>
+            <p class="eyebrow">theme-2</p>
+            <h2>Phosphor Terminal</h2>
+          </header>
+          <div class="shots">
+            <figure class="shot">
+              <figcaption>homepage</figcaption>
+              <img src="./theme-2-homepage.png" alt="Phosphor Terminal homepage" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>dashboard</figcaption>
+              <img src="./theme-2-dashboard.png" alt="Phosphor Terminal dashboard" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>trading</figcaption>
+              <img src="./theme-2-trading.png" alt="Phosphor Terminal trading" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>bots</figcaption>
+              <img src="./theme-2-bots.png" alt="Phosphor Terminal bots" />
+            </figure>
+          </div>
+        </section>
+      
+        <section class="theme-group">
+          <header>
+            <p class="eyebrow">theme-3</p>
+            <h2>Glacier</h2>
+          </header>
+          <div class="shots">
+            <figure class="shot">
+              <figcaption>homepage</figcaption>
+              <img src="./theme-3-homepage.png" alt="Glacier homepage" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>dashboard</figcaption>
+              <img src="./theme-3-dashboard.png" alt="Glacier dashboard" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>trading</figcaption>
+              <img src="./theme-3-trading.png" alt="Glacier trading" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>bots</figcaption>
+              <img src="./theme-3-bots.png" alt="Glacier bots" />
+            </figure>
+          </div>
+        </section>
+      
+        <section class="theme-group">
+          <header>
+            <p class="eyebrow">theme-4</p>
+            <h2>Forge</h2>
+          </header>
+          <div class="shots">
+            <figure class="shot">
+              <figcaption>homepage</figcaption>
+              <img src="./theme-4-homepage.png" alt="Forge homepage" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>dashboard</figcaption>
+              <img src="./theme-4-dashboard.png" alt="Forge dashboard" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>trading</figcaption>
+              <img src="./theme-4-trading.png" alt="Forge trading" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>bots</figcaption>
+              <img src="./theme-4-bots.png" alt="Forge bots" />
+            </figure>
+          </div>
+        </section>
+      
+        <section class="theme-group">
+          <header>
+            <p class="eyebrow">theme-5</p>
+            <h2>Ultraviolet</h2>
+          </header>
+          <div class="shots">
+            <figure class="shot">
+              <figcaption>homepage</figcaption>
+              <img src="./theme-5-homepage.png" alt="Ultraviolet homepage" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>dashboard</figcaption>
+              <img src="./theme-5-dashboard.png" alt="Ultraviolet dashboard" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>trading</figcaption>
+              <img src="./theme-5-trading.png" alt="Ultraviolet trading" />
+            </figure>
+          
+            <figure class="shot">
+              <figcaption>bots</figcaption>
+              <img src="./theme-5-bots.png" alt="Ultraviolet bots" />
+            </figure>
+          </div>
+        </section>
+      
+    </body>
+  </html>

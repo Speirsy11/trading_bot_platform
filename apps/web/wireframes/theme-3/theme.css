@@ -1,1 +1,46 @@
-.theme-3 {}
+[data-theme="theme-3"] {
+  --bg-primary: #0a1628;
+  --bg-secondary: #0f1d33;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-card-solid: #131f38;
+  --bg-input: rgba(255, 255, 255, 0.06);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a8c4;
+  --text-muted: #546a8c;
+  --accent: #5eaeff;
+  --accent-dim: rgba(94, 174, 255, 0.10);
+  --profit: #4ade80;
+  --loss: #f87171;
+  --border: rgba(255, 255, 255, 0.08);
+  --grid: rgba(148, 168, 196, 0.08);
+  --muted: #546a8c;
+  --glass: rgba(255, 255, 255, 0.03);
+
+  font-family: "Outfit", sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+[data-theme="theme-3"] h1,
+[data-theme="theme-3"] h2,
+[data-theme="theme-3"] h3 {
+  font-family: "Crimson Pro", serif;
+  font-weight: 500;
+}
+
+[data-theme="theme-3"] .glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+[data-theme="theme-3"] .glass-panel-sm {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}

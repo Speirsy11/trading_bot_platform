@@ -1,1 +1,33 @@
-.theme-1 {}
+[data-theme="theme-1"] {
+  --bg-primary: #08080a;
+  --bg-secondary: #111114;
+  --bg-card: #17171b;
+  --bg-input: #222228;
+  --bg-hover: #2a2a30;
+  --text-primary: #ede8dd;
+  --text-secondary: #9a9488;
+  --text-muted: #5f5b52;
+  --accent: #c8a55a;
+  --accent-dim: rgba(200, 165, 90, 0.12);
+  --profit: #6ee7a0;
+  --loss: #f87171;
+  --border: rgba(200, 165, 90, 0.10);
+  --grid: rgba(200, 165, 90, 0.06);
+  --muted: #6b6560;
+
+  font-family: "DM Sans", sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+[data-theme="theme-1"] h1,
+[data-theme="theme-1"] h2,
+[data-theme="theme-1"] h3 {
+  font-family: "Playfair Display", serif;
+  font-weight: 400;
+}
+
+[data-theme="theme-1"] .gold-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}

@@ -1,1 +1,42 @@
-.theme-4 {}
+[data-theme="theme-4"] {
+  --bg-primary: #111111;
+  --bg-secondary: #1a1a1a;
+  --bg-card: #1e1e1e;
+  --bg-input: #252525;
+  --bg-hover: #2a2a2a;
+  --text-primary: #e8e0d4;
+  --text-secondary: #a89882;
+  --text-muted: #6b6156;
+  --accent: #e87a20;
+  --accent-dim: rgba(232, 122, 32, 0.12);
+  --profit: #22c55e;
+  --loss: #ef4444;
+  --border: rgba(232, 122, 32, 0.18);
+  --border-hard: #333;
+  --grid: rgba(232, 122, 32, 0.06);
+  --muted: #6b6156;
+
+  font-family: "Work Sans", sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+[data-theme="theme-4"] h1,
+[data-theme="theme-4"] h2,
+[data-theme="theme-4"] h3 {
+  font-family: "Tektur", sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+[data-theme="theme-4"] .forge-panel {
+  background: var(--bg-card);
+  border: 2px solid var(--border-hard);
+  border-top: 3px solid var(--accent);
+}
+
+[data-theme="theme-4"] .forge-panel-flat {
+  background: var(--bg-card);
+  border: 1px solid var(--border-hard);
+}

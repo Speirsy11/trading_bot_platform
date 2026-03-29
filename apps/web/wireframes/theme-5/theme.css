@@ -1,1 +1,48 @@
-.theme-5 {}
+[data-theme="theme-5"] {
+  --bg-primary: #0c0614;
+  --bg-secondary: #120a1e;
+  --bg-card: #1a1028;
+  --bg-input: #221636;
+  --bg-hover: #2a1c40;
+  --text-primary: #f2eeff;
+  --text-secondary: #b8a4d6;
+  --text-muted: #6b5893;
+  --accent: #a855f7;
+  --accent-alt: #06d6a0;
+  --accent-hot: #ec4899;
+  --accent-dim: rgba(168, 85, 247, 0.12);
+  --profit: #06d6a0;
+  --loss: #ff4d6a;
+  --border: rgba(168, 85, 247, 0.15);
+  --grid: rgba(168, 85, 247, 0.06);
+  --muted: #6b5893;
+
+  font-family: "Bricolage Grotesque", sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+[data-theme="theme-5"] h1,
+[data-theme="theme-5"] h2,
+[data-theme="theme-5"] h3 {
+  font-family: "Young Serif", serif;
+  font-weight: 400;
+}
+
+[data-theme="theme-5"] .uv-glow {
+  box-shadow: 0 0 20px rgba(168, 85, 247, 0.15), 0 0 60px rgba(168, 85, 247, 0.05);
+}
+
+[data-theme="theme-5"] .uv-card {
+  background: linear-gradient(145deg, rgba(26, 16, 40, 0.8), rgba(18, 10, 30, 0.9));
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+}
+
+[data-theme="theme-5"] .uv-gradient-text {
+  background: linear-gradient(135deg, #a855f7, #ec4899, #06d6a0);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

@@ -19,8 +19,11 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
+    "@tb/indicators": "workspace:*",
     "@tb/types": "workspace:*",
-    "@tb/utils": "workspace:*"
+    "@tb/utils": "workspace:*",
+    "ccxt": "^4.5.45",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@tb/eslint-config": "workspace:*",

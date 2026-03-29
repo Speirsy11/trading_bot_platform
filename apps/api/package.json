@@ -1,0 +1,30 @@
+{
+  "name": "api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsup src/index.ts --format esm",
+    "lint": "eslint src/",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest watch",
+    "start": "node dist/index.js",
+    "clean": "rm -rf dist .turbo"
+  },
+  "dependencies": {
+    "@tb/config": "workspace:*",
+    "@tb/types": "workspace:*",
+    "fastify": "^5.2.1"
+  },
+  "devDependencies": {
+    "@tb/eslint-config": "workspace:*",
+    "@tb/tsconfig": "workspace:*",
+    "@types/node": "^20.17.12",
+    "tsup": "^8.3.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

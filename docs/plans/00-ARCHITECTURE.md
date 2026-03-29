@@ -25,14 +25,14 @@ Build a **personal crypto trading bot platform** that:
 
 ## 2. Hard Constraints
 
-| Constraint | Decision |
-|---|---|
-| Monorepo | **Turborepo** with **pnpm** workspaces |
-| Language | **TypeScript** everywhere (strict mode) |
-| Containerisation | **Docker** + Docker Compose for local dev |
-| Testing | **Test-driven development** — Vitest for unit/integration, Playwright for E2E |
-| Cost | Free APIs as much as possible; open-source everything |
-| Priority | Dev-first — runs locally with `docker compose up`; deployable later |
+| Constraint       | Decision                                                                      |
+| ---------------- | ----------------------------------------------------------------------------- |
+| Monorepo         | **Turborepo** with **pnpm** workspaces                                        |
+| Language         | **TypeScript** everywhere (strict mode)                                       |
+| Containerisation | **Docker** + Docker Compose for local dev                                     |
+| Testing          | **Test-driven development** — Vitest for unit/integration, Playwright for E2E |
+| Cost             | Free APIs as much as possible; open-source everything                         |
+| Priority         | Dev-first — runs locally with `docker compose up`; deployable later           |
 
 ---
 
@@ -127,54 +127,54 @@ import { db } from "@tb/db";
 
 ### Core
 
-| Layer | Technology | Rationale |
-|---|---|---|
-| Frontend | **Next.js 15** (App Router) | Best Turborepo integration, SSR for initial load, client-heavy for real-time |
-| Backend | **Fastify** | Fastest Node.js framework, native WebSocket via `@fastify/websocket`, plugin architecture |
-| Database | **PostgreSQL 16 + TimescaleDB** | TimescaleDB hypertables for OHLCV time-series (90%+ compression, automatic partitioning); Postgres for relational data |
-| ORM | **Drizzle ORM** | Type-safe, minimal runtime overhead, excellent for performance-critical queries |
-| Cache / Queue | **Redis 7** | Shared caching layer + BullMQ job queue backend |
-| Job Queue | **BullMQ** | Reliable distributed job processing with retry, scheduling, and dashboard |
-| Exchange API | **CCXT** | Unified API across 150+ exchanges, built-in rate limiting, TypeScript support |
-| API Layer | **tRPC** | End-to-end type safety between Next.js ↔ Fastify in the same monorepo |
-| Real-time | **Socket.IO** | Auto-reconnection, fallback to polling, room-based event channels |
+| Layer         | Technology                      | Rationale                                                                                                              |
+| ------------- | ------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Frontend      | **Next.js 15** (App Router)     | Best Turborepo integration, SSR for initial load, client-heavy for real-time                                           |
+| Backend       | **Fastify**                     | Fastest Node.js framework, native WebSocket via `@fastify/websocket`, plugin architecture                              |
+| Database      | **PostgreSQL 16 + TimescaleDB** | TimescaleDB hypertables for OHLCV time-series (90%+ compression, automatic partitioning); Postgres for relational data |
+| ORM           | **Drizzle ORM**                 | Type-safe, minimal runtime overhead, excellent for performance-critical queries                                        |
+| Cache / Queue | **Redis 7**                     | Shared caching layer + BullMQ job queue backend                                                                        |
+| Job Queue     | **BullMQ**                      | Reliable distributed job processing with retry, scheduling, and dashboard                                              |
+| Exchange API  | **CCXT**                        | Unified API across 150+ exchanges, built-in rate limiting, TypeScript support                                          |
+| API Layer     | **tRPC**                        | End-to-end type safety between Next.js ↔ Fastify in the same monorepo                                                  |
+| Real-time     | **Socket.IO**                   | Auto-reconnection, fallback to polling, room-based event channels                                                      |
 
 ### Frontend Stack
 
-| Concern | Technology | Rationale |
-|---|---|---|
-| UI Components | **shadcn/ui** (Radix + Tailwind) | Copy-paste components, full control, dark mode, zero runtime overhead |
-| Charting | **TradingView Lightweight Charts** | Purpose-built for financial candlestick charts, 16KB, real-time updates |
-| Secondary Charts | **Apache ECharts** | Portfolio pie charts, area charts, heatmaps |
-| State (client) | **Zustand** | Lightweight (1.8KB), simple API for UI state |
-| State (server) | **TanStack Query** | Caching, refetching, optimistic updates for server data |
-| Data Tables | **TanStack Table** | Headless, type-safe, sorting/filtering/pagination |
-| Dashboard Layout | **react-grid-layout** | Draggable/resizable panels, used by Grafana |
+| Concern          | Technology                         | Rationale                                                               |
+| ---------------- | ---------------------------------- | ----------------------------------------------------------------------- |
+| UI Components    | **shadcn/ui** (Radix + Tailwind)   | Copy-paste components, full control, dark mode, zero runtime overhead   |
+| Charting         | **TradingView Lightweight Charts** | Purpose-built for financial candlestick charts, 16KB, real-time updates |
+| Secondary Charts | **Apache ECharts**                 | Portfolio pie charts, area charts, heatmaps                             |
+| State (client)   | **Zustand**                        | Lightweight (1.8KB), simple API for UI state                            |
+| State (server)   | **TanStack Query**                 | Caching, refetching, optimistic updates for server data                 |
+| Data Tables      | **TanStack Table**                 | Headless, type-safe, sorting/filtering/pagination                       |
+| Dashboard Layout | **react-grid-layout**              | Draggable/resizable panels, used by Grafana                             |
 
 ### Testing Stack
 
-| Level | Technology |
-|---|---|
-| Unit / Integration | **Vitest** (workspace config across all packages) |
-| Component | **React Testing Library** |
-| E2E | **Playwright** |
-| API | **Supertest** |
-| Database | **Testcontainers** (spin up Postgres in Docker per test suite) |
+| Level              | Technology                                                     |
+| ------------------ | -------------------------------------------------------------- |
+| Unit / Integration | **Vitest** (workspace config across all packages)              |
+| Component          | **React Testing Library**                                      |
+| E2E                | **Playwright**                                                 |
+| API                | **Supertest**                                                  |
+| Database           | **Testcontainers** (spin up Postgres in Docker per test suite) |
 
 ### DevOps
 
-| Concern | Technology |
-|---|---|
-| Monorepo | **Turborepo** |
-| Package Manager | **pnpm** (v9+) |
-| Containerisation | **Docker** + Docker Compose |
-| Bundling (packages) | **tsup** |
-| Dev Server (API) | **tsx** + **nodemon** |
-| Linting | **ESLint 9** (flat config) |
-| Formatting | **Prettier** |
-| Pre-commit | **Husky** + **lint-staged** |
-| Env Validation | **Zod** (via `@tb/config`) |
-| Logging | **Pino** (structured JSON logging) |
+| Concern             | Technology                         |
+| ------------------- | ---------------------------------- |
+| Monorepo            | **Turborepo**                      |
+| Package Manager     | **pnpm** (v9+)                     |
+| Containerisation    | **Docker** + Docker Compose        |
+| Bundling (packages) | **tsup**                           |
+| Dev Server (API)    | **tsx** + **nodemon**              |
+| Linting             | **ESLint 9** (flat config)         |
+| Formatting          | **Prettier**                       |
+| Pre-commit          | **Husky** + **lint-staged**        |
+| Env Validation      | **Zod** (via `@tb/config`)         |
+| Logging             | **Pino** (structured JSON logging) |
 
 ---
 
@@ -244,7 +244,7 @@ These live in `@tb/types` and are the contracts between all packages:
 ```typescript
 // Core market data
 interface Candle {
-  time: number;          // Unix timestamp (ms)
+  time: number; // Unix timestamp (ms)
   open: number;
   high: number;
   low: number;
@@ -255,7 +255,13 @@ interface Candle {
 // Exchange abstraction (same interface for backtest & live)
 interface IExchange {
   fetchOHLCV(symbol: string, timeframe: string, since?: number, limit?: number): Promise<Candle[]>;
-  createOrder(symbol: string, type: OrderType, side: OrderSide, amount: number, price?: number): Promise<Order>;
+  createOrder(
+    symbol: string,
+    type: OrderType,
+    side: OrderSide,
+    amount: number,
+    price?: number
+  ): Promise<Order>;
   cancelOrder(id: string, symbol?: string): Promise<void>;
   fetchBalance(): Promise<Balance>;
   fetchOpenOrders(symbol?: string): Promise<Order[]>;
@@ -289,13 +295,13 @@ interface BotConfig {
 
 Primary exchanges (all free APIs, all supported by CCXT):
 
-| Exchange | Spot | Futures | Testnet | WebSocket | Notes |
-|---|---|---|---|---|---|
-| **Binance** | ✅ | ✅ | ✅ | ✅ | Highest liquidity, best data depth, data from 2017+ |
-| **Kraken** | ✅ | ✅ | ❌ | ✅ | Strong fiat pairs, reliable |
-| **KuCoin** | ✅ | ✅ | ✅ | ✅ | Good altcoin coverage |
-| **Bybit** | ✅ | ✅ | ✅ | ✅ | Growing liquidity, good testnet |
-| **Coinbase** | ✅ | ❌ | ❌ | ✅ | Major pairs only, regulatory compliance |
+| Exchange     | Spot | Futures | Testnet | WebSocket | Notes                                               |
+| ------------ | ---- | ------- | ------- | --------- | --------------------------------------------------- |
+| **Binance**  | ✅   | ✅      | ✅      | ✅        | Highest liquidity, best data depth, data from 2017+ |
+| **Kraken**   | ✅   | ✅      | ❌      | ✅        | Strong fiat pairs, reliable                         |
+| **KuCoin**   | ✅   | ✅      | ✅      | ✅        | Good altcoin coverage                               |
+| **Bybit**    | ✅   | ✅      | ✅      | ✅        | Growing liquidity, good testnet                     |
+| **Coinbase** | ✅   | ❌      | ❌      | ✅        | Major pairs only, regulatory compliance             |
 
 ---
 
@@ -351,13 +357,14 @@ When ready to deploy, the recommended path:
 
 The agents must be run **sequentially** in the following order. Each phase depends on the output of the previous phase.
 
-| Phase | Document | Agent Role | What It Produces | Depends On |
-|---|---|---|---|---|
-| **1** | [03-INFRASTRUCTURE.md](./03-INFRASTRUCTURE.md) | Infrastructure/DevOps | Monorepo skeleton, all configs, Docker Compose, stub packages, CI/CD | Nothing (first) |
-| **2** | [05-DATA-PIPELINE.md](./05-DATA-PIPELINE.md) | Data Engineer | `@tb/db` schemas + migrations, `@tb/data-pipeline` collection/export logic, BullMQ job definitions | Phase 1 |
-| **3** | [04-TRADING-ENGINE.md](./04-TRADING-ENGINE.md) | Quantitative Developer | `@tb/indicators`, `@tb/trading-core` (exchange abstraction, backtesting engine, strategies, risk management) | Phases 1–2 |
-| **4** | [02-BACKEND.md](./02-BACKEND.md) | Backend Developer | Fastify API server, tRPC routers, Socket.IO hub, BullMQ workers, security services | Phases 1–3 |
-| **5** | [01-FRONTEND.md](./01-FRONTEND.md) | Frontend Developer | Next.js dashboard, all pages, charts, real-time data, full UI | Phases 1–4 |
+| Phase  | Document                                                           | Agent Role             | What It Produces                                                                                             | Depends On                   |
+| ------ | ------------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------- |
+| **1**  | [03-INFRASTRUCTURE.md](./03-INFRASTRUCTURE.md)                     | Infrastructure/DevOps  | Monorepo skeleton, all configs, Docker Compose, stub packages, CI/CD                                         | Nothing (first)              |
+| **2**  | [05-DATA-PIPELINE.md](./05-DATA-PIPELINE.md)                       | Data Engineer          | `@tb/db` schemas + migrations, `@tb/data-pipeline` collection/export logic, BullMQ job definitions           | Phase 1                      |
+| **3**  | [04-TRADING-ENGINE.md](./04-TRADING-ENGINE.md)                     | Quantitative Developer | `@tb/indicators`, `@tb/trading-core` (exchange abstraction, backtesting engine, strategies, risk management) | Phases 1–2                   |
+| **4**  | [02-BACKEND.md](./02-BACKEND.md)                                   | Backend Developer      | Fastify API server, tRPC routers, Socket.IO hub, BullMQ workers, security services                           | Phases 1–3                   |
+| **5a** | [01a-FRONTEND-WIREFRAMES.md](./01a-FRONTEND-WIREFRAMES.md)         | UI/UX Designer         | 5 themed UI wireframes (static HTML/CSS) + Playwright screenshots for theme selection                        | Phases 1–4                   |
+| **5b** | [01b-FRONTEND-IMPLEMENTATION.md](./01b-FRONTEND-IMPLEMENTATION.md) | Frontend Developer     | Next.js dashboard, all pages, charts, real-time data, full UI using chosen theme                             | Phase 5a + user theme choice |
 
 ### Why This Order?
 
@@ -365,7 +372,9 @@ The agents must be run **sequentially** in the following order. Each phase depen
 2. **Data pipeline second** — the `@tb/db` package defines all database schemas (OHLCV, bots, backtests, etc.) that both the trading engine and backend need. The data pipeline also populates the database with market data required for backtesting.
 3. **Trading engine third** — the `@tb/trading-core` and `@tb/indicators` packages are pure logic packages with no app dependencies. They need `@tb/types` (from phase 1) and read historical data from `@tb/db` (from phase 2).
 4. **Backend fourth** — the API server wires together `@tb/db`, `@tb/trading-core`, and `@tb/data-pipeline` into tRPC routes and BullMQ workers. It depends on all three packages being complete.
-5. **Frontend last** — the dashboard consumes the backend's tRPC API and Socket.IO events. It needs the full API contract to be defined for end-to-end type safety.
+5. **Frontend last** — split into two sub-phases:
+   - **5a: Wireframes** — a UI/UX agent creates 5 themed wireframes as static HTML/CSS pages and screenshots them with Playwright. The user reviews and picks a theme.
+   - **5b: Implementation** — the frontend developer agent builds the full Next.js dashboard using the chosen theme. It consumes the backend's tRPC API and Socket.IO events, needing the full API contract for end-to-end type safety.
 
 ### Notes
 
@@ -378,10 +387,11 @@ The agents must be run **sequentially** in the following order. Each phase depen
 
 ## 13. Document Index
 
-| Document | Agent Role | Scope |
-|---|---|---|
-| [01-FRONTEND.md](./01-FRONTEND.md) | Frontend Developer | Dashboard UI, charting, real-time data display |
-| [02-BACKEND.md](./02-BACKEND.md) | Backend Developer | API server, tRPC routes, WebSocket hub, auth |
-| [03-INFRASTRUCTURE.md](./03-INFRASTRUCTURE.md) | Infrastructure/DevOps | Turborepo setup, Docker, CI/CD, env config |
-| [04-TRADING-ENGINE.md](./04-TRADING-ENGINE.md) | Quantitative Developer | Backtesting engine, strategies, order management |
-| [05-DATA-PIPELINE.md](./05-DATA-PIPELINE.md) | Data Engineer | Market data collection, storage, export |
+| Document                                                           | Agent Role             | Scope                                                               |
+| ------------------------------------------------------------------ | ---------------------- | ------------------------------------------------------------------- |
+| [01a-FRONTEND-WIREFRAMES.md](./01a-FRONTEND-WIREFRAMES.md)         | UI/UX Designer         | 5 themed UI wireframes + screenshot catalog for theme selection     |
+| [01b-FRONTEND-IMPLEMENTATION.md](./01b-FRONTEND-IMPLEMENTATION.md) | Frontend Developer     | Dashboard UI, charting, real-time data display (using chosen theme) |
+| [02-BACKEND.md](./02-BACKEND.md)                                   | Backend Developer      | API server, tRPC routes, WebSocket hub, auth                        |
+| [03-INFRASTRUCTURE.md](./03-INFRASTRUCTURE.md)                     | Infrastructure/DevOps  | Turborepo setup, Docker, CI/CD, env config                          |
+| [04-TRADING-ENGINE.md](./04-TRADING-ENGINE.md)                     | Quantitative Developer | Backtesting engine, strategies, order management                    |
+| [05-DATA-PIPELINE.md](./05-DATA-PIPELINE.md)                       | Data Engineer          | Market data collection, storage, export                             |

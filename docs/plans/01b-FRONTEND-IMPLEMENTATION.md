@@ -1,4 +1,4 @@
-# Frontend Dashboard — Development Plan
+# Frontend Dashboard — Implementation Plan
 
 ## Agent System Prompt
 
@@ -22,6 +22,13 @@ Phase 5 (final phase) — the monorepo scaffolding, database layer, trading engi
 backend API server have all been completed. You have a fully functional Fastify backend
 with tRPC routers and Socket.IO hub ready to consume.
 
+IMPORTANT — UI Theme: Before starting, check apps/web/wireframes/screenshots/catalog.html
+and read any notes left by the user about which theme was chosen. The wireframe agent
+(01a) previously created 5 theme options. Apply the chosen theme's colour palette,
+typography, spacing, and visual style throughout the entire application. If no theme
+choice is documented, check the wireframe directories under apps/web/wireframes/ to
+see which themes were created, and ask the user which one to use before proceeding.
+
 Specifically, you must:
 
 1. Set up the Next.js 15 app (apps/web) following the project structure in Section 3:
@@ -30,6 +37,9 @@ Specifically, you must:
    - Create the root layout with sidebar navigation and header (layout/Sidebar.tsx, Header.tsx).
    - Configure the tRPC client in lib/trpc.ts pointing at the backend URL.
    - Create the Socket.IO client singleton in lib/socket.ts.
+   - Apply the chosen wireframe theme to the Tailwind config, shadcn/ui theme, and
+     all custom component styles. The wireframe HTML/CSS files in apps/web/wireframes/
+     are your visual reference — match them.
 
 2. Build ALL 8 pages described in Section 4:
    - Dashboard Overview (/dashboard) — Section 4.1: react-grid-layout with portfolio
@@ -76,10 +86,12 @@ Specifically, you must:
    - Date formatting with timezone display.
    - Consistent profit/loss colour coding.
 
-7. Apply the styling and theming rules from Section 8:
-   - Dark mode by default with light mode toggle.
-   - Trading colour scheme (green profit, red loss).
-   - Chart themes matching the app theme.
+7. Apply the chosen wireframe theme consistently:
+   - Translate the wireframe's CSS colour palette into Tailwind CSS custom properties
+     and shadcn/ui theme variables in globals.css.
+   - Match the wireframe's background layering, text hierarchy, and accent colours.
+   - Ensure chart themes (TradingView, ECharts) match the chosen theme.
+   - Support dark/light mode toggle only if the chosen wireframe includes it.
 
 8. Write comprehensive tests (Section 7):
    - Unit tests (Vitest + RTL) for every component and hook. Test rendering, user
@@ -100,6 +112,7 @@ backend for full end-to-end type safety — do not duplicate type definitions.
 
 Refer to 00-ARCHITECTURE.md for the overall vision, 02-BACKEND.md for the tRPC router
 signatures and Socket.IO event contracts. Do NOT modify the backend or any packages.
+When done, delete the apps/web/wireframes/ directory as it is no longer needed.
 ```
 
 ---
@@ -118,27 +131,29 @@ Build the **web dashboard** (`apps/web`) for the crypto trading bot platform. Th
 
 The dashboard communicates with the Fastify backend via **tRPC** (type-safe RPC) for request/response operations and **Socket.IO** for real-time streaming data.
 
+The visual theme is determined by the wireframe chosen during Phase 01a. The implementation agent should reference the wireframe HTML/CSS files as the source of truth for colours, typography, spacing, and component styling.
+
 ---
 
 ## 2. Technology Stack
 
-| Concern | Library | Version Guidance | Notes |
-|---|---|---|---|
-| Framework | **Next.js 15** (App Router) | Latest stable | Client-heavy SPA sections; SSR for initial shell |
-| UI Components | **shadcn/ui** | Latest | Copy-paste into `components/ui/`; built on Radix + Tailwind |
-| Styling | **Tailwind CSS 4** | Latest | Dark mode by default (traders prefer dark themes) |
-| Financial Charts | **TradingView Lightweight Charts** | `^5.x` | Candlestick, line, area charts; 16KB |
-| Dashboard Charts | **Apache ECharts** | `^5.x` | Pie charts, heatmaps, area charts for portfolio |
-| State (client) | **Zustand** | `^5.x` | UI state: selected symbol, theme, layout preferences |
-| State (server) | **TanStack Query** | `^5.x` | All server data; auto-refetch, caching, optimistic updates |
-| API Client | **tRPC React** | `^11.x` | End-to-end type-safe API calls to Fastify backend |
-| Real-time | **Socket.IO Client** | `^4.x` | Price feeds, bot status updates, trade notifications |
-| Data Tables | **TanStack Table** | `^8.x` | Headless; used with shadcn/ui table components |
-| Dashboard Layout | **react-grid-layout** | `^2.x` | Draggable/resizable widget panels |
-| Forms | **React Hook Form** + **Zod** | Latest | Type-safe form validation |
-| Date Handling | **date-fns** | Latest | Lightweight date formatting |
-| Testing (unit) | **Vitest** + **React Testing Library** | Latest | TDD for all components and hooks |
-| Testing (E2E) | **Playwright** | Latest | Critical user flows |
+| Concern          | Library                                | Version Guidance | Notes                                                       |
+| ---------------- | -------------------------------------- | ---------------- | ----------------------------------------------------------- |
+| Framework        | **Next.js 15** (App Router)            | Latest stable    | Client-heavy SPA sections; SSR for initial shell            |
+| UI Components    | **shadcn/ui**                          | Latest           | Copy-paste into `components/ui/`; built on Radix + Tailwind |
+| Styling          | **Tailwind CSS 4**                     | Latest           | Dark mode by default (traders prefer dark themes)           |
+| Financial Charts | **TradingView Lightweight Charts**     | `^5.x`           | Candlestick, line, area charts; 16KB                        |
+| Dashboard Charts | **Apache ECharts**                     | `^5.x`           | Pie charts, heatmaps, area charts for portfolio             |
+| State (client)   | **Zustand**                            | `^5.x`           | UI state: selected symbol, theme, layout preferences        |
+| State (server)   | **TanStack Query**                     | `^5.x`           | All server data; auto-refetch, caching, optimistic updates  |
+| API Client       | **tRPC React**                         | `^11.x`          | End-to-end type-safe API calls to Fastify backend           |
+| Real-time        | **Socket.IO Client**                   | `^4.x`           | Price feeds, bot status updates, trade notifications        |
+| Data Tables      | **TanStack Table**                     | `^8.x`           | Headless; used with shadcn/ui table components              |
+| Dashboard Layout | **react-grid-layout**                  | `^2.x`           | Draggable/resizable widget panels                           |
+| Forms            | **React Hook Form** + **Zod**          | Latest           | Type-safe form validation                                   |
+| Date Handling    | **date-fns**                           | Latest           | Lightweight date formatting                                 |
+| Testing (unit)   | **Vitest** + **React Testing Library** | Latest           | TDD for all components and hooks                            |
+| Testing (E2E)    | **Playwright**                         | Latest           | Critical user flows                                         |
 
 ---
 
@@ -220,16 +235,16 @@ apps/web/
 │   │   ├── useTicker.ts              # Real-time price via Socket.IO
 │   │   ├── useBotStatus.ts           # Real-time bot state
 │   │   ├── usePortfolio.ts           # Portfolio balances & positions
-│   │   └── useWebSocket.ts           # Socket.IO connection management
+│   │   └── useWebSocket.ts          # Socket.IO connection management
 │   │
 │   ├── stores/
 │   │   ├── ui.ts                     # Zustand: theme, sidebar state, selected symbol
-│   │   └── layout.ts                 # Zustand: dashboard grid layout persistence
+│   │   └── layout.ts                # Zustand: dashboard grid layout persistence
 │   │
 │   ├── lib/
 │   │   ├── trpc.ts                   # tRPC client configuration
 │   │   ├── socket.ts                 # Socket.IO client singleton
-│   │   └── format.ts                 # Number/date/currency formatters
+│   │   └── format.ts                # Number/date/currency formatters
 │   │
 │   └── providers/
 │       ├── TRPCProvider.tsx          # tRPC + TanStack Query provider
@@ -254,6 +269,7 @@ apps/web/
 The main landing page after opening the app. A customisable grid of widgets.
 
 **Widgets (react-grid-layout):**
+
 - **Portfolio Summary Card** — Total value, 24h change ($ and %), unrealised PnL
 - **Allocation Pie Chart** — ECharts pie showing asset distribution
 - **Active Bots Status** — Cards showing each running bot: name, strategy, PnL, status indicator (green/yellow/red)
@@ -262,6 +278,7 @@ The main landing page after opening the app. A customisable grid of widgets.
 - **Recent Trades** — Last 10 executed trades across all bots
 
 **Data Sources:**
+
 - tRPC: `portfolio.getSummary()`, `bots.listActive()`, `trades.getRecent()`
 - Socket.IO: `portfolio:update`, `bot:statusChange`, `price:ticker`
 
@@ -272,12 +289,14 @@ The main landing page after opening the app. A customisable grid of widgets.
 ### 4.2 Bot Management (`/bots`)
 
 **Bot List Page:**
+
 - Table (TanStack Table) of all bots with columns: Name, Strategy, Exchange, Symbol, Mode (backtest/paper/live), Status, PnL, Actions
 - Filters: by status, exchange, strategy
 - Sort by any column
 - "Create New Bot" button
 
 **Individual Bot Page (`/bots/[botId]`):**
+
 - **Control Panel** — Start / Pause / Stop buttons with confirmation dialogs
 - **Performance Metrics** — Sharpe ratio, max drawdown, win rate, profit factor, total return
 - **Equity Curve** — ECharts line chart of bot's equity over time
@@ -304,6 +323,7 @@ Multi-step form (React Hook Form + Zod):
 ### 4.4 Backtesting (`/backtest`)
 
 **Configuration Page:**
+
 - Select strategy + parameters
 - Select exchange and trading pair
 - Date range picker (start/end)
@@ -313,6 +333,7 @@ Multi-step form (React Hook Form + Zod):
 - "Run Backtest" button
 
 **Results Page (`/backtest/[backtestId]`):**
+
 - **Summary Card** — Total return, Sharpe, max drawdown, win rate, profit factor, total trades
 - **Equity Curve** — ECharts area chart
 - **Drawdown Chart** — Inverted area chart showing drawdown periods
@@ -348,6 +369,7 @@ Professional trading terminal layout:
 - Gap detection and fill status
 
 **Export Page (`/market-data/export`):**
+
 - Select exchange, symbols (multi-select), timeframe, date range
 - Choose export format: CSV, Parquet, SQLite
 - Optional compression (gzip)
@@ -368,12 +390,14 @@ Professional trading terminal layout:
 ### 4.8 Settings (`/settings`)
 
 **General Settings:**
+
 - Theme (dark/light/system)
 - Default currency
 - Timezone display preference
 - Notification preferences
 
 **Exchange Management (`/settings/exchanges`):**
+
 - Add exchange API keys (form with API key + secret fields)
 - Test connection button (validates keys against exchange)
 - Enable/disable exchanges
@@ -387,25 +411,25 @@ Professional trading terminal layout:
 
 ### Socket.IO Events (Client ← Server)
 
-| Event | Payload | Used By |
-|---|---|---|
-| `price:ticker` | `{ exchange, symbol, bid, ask, last, volume, change24h }` | Dashboard, Trading Terminal, Bot pages |
-| `price:candle` | `{ exchange, symbol, timeframe, candle: Candle }` | Trading Terminal chart |
-| `bot:statusChange` | `{ botId, status, timestamp }` | Bot list, Bot detail |
-| `bot:trade` | `{ botId, trade: Trade }` | Bot detail, Recent trades |
-| `bot:metrics` | `{ botId, metrics: PerformanceMetrics }` | Bot detail |
-| `portfolio:update` | `{ totalValue, change24h, positions }` | Dashboard, Portfolio page |
-| `backtest:progress` | `{ backtestId, progress: number, currentDate }` | Backtest results (progress bar) |
-| `data:collectionStatus` | `{ exchange, symbol, status, lastUpdated }` | Market data browser |
+| Event                   | Payload                                                   | Used By                                |
+| ----------------------- | --------------------------------------------------------- | -------------------------------------- |
+| `price:ticker`          | `{ exchange, symbol, bid, ask, last, volume, change24h }` | Dashboard, Trading Terminal, Bot pages |
+| `price:candle`          | `{ exchange, symbol, timeframe, candle: Candle }`         | Trading Terminal chart                 |
+| `bot:statusChange`      | `{ botId, status, timestamp }`                            | Bot list, Bot detail                   |
+| `bot:trade`             | `{ botId, trade: Trade }`                                 | Bot detail, Recent trades              |
+| `bot:metrics`           | `{ botId, metrics: PerformanceMetrics }`                  | Bot detail                             |
+| `portfolio:update`      | `{ totalValue, change24h, positions }`                    | Dashboard, Portfolio page              |
+| `backtest:progress`     | `{ backtestId, progress: number, currentDate }`           | Backtest results (progress bar)        |
+| `data:collectionStatus` | `{ exchange, symbol, status, lastUpdated }`               | Market data browser                    |
 
 ### Socket.IO Events (Client → Server)
 
-| Event | Payload | Purpose |
-|---|---|---|
-| `subscribe:ticker` | `{ exchange, symbol }` | Start receiving price updates |
-| `unsubscribe:ticker` | `{ exchange, symbol }` | Stop receiving price updates |
-| `subscribe:candle` | `{ exchange, symbol, timeframe }` | Live candlestick updates |
-| `subscribe:bot` | `{ botId }` | Bot-specific events |
+| Event                | Payload                           | Purpose                       |
+| -------------------- | --------------------------------- | ----------------------------- |
+| `subscribe:ticker`   | `{ exchange, symbol }`            | Start receiving price updates |
+| `unsubscribe:ticker` | `{ exchange, symbol }`            | Stop receiving price updates  |
+| `subscribe:candle`   | `{ exchange, symbol, timeframe }` | Live candlestick updates      |
+| `subscribe:bot`      | `{ botId }`                       | Bot-specific events           |
 
 ### Integration Pattern
 
@@ -469,12 +493,14 @@ export function useTicker(exchange: string, symbol: string) {
 Test every component, hook, and utility function. Write tests **before** implementation.
 
 **Component tests focus on:**
+
 - Correct rendering given props
 - User interactions trigger correct callbacks
 - Loading/error/empty states render correctly
 - Accessibility (correct ARIA attributes)
 
 **Hook tests focus on:**
+
 - tRPC query hooks return correct data shapes
 - Socket.IO subscription/unsubscription lifecycle
 - Zustand store state transitions
@@ -482,6 +508,7 @@ Test every component, hook, and utility function. Write tests **before** impleme
 ### E2E Tests (Playwright)
 
 Cover critical user flows:
+
 1. Dashboard loads with portfolio data
 2. Create a new bot → see it in bot list
 3. Run a backtest → view results
@@ -492,6 +519,7 @@ Cover critical user flows:
 ### Test File Convention
 
 Every component/hook gets a co-located test file:
+
 ```
 components/bots/BotCard.tsx
 components/bots/BotCard.test.tsx
@@ -501,14 +529,15 @@ components/bots/BotCard.test.tsx
 
 ## 8. Styling & Theming
 
-- **Dark mode by default** — traders universally prefer dark interfaces.
-- Use Tailwind's dark mode with `class` strategy.
-- Provide light mode toggle for daytime use.
-- **Colour scheme for trading:**
-  - Profit/up: `#22c55e` (green-500)
-  - Loss/down: `#ef4444` (red-500)
-  - Neutral: `#6b7280` (gray-500)
-  - Primary accent: `#3b82f6` (blue-500)
+- **Use the theme chosen from the 01a wireframe exploration.**
+- Translate the wireframe's colour palette into Tailwind CSS custom properties in `globals.css`.
+- Configure shadcn/ui theme variables to match.
+- Provide dark/light mode toggle if appropriate for the chosen theme.
+- **Colour scheme for trading** (adjust to match chosen theme):
+  - Profit/up: theme's profit colour
+  - Loss/down: theme's loss colour
+  - Neutral: theme's muted colour
+  - Primary accent: theme's accent colour
 - Persist theme preference in localStorage via `next-themes`.
 - Chart themes should match the app theme (TradingView Lightweight Charts supports custom colours).
 

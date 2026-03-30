@@ -11,6 +11,9 @@
     "type-check": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest watch",
+    "ui:screenshot": "node ./scripts/ui-screenshot.mjs",
+    "ui:verify": "node ./scripts/ui-screenshot.mjs --launch-dev-server",
+    "playwright:install": "playwright install chromium",
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {
@@ -47,6 +50,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "jsdom": "^25.0.1",
+    "playwright": "^1.58.2",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",

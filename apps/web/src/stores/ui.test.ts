@@ -6,7 +6,6 @@ describe("useUiStore", () => {
   beforeEach(() => {
     const { setState } = useUiStore;
     setState({
-      colourScheme: "glacier",
       sidebarOpen: true,
       selectedSymbol: "BTC/USDT",
       selectedExchange: "binance",
@@ -15,7 +14,6 @@ describe("useUiStore", () => {
 
   it("has correct defaults", () => {
     const state = useUiStore.getState();
-    expect(state.colourScheme).toBe("glacier");
     expect(state.sidebarOpen).toBe(true);
     expect(state.selectedSymbol).toBe("BTC/USDT");
     expect(state.selectedExchange).toBe("binance");
@@ -31,12 +29,6 @@ describe("useUiStore", () => {
   it("setSidebarOpen", () => {
     useUiStore.getState().setSidebarOpen(false);
     expect(useUiStore.getState().sidebarOpen).toBe(false);
-  });
-
-  it("setColourScheme updates state and DOM", () => {
-    useUiStore.getState().setColourScheme("obsidian");
-    expect(useUiStore.getState().colourScheme).toBe("obsidian");
-    expect(document.documentElement.dataset.colorScheme).toBe("obsidian");
   });
 
   it("setSelectedSymbol", () => {

@@ -12,10 +12,6 @@ vi.mock("@/providers/SocketProvider", () => ({
   useSocket: () => ({ isConnected: true }),
 }));
 
-vi.mock("@/components/layout/ColourSchemeSelector", () => ({
-  ColourSchemeSelector: () => <div data-testid="cs-selector">CS</div>,
-}));
-
 import { Header } from "@/components/layout/Header";
 
 describe("Header", () => {
@@ -32,10 +28,5 @@ describe("Header", () => {
   it("renders notification button", () => {
     render(<Header />);
     expect(screen.getByLabelText("Notifications")).toBeInTheDocument();
-  });
-
-  it("renders colour scheme selector", () => {
-    render(<Header />);
-    expect(screen.getByTestId("cs-selector")).toBeInTheDocument();
   });
 });

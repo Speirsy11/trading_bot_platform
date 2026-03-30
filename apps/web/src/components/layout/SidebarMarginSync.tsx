@@ -14,7 +14,7 @@ export function SidebarMarginSync() {
 
     const el = document.getElementById("main-content");
     if (el) {
-      el.style.marginLeft = sidebarOpen ? "220px" : "64px";
+      el.style.marginLeft = sidebarOpen ? "240px" : "64px";
     }
   }, [sidebarOpen]);
 

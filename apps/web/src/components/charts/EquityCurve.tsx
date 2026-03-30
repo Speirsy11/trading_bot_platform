@@ -8,7 +8,6 @@ import ReactEChartsCore from "echarts-for-react/lib/core";
 import { memo, useMemo } from "react";
 
 import { getChartThemeTokens, withAlpha } from "@/lib/chartTheme";
-import { useUiStore } from "@/stores/ui";
 
 echarts.use([LineChart, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer]);
 
@@ -18,10 +17,8 @@ interface EquityCurveProps {
 }
 
 function EquityCurveInner({ data, height = 300 }: EquityCurveProps) {
-  const colourScheme = useUiStore((s) => s.colourScheme);
-
   const option = useMemo(() => {
-    const { textSecondary, grid, accent, bgCard, fontFamily } = getChartThemeTokens(colourScheme);
+    const { textSecondary, grid, accent, bgCard, fontFamily } = getChartThemeTokens();
 
     return {
       tooltip: {
@@ -59,7 +56,7 @@ function EquityCurveInner({ data, height = 300 }: EquityCurveProps) {
         },
       ],
     };
-  }, [data, colourScheme]);
+  }, [data]);
 
   return (
     <ReactEChartsCore

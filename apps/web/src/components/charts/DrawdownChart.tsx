@@ -8,7 +8,6 @@ import ReactEChartsCore from "echarts-for-react/lib/core";
 import { memo, useMemo } from "react";
 
 import { getChartThemeTokens, withAlpha } from "@/lib/chartTheme";
-import { useUiStore } from "@/stores/ui";
 
 echarts.use([LineChart, TooltipComponent, GridComponent, CanvasRenderer]);
 
@@ -18,10 +17,8 @@ interface DrawdownChartProps {
 }
 
 function DrawdownChartInner({ data, height = 200 }: DrawdownChartProps) {
-  const colourScheme = useUiStore((s) => s.colourScheme);
-
   const option = useMemo(() => {
-    const { textSecondary, grid, loss, bgCard, fontFamily } = getChartThemeTokens(colourScheme);
+    const { textSecondary, grid, loss, bgCard, fontFamily } = getChartThemeTokens();
 
     return {
       tooltip: {
@@ -60,7 +57,7 @@ function DrawdownChartInner({ data, height = 200 }: DrawdownChartProps) {
         },
       ],
     };
-  }, [data, colourScheme]);
+  }, [data]);
 
   return (
     <ReactEChartsCore

@@ -35,20 +35,33 @@ export function Sidebar() {
     <aside
       className="fixed left-0 top-0 z-40 flex h-full flex-col border-r transition-[width] duration-200"
       style={{
-        width: sidebarOpen ? 220 : 64,
+        width: sidebarOpen ? 240 : 64,
         background: "var(--bg-secondary)",
         borderColor: "var(--border)",
       }}
     >
-      <div className="flex h-14 items-center justify-between px-3">
+      {/* Brand */}
+      <div
+        className="flex h-14 items-center gap-3 border-b px-4"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <div
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded text-xs font-bold"
+          style={{ background: "var(--accent)", color: "#08080a" }}
+        >
+          OV
+        </div>
         {sidebarOpen && (
-          <span className="text-sm font-semibold tracking-wide" style={{ color: "var(--accent)" }}>
-            TradeBot
+          <span
+            className="text-lg tracking-wide"
+            style={{ fontFamily: "var(--font-display), serif", color: "var(--accent)" }}
+          >
+            Obsidian
           </span>
         )}
         <button
           onClick={toggleSidebar}
-          className="rounded-lg p-1.5 transition-colors"
+          className="ml-auto rounded-lg p-1.5 transition-colors"
           style={{ color: "var(--text-muted)" }}
           onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
           onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
@@ -58,17 +71,18 @@ export function Sidebar() {
         </button>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 px-2 pt-2">
+      <nav className="flex flex-1 flex-col gap-0.5 px-3 py-4">
         {NAV_ITEMS.map((item) => {
           const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
           return (
             <Link
               key={item.href}
               href={item.href}
-              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all"
+              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all duration-200"
               style={{
                 color: isActive ? "var(--accent)" : "var(--text-secondary)",
                 background: isActive ? "var(--accent-dim)" : "transparent",
+                borderLeft: isActive ? "2px solid var(--accent)" : "2px solid transparent",
               }}
               onMouseEnter={(e) => {
                 if (!isActive) e.currentTarget.style.background = "var(--bg-hover)";
@@ -83,6 +97,19 @@ export function Sidebar() {
           );
         })}
       </nav>
+
+      {/* Footer */}
+      <div className="px-4 py-4 border-t" style={{ borderColor: "var(--border)" }}>
+        {sidebarOpen ? (
+          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+            ◈ Obsidian Vault v1.0
+          </div>
+        ) : (
+          <div className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
+            ◈
+          </div>
+        )}
+      </div>
     </aside>
   );
 }

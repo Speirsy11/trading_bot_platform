@@ -2,14 +2,11 @@
 
 import Link from "next/link";
 
-import { COLOUR_SCHEMES } from "@/providers/ColourSchemeProvider";
 import { useUiStore } from "@/stores/ui";
 
 export default function SettingsPage() {
-  const colourScheme = useUiStore((s) => s.colourScheme);
   const defaultExchange = useUiStore((s) => s.defaultExchange);
   const defaultSymbol = useUiStore((s) => s.defaultSymbol);
-  const setColourScheme = useUiStore((s) => s.setColourScheme);
   const setDefaultExchange = useUiStore((s) => s.setDefaultExchange);
   const setDefaultSymbol = useUiStore((s) => s.setDefaultSymbol);
 
@@ -18,37 +15,6 @@ export default function SettingsPage() {
       <h1 className="text-xl" style={{ color: "var(--text-primary)" }}>
         Settings
       </h1>
-
-      {/* Appearance */}
-      <div className="glass-panel p-6 space-y-4">
-        <h2 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-          Appearance
-        </h2>
-        <div className="grid grid-cols-5 gap-3">
-          {COLOUR_SCHEMES.map((cs) => (
-            <button
-              key={cs.id}
-              onClick={() => setColourScheme(cs.id)}
-              className="flex flex-col items-center gap-2 rounded-xl p-3 transition-colors"
-              style={{
-                background: colourScheme === cs.id ? "var(--accent-dim)" : "var(--bg-input)",
-                border:
-                  colourScheme === cs.id ? "2px solid var(--accent)" : "2px solid transparent",
-              }}
-            >
-              <span className="block w-8 h-8 rounded-full" style={{ background: cs.swatch }} />
-              <span
-                className="text-xs"
-                style={{
-                  color: colourScheme === cs.id ? "var(--accent)" : "var(--text-muted)",
-                }}
-              >
-                {cs.label}
-              </span>
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Exchange Connections */}
       <div className="glass-panel p-6 space-y-4">

@@ -8,7 +8,6 @@ import ReactEChartsCore from "echarts-for-react/lib/core";
 import { memo, useMemo } from "react";
 
 import { getChartThemeTokens, withAlpha } from "@/lib/chartTheme";
-import { useUiStore } from "@/stores/ui";
 
 echarts.use([LineChart, TooltipComponent, GridComponent, CanvasRenderer]);
 
@@ -19,8 +18,6 @@ interface PerformanceChartProps {
 }
 
 function PerformanceChartInner({ data, height = 250, color }: PerformanceChartProps) {
-  const colourScheme = useUiStore((s) => s.colourScheme);
-
   const option = useMemo(() => {
     const {
       textSecondary,
@@ -28,7 +25,7 @@ function PerformanceChartInner({ data, height = 250, color }: PerformanceChartPr
       accent: defaultAccent,
       bgCard,
       fontFamily,
-    } = getChartThemeTokens(colourScheme);
+    } = getChartThemeTokens();
     const accent = color ?? defaultAccent;
 
     return {
@@ -67,7 +64,7 @@ function PerformanceChartInner({ data, height = 250, color }: PerformanceChartPr
         },
       ],
     };
-  }, [data, color, colourScheme]);
+  }, [data, color]);
 
   return (
     <ReactEChartsCore

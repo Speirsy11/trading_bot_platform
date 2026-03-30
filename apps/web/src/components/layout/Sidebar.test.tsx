@@ -34,9 +34,9 @@ describe("Sidebar", () => {
     expect(screen.getByText("Settings")).toBeInTheDocument();
   });
 
-  it("renders TradeBot branding when open", () => {
+  it("renders Obsidian branding when open", () => {
     render(<Sidebar />);
-    expect(screen.getByText("TradeBot")).toBeInTheDocument();
+    expect(screen.getByText("Obsidian")).toBeInTheDocument();
   });
 
   it("has collapse button with aria-label", () => {

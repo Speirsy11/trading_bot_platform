@@ -8,7 +8,6 @@ import ReactEChartsCore from "echarts-for-react/lib/core";
 import { memo, useMemo } from "react";
 
 import { getChartThemeTokens } from "@/lib/chartTheme";
-import { useUiStore } from "@/stores/ui";
 
 echarts.use([PieChart, TooltipComponent, LegendComponent, CanvasRenderer]);
 
@@ -18,12 +17,10 @@ interface PortfolioPieChartProps {
 }
 
 function PortfolioPieChartInner({ data, height = 250 }: PortfolioPieChartProps) {
-  const colourScheme = useUiStore((s) => s.colourScheme);
-
   const option = useMemo(() => {
-    const { textSecondary, bgCard, fontFamily } = getChartThemeTokens(colourScheme);
+    const { textSecondary, bgCard, fontFamily } = getChartThemeTokens();
 
-    const COLORS = ["#5eaeff", "#4ade80", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
+    const COLORS = ["#c8a55a", "#6ee7a0", "#f59e0b", "#ec4899", "#8b5cf6", "#06b6d4"];
 
     return {
       tooltip: {
@@ -58,7 +55,7 @@ function PortfolioPieChartInner({ data, height = 250 }: PortfolioPieChartProps) 
         },
       ],
     };
-  }, [data, colourScheme]);
+  }, [data]);
 
   return (
     <ReactEChartsCore

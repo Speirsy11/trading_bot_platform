@@ -13,13 +13,13 @@ interface ChartThemeTokens {
 export function getChartThemeTokens(_themeKey?: string): ChartThemeTokens {
   if (typeof document === "undefined") {
     return {
-      bgCard: "#131f38",
-      border: "rgba(255,255,255,0.08)",
-      grid: "rgba(148,168,196,0.08)",
-      textSecondary: "#94a8c4",
-      textMuted: "#546a8c",
-      accent: "#5eaeff",
-      profit: "#4ade80",
+      bgCard: "#17171b",
+      border: "rgba(200,165,90,0.10)",
+      grid: "rgba(200,165,90,0.06)",
+      textSecondary: "#9a9488",
+      textMuted: "#5f5b52",
+      accent: "#c8a55a",
+      profit: "#6ee7a0",
       loss: "#f87171",
       fontFamily: "sans-serif",
     };

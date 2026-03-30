@@ -8,7 +8,7 @@
         :root { color-scheme: dark; }
         body {
           margin: 0;
-          font-family: "Instrument Sans", sans-serif;
+          font-family: "Segoe UI", "Helvetica Neue", sans-serif;
           background: #040711;
           color: #f8fafc;
           padding: 40px;
@@ -27,11 +27,17 @@
         }
         .theme-group header p { color: #94a3b8; }
         .eyebrow { text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; }
+        .rationale {
+          margin-top: 12px;
+          max-width: 720px;
+          color: #cbd5e1;
+          line-height: 1.6;
+        }
         .shots {
           display: grid;
           gap: 18px;
           margin-top: 20px;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .shot {
           margin: 0;
@@ -52,7 +58,7 @@
     </head>
     <body>
       <h1>Wireframe Screenshot Catalog</h1>
-      <p class="intro">This catalog is generated automatically from the standalone Vite wireframes app.</p>
+      <p class="intro">This catalog is generated automatically from the standalone Vite wireframes app. Each theme includes homepage, dashboard, trading, and bots screenshots plus the rationale used to evaluate the direction.</p>
       <div class="legend">
         <span>homepage: marketing or landing page</span>
         <span>dashboard: portfolio, bots, recent trades</span>
@@ -64,6 +70,7 @@
           <header>
             <p class="eyebrow">theme-1</p>
             <h2>Obsidian Vault</h2>
+            <p class="rationale">Luxury dark editorial — deep charcoal with warm gold accents, serif headings, and a wide sidebar that evokes private-banking terminals.</p>
           </header>
           <div class="shots">
             <figure class="shot">
@@ -92,6 +99,7 @@
           <header>
             <p class="eyebrow">theme-2</p>
             <h2>Phosphor Terminal</h2>
+            <p class="rationale">CRT retro terminal — phosphor green on black with scanline overlays, monospace typography, and a command-line aesthetic throughout.</p>
           </header>
           <div class="shots">
             <figure class="shot">
@@ -120,6 +128,7 @@
           <header>
             <p class="eyebrow">theme-3</p>
             <h2>Glacier</h2>
+            <p class="rationale">Frosted glass Swiss banking — deep navy with translucent panels, backdrop blur, gradient accents, and a top-nav layout for a modern SaaS feel.</p>
           </header>
           <div class="shots">
             <figure class="shot">
@@ -148,6 +157,7 @@
           <header>
             <p class="eyebrow">theme-4</p>
             <h2>Forge</h2>
+            <p class="rationale">Industrial brutalist — warm steel with orange-amber accents, zero border-radius, heavy 2px borders, dense data presentation, and an icon-only sidebar.</p>
           </header>
           <div class="shots">
             <figure class="shot">
@@ -176,6 +186,7 @@
           <header>
             <p class="eyebrow">theme-5</p>
             <h2>Ultraviolet</h2>
+            <p class="rationale">Neon maximalist — deep purple-black with vivid purple/pink/teal gradient accents, glow effects, rounded cards, and a gradient-mesh background.</p>
           </header>
           <div class="shots">
             <figure class="shot">

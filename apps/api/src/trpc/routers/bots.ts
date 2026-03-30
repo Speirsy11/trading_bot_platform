@@ -5,10 +5,10 @@ import { z } from "zod";
 
 import { BOT_JOB_NAMES } from "../../queues/types.js";
 import { getStrategyCatalog } from "../../services/strategyCatalog.js";
-import { AppError, AppErrorCode } from "../../utils/errors.js";
+import { AppErrorCode } from "../../utils/errors.js";
 import { parseJsonValue, toNumber } from "../../utils/serialization.js";
 import { botConfigSchema, riskConfigSchema, uuidSchema } from "../schemas.js";
-import { createTrpcRouter, publicProcedure } from "../trpc.js";
+import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc.js";
 
 const botStatusFilterSchema = z.object({
   status: z.enum(["all", "running", "paused", "stopped", "starting", "idle", "error"]).optional(),
@@ -41,7 +41,7 @@ export const botsRouter = createTrpcRouter({
     return serializeBot(row);
   }),
 
-  create: publicProcedure.input(botConfigSchema).mutation(async ({ ctx, input }) => {
+  create: protectedProcedure.input(botConfigSchema).mutation(async ({ ctx, input }) => {
     validateStrategy(input.strategy);
 
     const inserted = await ctx.db
@@ -63,7 +63,7 @@ export const botsRouter = createTrpcRouter({
     return serializeBot(inserted[0]!);
   }),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(z.object({ botId: uuidSchema, config: botConfigSchema.partial() }))
     .mutation(async ({ ctx, input }) => {
       const row = await findBot(ctx.db, input.botId);
@@ -91,82 +91,134 @@ export const botsRouter = createTrpcRouter({
               : row.currentBalance,
           updatedAt: new Date(),
         })
-        .where(eq(bots.id, input.botId))
+        .where(and(eq(bots.id, input.botId), eq(bots.status, row.status)))
         .returning();
+
+      if (updated.length === 0) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Bot changed while the update was in progress",
+        });
+      }
 
       return serializeBot(updated[0]!);
     }),
 
-  start: publicProcedure.input(z.object({ botId: uuidSchema })).mutation(async ({ ctx, input }) => {
-    const row = await findBot(ctx.db, input.botId);
-    if (["running", "starting"].includes(row.status)) {
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "Bot already running",
-        cause: { appCode: AppErrorCode.BOT_ALREADY_RUNNING },
-      });
-    }
+  start: protectedProcedure
+    .input(z.object({ botId: uuidSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await findBot(ctx.db, input.botId);
+      if (["running", "starting"].includes(row.status)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Bot already running",
+          cause: { appCode: AppErrorCode.BOT_ALREADY_RUNNING },
+        });
+      }
 
-    await ctx.db
-      .update(bots)
-      .set({ status: "starting", startedAt: new Date(), errorMessage: null, updatedAt: new Date() })
-      .where(eq(bots.id, input.botId));
+      const updated = await ctx.db
+        .update(bots)
+        .set({
+          status: "starting",
+          startedAt: new Date(),
+          errorMessage: null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(bots.id, input.botId), eq(bots.status, row.status)))
+        .returning();
 
-    const job = await ctx.queues.botExecutionQueue.add(
-      BOT_JOB_NAMES.START,
-      { botId: input.botId },
-      { jobId: `bot-${input.botId}-start`, removeOnFail: false, removeOnComplete: false }
-    );
+      if (updated.length === 0) {
+        throw new TRPCError({ code: "CONFLICT", message: "Bot state changed before start" });
+      }
 
-    await ctx.redis.publish(
-      "bot:status",
-      JSON.stringify({ botId: input.botId, status: "starting", timestamp: Date.now() })
-    );
+      try {
+        const job = await ctx.queues.botExecutionQueue.add(
+          BOT_JOB_NAMES.START,
+          { botId: input.botId },
+          {
+            jobId: `bot-${input.botId}-start-${Date.now()}`,
+            removeOnFail: false,
+            removeOnComplete: false,
+          }
+        );
 
-    return { success: true, jobId: job.id };
-  }),
+        await ctx.redis.publish(
+          "bot:status",
+          JSON.stringify({ botId: input.botId, status: "starting", timestamp: Date.now() })
+        );
 
-  pause: publicProcedure.input(z.object({ botId: uuidSchema })).mutation(async ({ ctx, input }) => {
-    await findBot(ctx.db, input.botId);
+        return { success: true, jobId: job.id };
+      } catch (error) {
+        await ctx.db
+          .update(bots)
+          .set({
+            status: row.status,
+            errorMessage: row.errorMessage,
+            startedAt: row.startedAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(bots.id, input.botId));
+        throw error;
+      }
+    }),
 
-    await ctx.db
-      .update(bots)
-      .set({ status: "paused", updatedAt: new Date() })
-      .where(eq(bots.id, input.botId));
-    await ctx.queues.botExecutionQueue.add(
-      BOT_JOB_NAMES.PAUSE,
-      { botId: input.botId },
-      { jobId: `bot-${input.botId}-pause-${Date.now()}` }
-    );
-    await ctx.redis.publish(
-      "bot:status",
-      JSON.stringify({ botId: input.botId, status: "paused", timestamp: Date.now() })
-    );
+  pause: protectedProcedure
+    .input(z.object({ botId: uuidSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await findBot(ctx.db, input.botId);
+      if (!["running", "starting"].includes(row.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Bot cannot be paused from status ${row.status}`,
+        });
+      }
 
-    return { success: true };
-  }),
+      await ctx.db
+        .update(bots)
+        .set({ status: "paused", updatedAt: new Date() })
+        .where(eq(bots.id, input.botId));
+      await ctx.queues.botExecutionQueue.add(
+        BOT_JOB_NAMES.PAUSE,
+        { botId: input.botId },
+        { jobId: `bot-${input.botId}-pause-${Date.now()}` }
+      );
+      await ctx.redis.publish(
+        "bot:status",
+        JSON.stringify({ botId: input.botId, status: "paused", timestamp: Date.now() })
+      );
 
-  stop: publicProcedure.input(z.object({ botId: uuidSchema })).mutation(async ({ ctx, input }) => {
-    await findBot(ctx.db, input.botId);
+      return { success: true };
+    }),
 
-    await ctx.db
-      .update(bots)
-      .set({ status: "stopped", stoppedAt: new Date(), updatedAt: new Date() })
-      .where(eq(bots.id, input.botId));
-    await ctx.queues.botExecutionQueue.add(
-      BOT_JOB_NAMES.STOP,
-      { botId: input.botId },
-      { jobId: `bot-${input.botId}-stop-${Date.now()}` }
-    );
-    await ctx.redis.publish(
-      "bot:status",
-      JSON.stringify({ botId: input.botId, status: "stopped", timestamp: Date.now() })
-    );
+  stop: protectedProcedure
+    .input(z.object({ botId: uuidSchema }))
+    .mutation(async ({ ctx, input }) => {
+      const row = await findBot(ctx.db, input.botId);
+      if (!["running", "paused"].includes(row.status)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Bot cannot be stopped from status ${row.status}`,
+        });
+      }
 
-    return { success: true };
-  }),
+      await ctx.db
+        .update(bots)
+        .set({ status: "stopped", stoppedAt: new Date(), updatedAt: new Date() })
+        .where(eq(bots.id, input.botId));
+      await ctx.queues.botExecutionQueue.add(
+        BOT_JOB_NAMES.STOP,
+        { botId: input.botId },
+        { jobId: `bot-${input.botId}-stop-${Date.now()}` }
+      );
+      await ctx.redis.publish(
+        "bot:status",
+        JSON.stringify({ botId: input.botId, status: "stopped", timestamp: Date.now() })
+      );
 
-  delete: publicProcedure
+      return { success: true };
+    }),
+
+  delete: protectedProcedure
     .input(z.object({ botId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
       const row = await findBot(ctx.db, input.botId);
@@ -283,7 +335,7 @@ function ensureEditable(status: string) {
 function validateStrategy(strategy: string) {
   const valid = getStrategyCatalog().some((entry) => entry.key === strategy);
   if (!valid) {
-    throw new AppError(AppErrorCode.INVALID_STRATEGY, `Unknown strategy: ${strategy}`, 400);
+    throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown strategy: ${strategy}` });
   }
 }
 

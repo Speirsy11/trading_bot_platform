@@ -53,7 +53,9 @@ export const portfolioRouter = createTrpcRouter({
       entry.quantity += amount * direction;
       entry.grossCost += toNumber(trade.cost) * direction;
       entry.realisedPnl += toNumber(trade.pnl);
-      entry.lastTradeAt = trade.executedAt;
+      if (!entry.lastTradeAt || trade.executedAt > entry.lastTradeAt) {
+        entry.lastTradeAt = trade.executedAt;
+      }
       positions.set(trade.symbol, entry);
     }
 

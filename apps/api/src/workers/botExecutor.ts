@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { botLogs, bots, exchangeConfigs, type Database } from "@tb/db";
 import {
   Bot as TradingBot,
@@ -33,17 +35,17 @@ export function createBotExecutorWorker(options: {
     async (job) => {
       switch (job.name) {
         case BOT_JOB_NAMES.START:
-          return startBot(
-            job.data.botId,
-            options.db,
-            options.redis,
-            options.exchangeManager,
-            runtimes
+          return withBotLock(options.redis, job.data.botId, () =>
+            startBot(job.data.botId, options.db, options.redis, options.exchangeManager, runtimes)
           );
         case BOT_JOB_NAMES.PAUSE:
-          return pauseBot(job.data.botId, options.db, options.redis, runtimes);
+          return withBotLock(options.redis, job.data.botId, () =>
+            pauseBot(job.data.botId, options.db, options.redis, runtimes)
+          );
         case BOT_JOB_NAMES.STOP:
-          return stopBot(job.data.botId, options.db, options.redis, runtimes);
+          return withBotLock(options.redis, job.data.botId, () =>
+            stopBot(job.data.botId, options.db, options.redis, runtimes)
+          );
         default:
           return null;
       }
@@ -72,6 +74,8 @@ async function startBot(
     throw new Error(`Bot ${botId} not found`);
   }
 
+  const fallbackStatus = botRow.status === "starting" ? "idle" : botRow.status;
+
   const strategy = StrategyRegistry.create(botRow.strategy);
   const runtimeExchange = await createRuntimeExchange(botRow, db, exchangeManager);
   const tradingBot = new TradingBot(
@@ -95,8 +99,24 @@ async function startBot(
   );
 
   await tradingBot.start();
-  const runner = new BotRunner(tradingBot, runtimeExchange, botRow.symbol, botRow.timeframe);
-  await runner.start();
+
+  let runner: BotRunner | undefined;
+  try {
+    runner = new BotRunner(tradingBot, runtimeExchange, botRow.symbol, botRow.timeframe);
+    await runner.start();
+  } catch (error) {
+    await tradingBot.stop().catch(() => undefined);
+    await db
+      .update(bots)
+      .set({
+        status: fallbackStatus,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        updatedAt: new Date(),
+      })
+      .where(eq(bots.id, botId));
+    throw error;
+  }
+
   runtimes.set(botId, { bot: tradingBot, runner });
 
   await db
@@ -140,21 +160,45 @@ async function stopBot(
   runtimes: Map<string, BotRuntime>
 ) {
   const runtime = runtimes.get(botId);
-  if (runtime) {
-    await runtime.runner.stop();
-    await runtime.bot.stop();
+  let stopError: unknown;
+
+  try {
+    if (runtime) {
+      await runtime.runner.stop();
+      await runtime.bot.stop();
+    }
+  } catch (error) {
+    stopError = error;
+    await logBot(
+      db,
+      botId,
+      "error",
+      error instanceof Error ? error.message : "Failed to stop bot runtime"
+    );
+  } finally {
     runtimes.delete(botId);
+
+    await db
+      .update(bots)
+      .set({
+        status: "stopped",
+        stoppedAt: new Date(),
+        errorMessage: stopError instanceof Error ? stopError.message : null,
+        updatedAt: new Date(),
+      })
+      .where(eq(bots.id, botId));
   }
 
-  await db
-    .update(bots)
-    .set({ status: "stopped", stoppedAt: new Date(), updatedAt: new Date() })
-    .where(eq(bots.id, botId));
   await redis.publish(
     "bot:status",
     JSON.stringify({ botId, status: "stopped", timestamp: Date.now() })
   );
   await logBot(db, botId, "info", "Bot execution stopped");
+
+  if (stopError) {
+    throw stopError;
+  }
+
   return { status: "stopped" };
 }
 
@@ -188,4 +232,27 @@ async function createRuntimeExchange(
 
 async function logBot(db: Database, botId: string, level: string, message: string) {
   await db.insert(botLogs).values({ botId, level, message });
+}
+
+async function withBotLock<T>(redis: IORedis, botId: string, fn: () => Promise<T>) {
+  const token = randomUUID();
+  const lockKey = `bot-runtime-lock:${botId}`;
+  const acquired = await redis.set(lockKey, token, "PX", 30_000, "NX");
+
+  if (acquired !== "OK") {
+    throw new Error(`Bot ${botId} is already being processed`);
+  }
+
+  try {
+    return await fn();
+  } finally {
+    await redis
+      .eval(
+        "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) end return 0",
+        1,
+        lockKey,
+        token
+      )
+      .catch(() => undefined);
+  }
 }

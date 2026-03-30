@@ -34,7 +34,8 @@ function createQueryBuilder<T>(rows: T[]) {
 
 function createDbMock(selectRows: unknown[][]) {
   const select = vi.fn(() => createQueryBuilder(selectRows.shift() ?? []));
-  const updateWhere = vi.fn().mockResolvedValue(undefined);
+  const returning = vi.fn().mockResolvedValue([{}]);
+  const updateWhere = vi.fn(() => ({ returning }));
 
   return {
     select,
@@ -48,6 +49,9 @@ function createDbMock(selectRows: unknown[][]) {
 
 describe("bots router", () => {
   it("dispatches a start job and publishes a status update", async () => {
+    const previousAuthToken = process.env["API_AUTH_TOKEN"];
+    process.env["API_AUTH_TOKEN"] = "test-token";
+
     const db = createDbMock([
       [
         {
@@ -76,32 +80,49 @@ describe("bots router", () => {
     const add = vi.fn().mockResolvedValue({ id: "job-1" });
     const publish = vi.fn().mockResolvedValue(1);
 
-    const caller = createCaller(
-      createTrpcContext({
-        db: db as never,
-        redis: { publish } as never,
-        queues: {
-          botExecutionQueue: { add },
-          backtestQueue: {},
-          dataCollectionQueue: {},
-          dataBackfillQueue: {},
-          dataExportQueue: {},
-          close: async () => undefined,
-        } as never,
-        exchangeManager: {} as never,
-        keyVault: {} as never,
-        exportsDir: "/tmp/exports",
-      })
-    );
+    try {
+      const caller = createCaller(
+        createTrpcContext(
+          {
+            db: db as never,
+            redis: { publish } as never,
+            queues: {
+              botExecutionQueue: { add },
+              backtestQueue: {},
+              dataCollectionQueue: {},
+              dataBackfillQueue: {},
+              dataExportQueue: {},
+              close: async () => undefined,
+            } as never,
+            exchangeManager: {} as never,
+            keyVault: {} as never,
+            exportsDir: "/tmp/exports",
+          },
+          {
+            headers: {
+              authorization: "Bearer test-token",
+            },
+          } as never
+        )
+      );
 
-    const result = await caller.bots.start({ botId: "d5d64559-5a73-4389-bc6a-1ac9e8a67c2e" });
+      const result = await caller.bots.start({ botId: "d5d64559-5a73-4389-bc6a-1ac9e8a67c2e" });
 
-    expect(result).toEqual({ success: true, jobId: "job-1" });
-    expect(add).toHaveBeenCalledWith(
-      "start-bot",
-      { botId: "d5d64559-5a73-4389-bc6a-1ac9e8a67c2e" },
-      expect.objectContaining({ jobId: "bot-d5d64559-5a73-4389-bc6a-1ac9e8a67c2e-start" })
-    );
-    expect(publish).toHaveBeenCalledWith("bot:status", expect.stringContaining("starting"));
+      expect(result).toEqual({ success: true, jobId: "job-1" });
+      expect(add).toHaveBeenCalledWith(
+        "start-bot",
+        { botId: "d5d64559-5a73-4389-bc6a-1ac9e8a67c2e" },
+        expect.objectContaining({
+          jobId: expect.stringMatching(/^bot-d5d64559-5a73-4389-bc6a-1ac9e8a67c2e-start-/),
+        })
+      );
+      expect(publish).toHaveBeenCalledWith("bot:status", expect.stringContaining("starting"));
+    } finally {
+      if (previousAuthToken === undefined) {
+        delete process.env["API_AUTH_TOKEN"];
+      } else {
+        process.env["API_AUTH_TOKEN"] = previousAuthToken;
+      }
+    }
   });
 });

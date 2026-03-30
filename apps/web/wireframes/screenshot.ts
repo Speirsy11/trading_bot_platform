@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,7 +9,8 @@ import { pages, themes } from "./shared/theme-meta";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const outputDir = join(__dirname, "screenshots");
-const baseUrl = "http://127.0.0.1:4173";
+const previewPort = Number(process.env.WIREFRAMES_PREVIEW_PORT ?? 4174);
+const baseUrl = process.env.WIREFRAMES_BASE_URL ?? `http://127.0.0.1:${previewPort}`;
 
 async function sleep(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -32,6 +33,40 @@ async function run(command: string, args: string[]) {
       reject(new Error(`${command} ${args.join(" ")} exited with code ${code}`));
     });
     child.on("error", reject);
+  });
+}
+
+function viteExecutable() {
+  return process.platform === "win32"
+    ? join(__dirname, "node_modules", ".bin", "vite.cmd")
+    : join(__dirname, "node_modules", ".bin", "vite");
+}
+
+async function stopServer(server: ChildProcess) {
+  if (server.exitCode !== null || server.signalCode !== null) {
+    return;
+  }
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      resolve();
+    };
+
+    server.once("exit", finish);
+    server.kill("SIGTERM");
+
+    setTimeout(() => {
+      if (server.exitCode === null && server.signalCode === null) {
+        server.kill("SIGKILL");
+      }
+      finish();
+    }, 2_000);
   });
 }
 
@@ -70,6 +105,7 @@ function catalogHtml() {
           <header>
             <p class="eyebrow">${theme.id}</p>
             <h2>${theme.name}</h2>
+            <p class="rationale">${theme.rationale}</p>
           </header>
           <div class="shots">${cards}</div>
         </section>
@@ -87,7 +123,7 @@ function catalogHtml() {
         :root { color-scheme: dark; }
         body {
           margin: 0;
-          font-family: "Instrument Sans", sans-serif;
+          font-family: "Segoe UI", "Helvetica Neue", sans-serif;
           background: #040711;
           color: #f8fafc;
           padding: 40px;
@@ -106,11 +142,17 @@ function catalogHtml() {
         }
         .theme-group header p { color: #94a3b8; }
         .eyebrow { text-transform: uppercase; letter-spacing: 0.2em; font-size: 12px; }
+        .rationale {
+          margin-top: 12px;
+          max-width: 720px;
+          color: #cbd5e1;
+          line-height: 1.6;
+        }
         .shots {
           display: grid;
           gap: 18px;
           margin-top: 20px;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
         .shot {
           margin: 0;
@@ -131,7 +173,7 @@ function catalogHtml() {
     </head>
     <body>
       <h1>Wireframe Screenshot Catalog</h1>
-      <p class="intro">This catalog is generated automatically from the standalone Vite wireframes app.</p>
+      <p class="intro">This catalog is generated automatically from the standalone Vite wireframes app. Each theme includes homepage, dashboard, trading, and bots screenshots plus the rationale used to evaluate the direction.</p>
       <div class="legend">
         <span>homepage: marketing or landing page</span>
         <span>dashboard: portfolio, bots, recent trades</span>
@@ -147,11 +189,15 @@ async function main() {
   await mkdir(outputDir, { recursive: true });
   await run("pnpm", ["build"]);
 
-  const server = spawn("pnpm", ["preview"], {
-    cwd: __dirname,
-    stdio: "inherit",
-    shell: false,
-  });
+  const server = spawn(
+    viteExecutable(),
+    ["preview", "--host", "127.0.0.1", "--port", String(previewPort), "--strictPort"],
+    {
+      cwd: __dirname,
+      stdio: "inherit",
+      shell: false,
+    }
+  );
 
   try {
     await waitForServer();
@@ -161,8 +207,12 @@ async function main() {
 
     for (const theme of themes) {
       for (const route of pages) {
-        await page.goto(`${baseUrl}/${theme.id}/${route}`, { waitUntil: "networkidle" });
-        await page.waitForTimeout(700);
+        await page.goto(`${baseUrl}/${theme.id}/${route}`, { waitUntil: "domcontentloaded" });
+        await page.waitForSelector("#root");
+        await page.waitForFunction(
+          () => !("fonts" in document) || document.fonts.status === "loaded"
+        );
+        await page.waitForTimeout(400);
         await page.screenshot({
           path: join(outputDir, `${theme.id}-${route}.png`),
           fullPage: true,
@@ -173,8 +223,7 @@ async function main() {
     await browser.close();
     await writeFile(join(outputDir, "catalog.html"), catalogHtml(), "utf8");
   } finally {
-    server.kill("SIGTERM");
-    await sleep(250);
+    await stopServer(server);
   }
 }
 

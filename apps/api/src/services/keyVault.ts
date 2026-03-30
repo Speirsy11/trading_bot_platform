@@ -4,17 +4,40 @@ import { AppError, AppErrorCode } from "../utils/errors.js";
 
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;
+const DEVELOPMENT_FALLBACK_SECRET = "development-only-encryption-key-change-me";
+
+export function assertEncryptionSecret(secret?: string): string | undefined {
+  const trimmed = secret?.trim();
+  if (trimmed) {
+    return trimmed;
+  }
+
+  if (process.env["NODE_ENV"] !== "development") {
+    throw new Error("ENCRYPTION_KEY must be set to a non-empty value");
+  }
+
+  return undefined;
+}
 
 export class KeyVault {
   private readonly key: Buffer;
 
   constructor(secret?: string) {
-    const material = secret ?? "development-only-encryption-key-change-me";
+    const trimmed = secret?.trim();
+    if (!trimmed && process.env["NODE_ENV"] !== "development") {
+      throw new Error("ENCRYPTION_KEY must be set to construct KeyVault outside development");
+    }
+
+    if (!trimmed) {
+      console.warn("ENCRYPTION_KEY is not set; using insecure development fallback key");
+    }
+
+    const material = trimmed ?? DEVELOPMENT_FALLBACK_SECRET;
     this.key = createHash("sha256").update(material).digest();
   }
 
   encrypt(plainText: string | null | undefined): string | null {
-    if (!plainText) {
+    if (plainText == null) {
       return null;
     }
 

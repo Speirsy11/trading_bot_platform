@@ -1,7 +1,7 @@
 import { backtestTrades, backtests, queryOHLCVByRange, type Database } from "@tb/db";
 import { BacktestEngine, DEFAULT_RISK_CONFIG } from "@tb/trading-core";
 import { Worker } from "bullmq";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type IORedis from "ioredis";
 
 import { API_QUEUE_NAMES, BACKTEST_JOB_NAMES, type BacktestJobData } from "../queues/types.js";
@@ -29,20 +29,26 @@ export function createBacktestWorker(options: { db: Database; redis: IORedis }) 
         throw new Error(`Backtest ${job.data.backtestId} not found`);
       }
 
-      await options.db
-        .update(backtests)
-        .set({ status: "running" })
-        .where(eq(backtests.id, backtest.id));
-      await options.redis.publish(
-        "backtest:progress",
-        JSON.stringify({
-          backtestId: backtest.id,
-          progress: 5,
-          currentDate: backtest.startTime.getTime(),
-        })
-      );
-
       try {
+        const transition = await options.db
+          .update(backtests)
+          .set({ status: "running", error: null })
+          .where(and(eq(backtests.id, backtest.id), eq(backtests.status, "pending")))
+          .returning({ id: backtests.id });
+
+        if (transition.length === 0) {
+          throw new Error(`Backtest ${backtest.id} is no longer pending`);
+        }
+
+        await options.redis.publish(
+          "backtest:progress",
+          JSON.stringify({
+            backtestId: backtest.id,
+            progress: 5,
+            currentDate: backtest.startTime.getTime(),
+          })
+        );
+
         const candleRows = await queryOHLCVByRange(
           options.db,
           backtest.exchange,
@@ -79,54 +85,57 @@ export function createBacktestWorker(options: { db: Database; redis: IORedis }) 
 
         const result = await engine.run(candles);
 
-        await options.db.delete(backtestTrades).where(eq(backtestTrades.backtestId, backtest.id));
-        if (result.trades.length > 0) {
-          await options.db.insert(backtestTrades).values(
-            result.trades.map((trade) => ({
-              backtestId: backtest.id,
-              symbol: trade.symbol,
-              side: trade.side,
-              type: trade.type,
-              amount: trade.amount.toString(),
-              price: trade.price.toString(),
-              cost: trade.cost.toString(),
-              fee: trade.fee.toString(),
-              pnl: trade.pnl.toString(),
-              pnlPercent: undefined,
-              balance: undefined,
-              reason: trade.reason,
-              executedAt: new Date(trade.timestamp),
-            }))
-          );
-        }
-
         const wins = result.trades.filter((trade) => trade.pnl > 0).length;
         const losses = result.trades.filter((trade) => trade.pnl < 0).length;
 
-        await options.db
-          .update(backtests)
-          .set({
-            status: "completed",
-            finalBalance: result.finalBalance.toString(),
-            totalPnl: result.metrics.netProfit.toString(),
-            totalPnlPercent: result.metrics.totalReturn.toString(),
-            totalTrades: result.metrics.totalTrades,
-            winningTrades: wins,
-            losingTrades: losses,
-            winRate: result.metrics.winRate.toString(),
-            maxDrawdown: result.metrics.maxDrawdown.toString(),
-            sharpeRatio: result.metrics.sharpeRatio.toString(),
-            profitFactor: result.metrics.profitFactor.toString(),
-            metrics: {
-              ...config,
-              result,
-            },
-            completedAt: new Date(),
-            error: null,
-          })
-          .where(eq(backtests.id, backtest.id));
+        await options.db.transaction(async (tx) => {
+          await tx.delete(backtestTrades).where(eq(backtestTrades.backtestId, backtest.id));
 
-        await job.updateProgress(100);
+          if (result.trades.length > 0) {
+            await tx.insert(backtestTrades).values(
+              result.trades.map((trade) => ({
+                backtestId: backtest.id,
+                symbol: trade.symbol,
+                side: trade.side,
+                type: trade.type,
+                amount: trade.amount.toString(),
+                price: trade.price.toString(),
+                cost: trade.cost.toString(),
+                fee: trade.fee.toString(),
+                pnl: trade.pnl.toString(),
+                pnlPercent: undefined,
+                balance: undefined,
+                reason: trade.reason,
+                executedAt: new Date(trade.timestamp),
+              }))
+            );
+          }
+
+          await tx
+            .update(backtests)
+            .set({
+              status: "completed",
+              finalBalance: result.finalBalance.toString(),
+              totalPnl: result.metrics.netProfit.toString(),
+              totalPnlPercent: result.metrics.totalReturn.toString(),
+              totalTrades: result.metrics.totalTrades,
+              winningTrades: wins,
+              losingTrades: losses,
+              winRate: result.metrics.winRate.toString(),
+              maxDrawdown: result.metrics.maxDrawdown.toString(),
+              sharpeRatio: result.metrics.sharpeRatio.toString(),
+              profitFactor: result.metrics.profitFactor.toString(),
+              metrics: {
+                ...config,
+                result,
+              },
+              completedAt: new Date(),
+              error: null,
+            })
+            .where(eq(backtests.id, backtest.id));
+        });
+
+        await job.updateProgress({ progress: 100, currentDate: backtest.endTime.getTime() });
         await options.redis.publish(
           "backtest:progress",
           JSON.stringify({

@@ -20,6 +20,7 @@ export function createExchangeManager(options: ExchangeManagerOptions) {
 
 export class ExchangeManager {
   private readonly cache = new Map<string, CcxtInstance>();
+  private readonly publicCache = new Map<string, CcxtInstance>();
 
   constructor(
     private readonly db: Database,
@@ -64,8 +65,15 @@ export class ExchangeManager {
   }
 
   async getPublicExchange(exchangeId: string): Promise<CcxtInstance> {
+    const cached = this.publicCache.get(exchangeId);
+    if (cached) {
+      return cached;
+    }
+
     try {
-      return this.createExchangeInstance({ exchange: exchangeId, metadata: {} });
+      const instance = this.createExchangeInstance({ exchange: exchangeId, metadata: {} });
+      this.publicCache.set(exchangeId, instance);
+      return instance;
     } catch (error) {
       throw mapExchangeError(error);
     }
@@ -79,10 +87,7 @@ export class ExchangeManager {
       const balance = await instance.fetchBalance();
       return {
         success: true,
-        permissions: {
-          canTrade: true,
-          canRead: true,
-        },
+        permissions: null,
         balance: {
           totalAssets: Object.keys(balance.total ?? {}).length,
           currencies: Object.keys(balance.free ?? {}).slice(0, 10),
@@ -125,10 +130,12 @@ export class ExchangeManager {
   clearCache(exchangeConfigId?: string) {
     if (exchangeConfigId) {
       this.cache.delete(exchangeConfigId);
+      this.publicCache.clear();
       return;
     }
 
     this.cache.clear();
+    this.publicCache.clear();
   }
 
   private createExchangeInstance(config: {
@@ -153,12 +160,13 @@ export class ExchangeManager {
       );
     }
 
+    const metadata = filterReservedExchangeOptions(config.metadata);
     const instance = new ExchangeCtor({
+      ...metadata,
       enableRateLimit: true,
       apiKey: config.apiKey ?? undefined,
       secret: config.secret ?? undefined,
       password: config.password ?? undefined,
-      ...(config.metadata ?? {}),
     });
 
     if (config.sandbox && typeof instance.setSandboxMode === "function") {
@@ -167,4 +175,9 @@ export class ExchangeManager {
 
     return instance;
   }
+}
+
+function filterReservedExchangeOptions(metadata: Record<string, unknown>) {
+  const reserved = new Set(["enableRateLimit", "apiKey", "secret", "password"]);
+  return Object.fromEntries(Object.entries(metadata ?? {}).filter(([key]) => !reserved.has(key)));
 }

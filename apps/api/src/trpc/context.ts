@@ -18,6 +18,9 @@ export interface AppContextOptions {
 export interface TrpcContext extends AppContextOptions {
   req?: FastifyRequest;
   res?: FastifyReply;
+  auth?: {
+    tenantId: string | null;
+  };
 }
 
 export function createTrpcContext(
@@ -29,5 +32,9 @@ export function createTrpcContext(
     ...options,
     req: request,
     res: reply,
+    auth: {
+      tenantId:
+        typeof request?.headers["x-tenant-id"] === "string" ? request.headers["x-tenant-id"] : null,
+    },
   };
 }

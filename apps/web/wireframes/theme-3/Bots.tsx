@@ -12,8 +12,18 @@ const statusMap: Record<string, { bg: string; dot: string; text: string }> = {
 
 export default function Bots() {
   const { bots, botMetrics, candles } = mockData;
-  const selected = bots[0]!;
-  const metrics = botMetrics[selected.id]!;
+  const selected = bots[0];
+  const metrics = selected ? botMetrics[selected.id] : undefined;
+
+  if (!selected || !metrics) {
+    return (
+      <Theme3Frame page="bots">
+        <div className="glass-panel p-5 text-sm" style={{ color: "var(--text-muted)" }}>
+          No bot data available.
+        </div>
+      </Theme3Frame>
+    );
+  }
 
   return (
     <Theme3Frame page="bots">

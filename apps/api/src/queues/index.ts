@@ -33,8 +33,9 @@ export function createQueueSet(redis: IORedis): QueueSet {
         dataCollectionQueue.close(),
         dataBackfillQueue.close(),
         dataExportQueue.close(),
-        connection.quit(),
       ]);
+
+      await connection.quit();
     },
   };
 }

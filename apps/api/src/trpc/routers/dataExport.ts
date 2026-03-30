@@ -3,7 +3,7 @@ import { basename } from "node:path";
 
 import { dataExports, type Database } from "@tb/db";
 import { TRPCError } from "@trpc/server";
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, lt } from "drizzle-orm";
 import { z } from "zod";
 
 import { dataExportSchema, uuidSchema } from "../schemas.js";
@@ -26,7 +26,13 @@ export const dataExportRouter = createTrpcRouter({
       })
       .returning();
 
-    const row = inserted[0]!;
+    const row = inserted[0];
+    if (!row) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `dataExport.create did not return an inserted row (received ${JSON.stringify(inserted)})`,
+      });
+    }
 
     await ctx.queues.dataExportQueue.add(
       "export-data",
@@ -59,17 +65,38 @@ export const dataExportRouter = createTrpcRouter({
       };
     }),
 
-  list: publicProcedure.query(async ({ ctx }) => {
-    const rows = await ctx.db.select().from(dataExports).orderBy(desc(dataExports.createdAt));
-    return rows.map((row) => ({
-      ...row,
-      startTime: row.startTime.toISOString(),
-      endTime: row.endTime.toISOString(),
-      createdAt: row.createdAt?.toISOString() ?? null,
-      completedAt: row.completedAt?.toISOString() ?? null,
-      downloadUrl: row.filePath ? `/exports/${basename(row.filePath)}` : null,
-    }));
-  }),
+  list: publicProcedure
+    .input(
+      z.object({
+        limit: z.number().min(1).max(100).default(20),
+        cursor: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select()
+        .from(dataExports)
+        .where(input.cursor ? lt(dataExports.createdAt, new Date(input.cursor)) : undefined)
+        .orderBy(desc(dataExports.createdAt))
+        .limit(input.limit + 1);
+
+      const hasNextPage = rows.length > input.limit;
+      const pageRows = hasNextPage ? rows.slice(0, input.limit) : rows;
+      const lastRow = pageRows.at(-1);
+      const nextCursor = hasNextPage && lastRow?.createdAt ? lastRow.createdAt.toISOString() : null;
+
+      return {
+        items: pageRows.map((row) => ({
+          ...row,
+          startTime: row.startTime.toISOString(),
+          endTime: row.endTime.toISOString(),
+          createdAt: row.createdAt?.toISOString() ?? null,
+          completedAt: row.completedAt?.toISOString() ?? null,
+          downloadUrl: row.filePath ? `/exports/${basename(row.filePath)}` : null,
+        })),
+        nextCursor,
+      };
+    }),
 
   delete: publicProcedure
     .input(z.object({ exportId: uuidSchema }))

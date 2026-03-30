@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import "./app.css";
+import { installDeterministicLocaleFormatters } from "./shared/format";
 import { theme1 } from "./theme-1";
 import { theme2 } from "./theme-2";
 import { theme3 } from "./theme-3";
@@ -30,4 +31,12 @@ function AppRouter() {
   );
 }
 
-ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(<AppRouter />);
+const rootElement = document.getElementById("root");
+
+if (!rootElement) {
+  throw new Error("Wireframes root element not found.");
+}
+
+installDeterministicLocaleFormatters();
+
+ReactDOM.createRoot(rootElement).render(<AppRouter />);

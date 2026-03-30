@@ -12,8 +12,25 @@ const statusColors: Record<string, { bg: string; dot: string; text: string }> = 
 
 export default function Bots() {
   const { bots, botMetrics, candles } = mockData;
-  const selected = bots[0]!;
-  const metrics = botMetrics[selected.id]!;
+  const selected = bots[0];
+  const metrics = selected ? botMetrics[selected.id] : undefined;
+
+  if (!selected || !metrics) {
+    return (
+      <Theme1Frame page="bots">
+        <div
+          className="rounded border p-6 text-sm"
+          style={{
+            borderColor: "var(--border)",
+            background: "var(--bg-card)",
+            color: "var(--text-muted)",
+          }}
+        >
+          No bot data available.
+        </div>
+      </Theme1Frame>
+    );
+  }
 
   return (
     <Theme1Frame page="bots">

@@ -12,8 +12,18 @@ const statusMap: Record<string, { bg: string; color: string }> = {
 
 export default function Bots() {
   const { bots, botMetrics, candles } = mockData;
-  const selected = bots[0]!;
-  const metrics = botMetrics[selected.id]!;
+  const selected = bots[0];
+  const metrics = selected ? botMetrics[selected.id] : undefined;
+
+  if (!selected || !metrics) {
+    return (
+      <Theme4Frame page="bots">
+        <div className="rounded border border-[var(--border-hard)] bg-[var(--bg-card)] p-6 text-sm text-[var(--text-muted)]">
+          No bot data available.
+        </div>
+      </Theme4Frame>
+    );
+  }
 
   return (
     <Theme4Frame page="bots">

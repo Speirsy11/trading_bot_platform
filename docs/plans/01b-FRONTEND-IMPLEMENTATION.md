@@ -22,24 +22,36 @@ Phase 5 (final phase) — the monorepo scaffolding, database layer, trading engi
 backend API server have all been completed. You have a fully functional Fastify backend
 with tRPC routers and Socket.IO hub ready to consume.
 
-IMPORTANT — UI Theme: Before starting, check apps/web/wireframes/screenshots/catalog.html
-and read any notes left by the user about which theme was chosen. The wireframe agent
-(01a) previously created 5 theme options. Apply the chosen theme's colour palette,
-typography, spacing, and visual style throughout the entire application. If no theme
-choice is documented, check the wireframe directories under apps/web/wireframes/ to
-see which themes were created, and ask the user which one to use before proceeding.
+IMPORTANT — UI Theme: The wireframe agent (01a) created 5 theme colour schemes.
+The application should use **Theme 3 — Glacier** as the default runtime colour scheme
+and structural reference. All 5 colour schemes must be available at runtime via a theme
+selector (similar to a dark-mode toggle but with 5 options). Only the colour palette
+switches — the component structure, layout, and typography hierarchy stay the same.
+The 5 schemes are:
+  1. Obsidian Vault — charcoal + warm gold
+  2. Phosphor Terminal — black + phosphor green
+  3. Glacier — deep navy + blue-white glass (DEFAULT)
+  4. Forge — dark steel + orange-amber
+  5. Ultraviolet — purple-black + pink/purple/teal
+Reference apps/web/wireframes/theme-*/theme.css for the exact CSS custom property
+values. The component layout and glass-panel styling should follow Theme 3's wireframes
+as the structural reference.
 
 Specifically, you must:
 
 1. Set up the Next.js 15 app (apps/web) following the project structure in Section 3:
    - Initialise shadcn/ui (dark mode by default, Tailwind CSS 4).
-   - Set up providers: TRPCProvider, SocketProvider, ThemeProvider (Section 3, providers/).
+   - Set up providers: TRPCProvider, SocketProvider, ColourSchemeProvider (Section 3, providers/).
    - Create the root layout with sidebar navigation and header (layout/Sidebar.tsx, Header.tsx).
    - Configure the tRPC client in lib/trpc.ts pointing at the backend URL.
    - Create the Socket.IO client singleton in lib/socket.ts.
-   - Apply the chosen wireframe theme to the Tailwind config, shadcn/ui theme, and
-     all custom component styles. The wireframe HTML/CSS files in apps/web/wireframes/
-     are your visual reference — match them.
+   - Implement the multi-theme colour system: define all 5 wireframe colour palettes
+     as CSS custom property sets in globals.css, scoped by a `data-color-scheme` attribute
+     on `<html>`. Glacier (theme-3) is the default. The ColourSchemeProvider should manage the
+     active colour scheme and persist the choice to localStorage. All component styles
+     must reference CSS custom properties (not hard-coded colours) so switching is instant.
+     The wireframe CSS files in apps/web/wireframes/theme-*/theme.css are the source of
+     truth for each palette's exact values.
 
 2. Build ALL 8 pages described in Section 4:
    - Dashboard Overview (/dashboard) — Section 4.1: react-grid-layout with portfolio
@@ -78,7 +90,8 @@ Specifically, you must:
    - Equity curve and drawdown charts for backtest results.
 
 5. Implement all Zustand stores:
-   - ui store: theme, sidebar state, selected symbol.
+   - ui store: colour scheme (one of 5 palettes, default "glacier"), sidebar state,
+     selected symbol. Persist colour scheme to localStorage.
    - layout store: dashboard grid layout persistence.
 
 6. Create shared utilities in lib/format.ts:
@@ -86,12 +99,22 @@ Specifically, you must:
    - Date formatting with timezone display.
    - Consistent profit/loss colour coding.
 
-7. Apply the chosen wireframe theme consistently:
-   - Translate the wireframe's CSS colour palette into Tailwind CSS custom properties
-     and shadcn/ui theme variables in globals.css.
-   - Match the wireframe's background layering, text hierarchy, and accent colours.
-   - Ensure chart themes (TradingView, ECharts) match the chosen theme.
-   - Support dark/light mode toggle only if the chosen wireframe includes it.
+7. Implement the multi-theme colour system:
+   - In globals.css, define 5 colour-scheme rule sets using the `data-color-scheme`
+     attribute (e.g. `[data-color-scheme="obsidian"]`, `[data-color-scheme="glacier"]`,
+     etc.). Each set maps the shared CSS custom properties (--bg-primary, --bg-secondary,
+     --bg-card, --text-primary, --accent, --profit, --loss, etc.) to that palette's
+     values. The exact values are in apps/web/wireframes/theme-*/theme.css.
+   - Wire shadcn/ui theme variables to these same custom properties so all UI primitives
+     automatically re-theme.
+   - Build a ColourSchemeSelector component (dropdown or segmented control in the
+     header or settings page) that sets the `data-color-scheme` attribute on `<html>`
+     and persists the choice to localStorage via the Zustand ui store.
+   - Glacier is the default colour scheme.
+   - Ensure chart themes (TradingView, ECharts) read from CSS custom properties so they
+     re-theme when the colour scheme changes.
+   - All components must use CSS custom properties for colours — no hard-coded hex values.
+     This guarantees instant palette switching with zero component re-renders.
 
 8. Write comprehensive tests (Section 7):
    - Unit tests (Vitest + RTL) for every component and hook. Test rendering, user
@@ -112,7 +135,7 @@ backend for full end-to-end type safety — do not duplicate type definitions.
 
 Refer to 00-ARCHITECTURE.md for the overall vision, 02-BACKEND.md for the tRPC router
 signatures and Socket.IO event contracts. Do NOT modify the backend or any packages.
-When done, delete the apps/web/wireframes/ directory as it is no longer needed.
+Commit your changes when done.
 ```
 
 ---
@@ -228,7 +251,7 @@ apps/web/
 │   │   └── layout/
 │   │       ├── Sidebar.tsx           # Navigation sidebar
 │   │       ├── Header.tsx            # Top bar with search, notifications
-│   │       └── ThemeToggle.tsx       # Dark/light mode switch
+│   │       └── ColourSchemeSelector.tsx  # 5-option colour scheme switcher
 │   │
 │   ├── hooks/
 │   │   ├── useMarketData.ts          # TanStack Query hook for OHLCV
@@ -238,7 +261,7 @@ apps/web/
 │   │   └── useWebSocket.ts          # Socket.IO connection management
 │   │
 │   ├── stores/
-│   │   ├── ui.ts                     # Zustand: theme, sidebar state, selected symbol
+│   │   ├── ui.ts                     # Zustand: colour scheme, sidebar state, selected symbol
 │   │   └── layout.ts                # Zustand: dashboard grid layout persistence
 │   │
 │   ├── lib/
@@ -249,7 +272,7 @@ apps/web/
 │   └── providers/
 │       ├── TRPCProvider.tsx          # tRPC + TanStack Query provider
 │       ├── SocketProvider.tsx        # Socket.IO context provider
-│       └── ThemeProvider.tsx         # next-themes provider
+│       └── ColourSchemeProvider.tsx  # Manages data-color-scheme attr + persistence
 │
 ├── vitest.config.ts
 ├── vitest.setup.ts
@@ -391,7 +414,7 @@ Professional trading terminal layout:
 
 **General Settings:**
 
-- Theme (dark/light/system)
+- Colour scheme selector (Obsidian Vault / Phosphor / Glacier / Forge / Ultraviolet)
 - Default currency
 - Timezone display preference
 - Notification preferences
@@ -529,17 +552,61 @@ components/bots/BotCard.test.tsx
 
 ## 8. Styling & Theming
 
-- **Use the theme chosen from the 01a wireframe exploration.**
-- Translate the wireframe's colour palette into Tailwind CSS custom properties in `globals.css`.
-- Configure shadcn/ui theme variables to match.
-- Provide dark/light mode toggle if appropriate for the chosen theme.
-- **Colour scheme for trading** (adjust to match chosen theme):
-  - Profit/up: theme's profit colour
-  - Loss/down: theme's loss colour
-  - Neutral: theme's muted colour
-  - Primary accent: theme's accent colour
-- Persist theme preference in localStorage via `next-themes`.
-- Chart themes should match the app theme (TradingView Lightweight Charts supports custom colours).
+### Multi-Theme Colour System
+
+All 5 wireframe colour palettes are available at runtime. The active palette is set via
+a `data-color-scheme` attribute on `<html>`. Only colours change — component structure,
+layout, border-radius, and typography hierarchy remain constant (following Theme 3's
+structural design as the baseline).
+
+**Colour schemes:**
+
+| Scheme         | `data-color-scheme` | Background | Accent    | Profit    | Loss      |
+| -------------- | ------------------- | ---------- | --------- | --------- | --------- |
+| Obsidian Vault | `obsidian`          | `#08080a`  | `#c8a55a` | `#6ee7a0` | `#f87171` |
+| Phosphor       | `phosphor`          | `#010a01`  | `#33ff33` | `#33ff33` | `#ff3333` |
+| **Glacier**    | `glacier` (default) | `#0a1628`  | `#5eaeff` | `#4ade80` | `#f87171` |
+| Forge          | `forge`             | `#111111`  | `#e87a20` | `#22c55e` | `#ef4444` |
+| Ultraviolet    | `ultraviolet`       | `#0c0614`  | `#a855f7` | `#06d6a0` | `#ff4d6a` |
+
+**Shared CSS custom properties** (all schemes define these):
+
+```
+--bg-primary, --bg-secondary, --bg-card, --bg-input, --bg-hover,
+--text-primary, --text-secondary, --text-muted,
+--accent, --accent-dim, --profit, --loss,
+--border, --grid, --muted
+```
+
+Some schemes define extras (e.g. `--accent-alt`, `--accent-hot` for Ultraviolet;
+`--glass` for Glacier; `--border-hard` for Forge). Components may use these with
+fallbacks: `var(--accent-alt, var(--accent))`.
+
+**Implementation approach:**
+
+1. In `globals.css`, define each scheme as a `[data-color-scheme="..."]` rule set
+   mapping the shared custom properties to that palette's hex values. Source values
+   from `apps/web/wireframes/theme-*/theme.css`.
+2. Map shadcn/ui's expected CSS variables (`--primary`, `--secondary`, `--card`,
+   `--destructive`, etc.) to the wireframe custom properties in the same rule sets.
+3. The `ColourSchemeProvider` reads the stored preference from localStorage (via the
+   Zustand ui store), sets `document.documentElement.dataset.colorScheme`, and defaults
+   to `"glacier"` on first visit.
+4. The `ColourSchemeSelector` component (in the header and duplicated in the Settings
+   page) displays a dropdown or segmented control with 5 colour swatches.
+5. Chart libraries (TradingView Lightweight Charts, ECharts) must read colours from
+   `getComputedStyle()` CSS custom properties at render time so they re-theme instantly
+   when the scheme changes.
+
+**Trading colour semantics** (per scheme, via custom properties):
+
+- Profit/up: `var(--profit)`
+- Loss/down: `var(--loss)`
+- Neutral: `var(--muted)`
+- Primary accent: `var(--accent)`
+
+**Font stack:** Use Outfit (body) + Crimson Pro (headings) from Theme 3 across all
+colour schemes. The font does not change when switching palettes.
 
 ---
 
@@ -551,6 +618,7 @@ components/bots/BotCard.test.tsx
 - **Optimistic updates** should be used for bot start/stop operations so the UI feels instant.
 - **Error boundaries** should wrap each major page section so a crash in charts doesn't take down the whole dashboard.
 - Use **React Suspense** boundaries for loading states on each page.
+- **Colour scheme switching** must be pure CSS (toggling `data-color-scheme` attribute). No React re-renders should be required for a palette change — only chart components need to re-read computed styles and update their internal colour configs.
 
 ---
 
@@ -586,7 +654,6 @@ react-hook-form @hookform/resolvers zod
 
 # Utilities
 date-fns
-next-themes
 
 # Testing
 vitest @vitest/ui

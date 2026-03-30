@@ -7,6 +7,11 @@ export default function Trading() {
   const { candles, orderBook, openOrders, positions } = mockData;
   const maxBidTotal = orderBook.bids[orderBook.bids.length - 1]?.total ?? 1;
   const maxAskTotal = orderBook.asks[orderBook.asks.length - 1]?.total ?? 1;
+  const latestClose = candles[candles.length - 1]?.close;
+  const bestAsk = orderBook.asks[0];
+  const bestBid = orderBook.bids[0];
+  const spreadLabel =
+    bestAsk && bestBid ? `Spread: ${(bestAsk.price - bestBid.price).toFixed(2)}` : "Spread: —";
 
   return (
     <Theme3Frame page="trading">
@@ -19,7 +24,7 @@ export default function Trading() {
                 BTC / USDT
               </h2>
               <span className="text-xl font-light tabular-nums" style={{ color: "var(--profit)" }}>
-                ${candles[candles.length - 1]?.close.toLocaleString()}
+                {latestClose !== undefined ? `$${latestClose.toLocaleString()}` : "—"}
               </span>
             </div>
             <div className="flex gap-1.5">
@@ -86,7 +91,7 @@ export default function Trading() {
               className="text-center text-xs py-1.5 font-medium"
               style={{ color: "var(--accent)" }}
             >
-              Spread: {(orderBook.asks[0]!.price - orderBook.bids[0]!.price).toFixed(2)}
+              {spreadLabel}
             </div>
             <div className="space-y-px mt-2">
               {orderBook.bids.slice(0, 8).map((level, i) => (

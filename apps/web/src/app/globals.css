@@ -1,3 +1,307 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─── Base Reset ──────────────────────────────────────────────────────── */
+* {
+  border-color: var(--border);
+}
+
+body {
+  font-family: var(--font-sans), sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-display), serif;
+  font-weight: 500;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* ─── Theme 1: Obsidian Vault ──────────────────────────────────────────── */
+[data-color-scheme="obsidian"] {
+  --bg-primary: #08080a;
+  --bg-secondary: #111114;
+  --bg-card: #17171b;
+  --bg-card-solid: #17171b;
+  --bg-input: #222228;
+  --bg-hover: #2a2a30;
+  --text-primary: #ede8dd;
+  --text-secondary: #9a9488;
+  --text-muted: #5f5b52;
+  --accent: #c8a55a;
+  --accent-dim: rgba(200, 165, 90, 0.12);
+  --accent-alt: #c8a55a;
+  --accent-hot: #c8a55a;
+  --profit: #6ee7a0;
+  --loss: #f87171;
+  --border: rgba(200, 165, 90, 0.10);
+  --border-hard: rgba(200, 165, 90, 0.20);
+  --grid: rgba(200, 165, 90, 0.06);
+  --muted: #6b6560;
+  --glass: rgba(200, 165, 90, 0.03);
+
+  /* shadcn/ui variable mapping */
+  --background: #08080a;
+  --foreground: #ede8dd;
+  --card: #17171b;
+  --card-foreground: #ede8dd;
+  --popover: #17171b;
+  --popover-foreground: #ede8dd;
+  --primary: #c8a55a;
+  --primary-foreground: #08080a;
+  --secondary: #111114;
+  --secondary-foreground: #ede8dd;
+  --muted-bg: #111114;
+  --muted-foreground: #9a9488;
+  --accent-bg: rgba(200, 165, 90, 0.12);
+  --accent-foreground: #ede8dd;
+  --destructive: #f87171;
+  --destructive-foreground: #08080a;
+  --input: #222228;
+  --ring: #c8a55a;
+  --radius: 0.75rem;
+}
+
+/* ─── Theme 2: Phosphor Terminal ──────────────────────────────────────── */
+[data-color-scheme="phosphor"] {
+  --bg-primary: #010a01;
+  --bg-secondary: #041204;
+  --bg-card: #071a07;
+  --bg-card-solid: #071a07;
+  --bg-input: #0a220a;
+  --bg-hover: #0d2b0d;
+  --text-primary: #33ff33;
+  --text-secondary: #1abf1a;
+  --text-muted: #0d7a0d;
+  --accent: #33ff33;
+  --accent-dim: rgba(51, 255, 51, 0.08);
+  --accent-alt: #33ff33;
+  --accent-hot: #33ff33;
+  --profit: #33ff33;
+  --loss: #ff3333;
+  --border: rgba(51, 255, 51, 0.12);
+  --border-hard: rgba(51, 255, 51, 0.25);
+  --grid: rgba(51, 255, 51, 0.05);
+  --muted: #0d7a0d;
+  --glass: rgba(51, 255, 51, 0.02);
+
+  --background: #010a01;
+  --foreground: #33ff33;
+  --card: #071a07;
+  --card-foreground: #33ff33;
+  --popover: #071a07;
+  --popover-foreground: #33ff33;
+  --primary: #33ff33;
+  --primary-foreground: #010a01;
+  --secondary: #041204;
+  --secondary-foreground: #33ff33;
+  --muted-bg: #041204;
+  --muted-foreground: #1abf1a;
+  --accent-bg: rgba(51, 255, 51, 0.08);
+  --accent-foreground: #33ff33;
+  --destructive: #ff3333;
+  --destructive-foreground: #010a01;
+  --input: #0a220a;
+  --ring: #33ff33;
+  --radius: 0.5rem;
+}
+
+/* ─── Theme 3: Glacier (DEFAULT) ──────────────────────────────────────── */
+:root,
+[data-color-scheme="glacier"] {
+  --bg-primary: #0a1628;
+  --bg-secondary: #0f1d33;
+  --bg-card: rgba(255, 255, 255, 0.04);
+  --bg-card-solid: #131f38;
+  --bg-input: rgba(255, 255, 255, 0.06);
+  --bg-hover: rgba(255, 255, 255, 0.08);
+  --text-primary: #f0f4f8;
+  --text-secondary: #94a8c4;
+  --text-muted: #546a8c;
+  --accent: #5eaeff;
+  --accent-dim: rgba(94, 174, 255, 0.10);
+  --accent-alt: #5eaeff;
+  --accent-hot: #5eaeff;
+  --profit: #4ade80;
+  --loss: #f87171;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hard: rgba(255, 255, 255, 0.15);
+  --grid: rgba(148, 168, 196, 0.08);
+  --muted: #546a8c;
+  --glass: rgba(255, 255, 255, 0.03);
+
+  --background: #0a1628;
+  --foreground: #f0f4f8;
+  --card: #131f38;
+  --card-foreground: #f0f4f8;
+  --popover: #131f38;
+  --popover-foreground: #f0f4f8;
+  --primary: #5eaeff;
+  --primary-foreground: #0a1628;
+  --secondary: #0f1d33;
+  --secondary-foreground: #f0f4f8;
+  --muted-bg: #0f1d33;
+  --muted-foreground: #94a8c4;
+  --accent-bg: rgba(94, 174, 255, 0.10);
+  --accent-foreground: #f0f4f8;
+  --destructive: #f87171;
+  --destructive-foreground: #0a1628;
+  --input: rgba(255, 255, 255, 0.06);
+  --ring: #5eaeff;
+  --radius: 0.75rem;
+}
+
+/* ─── Theme 4: Forge ──────────────────────────────────────────────────── */
+[data-color-scheme="forge"] {
+  --bg-primary: #111111;
+  --bg-secondary: #1a1a1a;
+  --bg-card: #1e1e1e;
+  --bg-card-solid: #1e1e1e;
+  --bg-input: #252525;
+  --bg-hover: #2a2a2a;
+  --text-primary: #e8e0d4;
+  --text-secondary: #a89882;
+  --text-muted: #6b6156;
+  --accent: #e87a20;
+  --accent-dim: rgba(232, 122, 32, 0.12);
+  --accent-alt: #e87a20;
+  --accent-hot: #e87a20;
+  --profit: #22c55e;
+  --loss: #ef4444;
+  --border: rgba(232, 122, 32, 0.18);
+  --border-hard: #333;
+  --grid: rgba(232, 122, 32, 0.06);
+  --muted: #6b6156;
+  --glass: rgba(232, 122, 32, 0.03);
+
+  --background: #111111;
+  --foreground: #e8e0d4;
+  --card: #1e1e1e;
+  --card-foreground: #e8e0d4;
+  --popover: #1e1e1e;
+  --popover-foreground: #e8e0d4;
+  --primary: #e87a20;
+  --primary-foreground: #111111;
+  --secondary: #1a1a1a;
+  --secondary-foreground: #e8e0d4;
+  --muted-bg: #1a1a1a;
+  --muted-foreground: #a89882;
+  --accent-bg: rgba(232, 122, 32, 0.12);
+  --accent-foreground: #e8e0d4;
+  --destructive: #ef4444;
+  --destructive-foreground: #111111;
+  --input: #252525;
+  --ring: #e87a20;
+  --radius: 0.5rem;
+}
+
+/* ─── Theme 5: Ultraviolet ────────────────────────────────────────────── */
+[data-color-scheme="ultraviolet"] {
+  --bg-primary: #0c0614;
+  --bg-secondary: #120a1e;
+  --bg-card: #1a1028;
+  --bg-card-solid: #1a1028;
+  --bg-input: #221636;
+  --bg-hover: #2a1c40;
+  --text-primary: #f2eeff;
+  --text-secondary: #b8a4d6;
+  --text-muted: #6b5893;
+  --accent: #a855f7;
+  --accent-dim: rgba(168, 85, 247, 0.12);
+  --accent-alt: #06d6a0;
+  --accent-hot: #ec4899;
+  --profit: #06d6a0;
+  --loss: #ff4d6a;
+  --border: rgba(168, 85, 247, 0.15);
+  --border-hard: rgba(168, 85, 247, 0.30);
+  --grid: rgba(168, 85, 247, 0.06);
+  --muted: #6b5893;
+  --glass: rgba(168, 85, 247, 0.03);
+
+  --background: #0c0614;
+  --foreground: #f2eeff;
+  --card: #1a1028;
+  --card-foreground: #f2eeff;
+  --popover: #1a1028;
+  --popover-foreground: #f2eeff;
+  --primary: #a855f7;
+  --primary-foreground: #0c0614;
+  --secondary: #120a1e;
+  --secondary-foreground: #f2eeff;
+  --muted-bg: #120a1e;
+  --muted-foreground: #b8a4d6;
+  --accent-bg: rgba(168, 85, 247, 0.12);
+  --accent-foreground: #f2eeff;
+  --destructive: #ff4d6a;
+  --destructive-foreground: #0c0614;
+  --input: #221636;
+  --ring: #a855f7;
+  --radius: 0.75rem;
+}
+
+/* ─── Glass Panel (structural, consistent across themes) ──────────────── */
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+.glass-panel-sm {
+  background: var(--bg-card);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* ─── Scrollbar Styling ───────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--muted);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* ─── Utility Classes ─────────────────────────────────────────────────── */
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.text-profit {
+  color: var(--profit);
+}
+
+.text-loss {
+  color: var(--loss);
+}
+
+.bg-profit {
+  background-color: var(--profit);
+}
+
+.bg-loss {
+  background-color: var(--loss);
+}

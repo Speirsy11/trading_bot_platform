@@ -282,18 +282,19 @@ that:
 
 1. Starts the Vite dev server (or uses a pre-built version)
 2. Opens each theme's 4 pages in Chromium at 1920×1080 viewport
-3. Waits for the page to fully render (including chart rendering — use `networkidle`
-
-- a small delay)
+3. Waits for the page to fully render (including chart rendering — use `domcontentloaded`,
+   wait for `#root`, await `document.fonts.ready`, then add a small settle delay)
 
 4. Takes a full-page screenshot of each page
 5. Saves to `apps/web/wireframes/screenshots/` as `theme-{n}-{page}.png`
 6. Generates `catalog.html` — a single dark-background page that:
    - Groups screenshots by theme
    - Shows the theme name and design rationale as a heading
-   - Displays the 3 page screenshots (dashboard, trading, bots) side by side
-   - Uses relative paths to the PNG files
-   - Includes a legend explaining what each page type represents
+
+- Displays the 4 page screenshots (homepage, dashboard, trading, bots) in a comparison grid
+- Uses relative paths to the PNG files
+- Includes a legend explaining what each page type represents
+
 7. Runs the screenshot script after creation
 
 ## 7. Design Quality Standards

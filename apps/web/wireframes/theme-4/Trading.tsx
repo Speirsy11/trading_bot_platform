@@ -7,6 +7,11 @@ export default function Trading() {
   const { candles, orderBook, openOrders, positions } = mockData;
   const maxBidTotal = orderBook.bids[orderBook.bids.length - 1]?.total ?? 1;
   const maxAskTotal = orderBook.asks[orderBook.asks.length - 1]?.total ?? 1;
+  const latestClose = candles[candles.length - 1]?.close;
+  const bestAsk = orderBook.asks[0];
+  const bestBid = orderBook.bids[0];
+  const spreadLabel =
+    bestAsk && bestBid ? `SPREAD ${(bestAsk.price - bestBid.price).toFixed(2)}` : "SPREAD —";
 
   return (
     <Theme4Frame page="trading">
@@ -17,7 +22,7 @@ export default function Trading() {
             <div className="flex items-center gap-4">
               <h2 className="text-base">BTC / USDT</h2>
               <span className="text-lg font-bold tabular-nums" style={{ color: "var(--profit)" }}>
-                ${candles[candles.length - 1]?.close.toLocaleString()}
+                {latestClose !== undefined ? `$${latestClose.toLocaleString()}` : "—"}
               </span>
             </div>
             <div className="flex gap-1">
@@ -87,7 +92,7 @@ export default function Trading() {
               className="text-center text-[10px] py-1 font-bold"
               style={{ color: "var(--accent)" }}
             >
-              SPREAD {(orderBook.asks[0]!.price - orderBook.bids[0]!.price).toFixed(2)}
+              {spreadLabel}
             </div>
             <div className="space-y-px mt-1.5">
               {orderBook.bids.slice(0, 8).map((level, i) => (

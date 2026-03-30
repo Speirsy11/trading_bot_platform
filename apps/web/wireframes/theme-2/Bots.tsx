@@ -12,8 +12,21 @@ const statusStyle: Record<string, { indicator: string; color: string }> = {
 
 export default function Bots() {
   const { bots, botMetrics, candles } = mockData;
-  const selected = bots[0]!;
-  const metrics = botMetrics[selected.id]!;
+  const selected = bots[0];
+  const metrics = selected ? botMetrics[selected.id] : undefined;
+
+  if (!selected || !metrics) {
+    return (
+      <Theme2Frame page="bots">
+        <div
+          className="crt-border p-4 text-[10px]"
+          style={{ background: "var(--bg-card)", color: "var(--text-muted)" }}
+        >
+          $ NO_BOT_DATA
+        </div>
+      </Theme2Frame>
+    );
+  }
 
   return (
     <Theme2Frame page="bots">

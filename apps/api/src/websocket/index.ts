@@ -15,6 +15,10 @@ const CHANNELS = [
 ] as const;
 
 export async function setupSocketHub(app: FastifyInstance, subscriber: IORedis) {
+  if (!app.io || typeof app.io.on !== "function") {
+    throw new Error("Socket.IO server is not available on the Fastify instance");
+  }
+
   const io = app.io as Server;
 
   io.on("connection", (socket: Socket) => {
@@ -32,7 +36,7 @@ export async function setupSocketHub(app: FastifyInstance, subscriber: IORedis) 
   const onMessage = (channel: string, raw: string) => {
     try {
       const payload = JSON.parse(raw) as Record<string, unknown>;
-      fanOut(io, channel, payload);
+      fanOut(io, app.log, channel, payload);
     } catch (error) {
       app.log.warn({ channel, error }, "failed to fan out websocket event");
     }
@@ -66,45 +70,73 @@ function handleSubscription(
 function resolveRoom(payload: Record<string, unknown>) {
   switch (payload.type) {
     case "ticker":
-      return `ticker:${payload.exchange}:${payload.symbol}`;
+      return buildTickerRoom(payload);
     case "candle":
-      return `candle:${payload.exchange}:${payload.symbol}:${payload.timeframe}`;
+      return buildCandleRoom(payload);
     case "bot":
-      return `bot:${payload.botId}`;
+      return buildBotRoom(payload);
     case "portfolio":
       return "portfolio";
     case "backtest":
-      return `backtest:${payload.backtestId}`;
+      return buildBacktestRoom(payload);
     default:
       return null;
   }
 }
 
-function fanOut(io: Server, channel: string, payload: Record<string, unknown>) {
+function fanOut(
+  io: Server,
+  logger: FastifyInstance["log"],
+  channel: string,
+  payload: Record<string, unknown>
+) {
   switch (channel) {
-    case "market:ticker":
-      io.to(`ticker:${payload.exchange}:${payload.symbol}`).emit("price:ticker", payload);
+    case "market:ticker": {
+      const room = buildTickerRoom(payload);
+      if (!room) {
+        logger.warn({ channel, payload }, "dropping malformed websocket payload");
+        return;
+      }
+      io.to(room).emit("price:ticker", payload);
       return;
-    case "market:candle":
-      io.to(`candle:${payload.exchange}:${payload.symbol}:${payload.timeframe}`).emit(
-        "price:candle",
-        payload
-      );
+    }
+    case "market:candle": {
+      const room = buildCandleRoom(payload);
+      if (!room) {
+        logger.warn({ channel, payload }, "dropping malformed websocket payload");
+        return;
+      }
+      io.to(room).emit("price:candle", payload);
       return;
+    }
     case "bot:status":
-      io.to(`bot:${payload.botId}`).emit("bot:statusChange", payload);
-      return;
     case "bot:trade":
-      io.to(`bot:${payload.botId}`).emit("bot:trade", payload);
+    case "bot:metrics": {
+      const room = buildBotRoom(payload);
+      if (!room) {
+        logger.warn({ channel, payload }, "dropping malformed websocket payload");
+        return;
+      }
+      const eventName =
+        channel === "bot:status"
+          ? "bot:statusChange"
+          : channel === "bot:trade"
+            ? "bot:trade"
+            : "bot:metrics";
+      io.to(room).emit(eventName, payload);
       return;
-    case "bot:metrics":
-      io.to(`bot:${payload.botId}`).emit("bot:metrics", payload);
+    }
+    case "backtest:progress": {
+      const room = buildBacktestRoom(payload);
+      if (!room) {
+        logger.warn({ channel, payload }, "dropping malformed websocket payload");
+        return;
+      }
+      io.to(room).emit("backtest:progress", payload);
       return;
+    }
     case "portfolio:update":
       io.to("portfolio").emit("portfolio:update", payload);
-      return;
-    case "backtest:progress":
-      io.to(`backtest:${payload.backtestId}`).emit("backtest:progress", payload);
       return;
     case "data:status":
       io.emit("data:collectionStatus", payload);
@@ -115,4 +147,32 @@ function fanOut(io: Server, channel: string, payload: Record<string, unknown>) {
     default:
       return;
   }
+}
+
+function buildTickerRoom(payload: Record<string, unknown>) {
+  const exchange = getRequiredRoomField(payload, "exchange");
+  const symbol = getRequiredRoomField(payload, "symbol");
+  return exchange && symbol ? `ticker:${exchange}:${symbol}` : null;
+}
+
+function buildCandleRoom(payload: Record<string, unknown>) {
+  const exchange = getRequiredRoomField(payload, "exchange");
+  const symbol = getRequiredRoomField(payload, "symbol");
+  const timeframe = getRequiredRoomField(payload, "timeframe");
+  return exchange && symbol && timeframe ? `candle:${exchange}:${symbol}:${timeframe}` : null;
+}
+
+function buildBotRoom(payload: Record<string, unknown>) {
+  const botId = getRequiredRoomField(payload, "botId");
+  return botId ? `bot:${botId}` : null;
+}
+
+function buildBacktestRoom(payload: Record<string, unknown>) {
+  const backtestId = getRequiredRoomField(payload, "backtestId");
+  return backtestId ? `backtest:${backtestId}` : null;
+}
+
+function getRequiredRoomField(payload: Record<string, unknown>, key: string) {
+  const value = payload[key];
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }

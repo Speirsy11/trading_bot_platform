@@ -17,7 +17,22 @@ export function parseJsonValue<T>(value: unknown, fallback: T): T {
   }
 
   if (typeof value !== "string") {
-    return value as T;
+    if (Array.isArray(fallback) && Array.isArray(value)) {
+      return value as T;
+    }
+
+    if (
+      !Array.isArray(fallback) &&
+      typeof fallback === "object" &&
+      fallback !== null &&
+      !Array.isArray(value) &&
+      typeof value === "object" &&
+      value !== null
+    ) {
+      return value as T;
+    }
+
+    return fallback;
   }
 
   try {

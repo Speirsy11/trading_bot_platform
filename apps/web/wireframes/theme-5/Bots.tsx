@@ -14,7 +14,17 @@ const statusColor: Record<string, string> = {
 
 export default function Bots() {
   const selectedBot = bots[0];
-  const metrics = botMetrics[selectedBot.id];
+  const metrics = selectedBot ? botMetrics[selectedBot.id] : undefined;
+
+  if (!selectedBot || !metrics) {
+    return (
+      <Theme5Frame page="bots">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg-secondary)] p-6 text-sm text-[var(--text-muted)]">
+          No bot data available.
+        </div>
+      </Theme5Frame>
+    );
+  }
 
   return (
     <Theme5Frame page="bots">
@@ -147,57 +157,55 @@ export default function Bots() {
               Performance Metrics
             </h4>
             <div className="grid grid-cols-2 gap-3">
-              {metrics && (
-                <>
-                  <div>
-                    <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                      Sharpe Ratio
-                    </div>
-                    <div className="text-sm font-semibold tabular-nums">
-                      {metrics.sharpe.toFixed(2)}
-                    </div>
+              <>
+                <div>
+                  <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    Sharpe Ratio
                   </div>
-                  <div>
-                    <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                      Win Rate
-                    </div>
-                    <div
-                      className="text-sm font-semibold tabular-nums"
-                      style={{ color: "var(--profit)" }}
-                    >
-                      {metrics.winRate.toFixed(1)}%
-                    </div>
+                  <div className="text-sm font-semibold tabular-nums">
+                    {metrics.sharpe.toFixed(2)}
                   </div>
-                  <div>
-                    <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                      Max Drawdown
-                    </div>
-                    <div
-                      className="text-sm font-semibold tabular-nums"
-                      style={{ color: "var(--loss)" }}
-                    >
-                      {metrics.maxDrawdown.toFixed(1)}%
-                    </div>
+                </div>
+                <div>
+                  <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    Win Rate
                   </div>
-                  <div>
-                    <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                      Profit Factor
-                    </div>
-                    <div className="text-sm font-semibold tabular-nums">
-                      {metrics.profitFactor.toFixed(2)}
-                    </div>
+                  <div
+                    className="text-sm font-semibold tabular-nums"
+                    style={{ color: "var(--profit)" }}
+                  >
+                    {metrics.winRate.toFixed(1)}%
                   </div>
-                  <div className="col-span-2 mt-1">
-                    <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
-                      Total Return
-                    </div>
-                    <div className="text-lg font-bold uv-gradient-text">
-                      {metrics.totalReturn >= 0 ? "+" : ""}
-                      {metrics.totalReturn.toFixed(1)}%
-                    </div>
+                </div>
+                <div>
+                  <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    Max Drawdown
                   </div>
-                </>
-              )}
+                  <div
+                    className="text-sm font-semibold tabular-nums"
+                    style={{ color: "var(--loss)" }}
+                  >
+                    {metrics.maxDrawdown.toFixed(1)}%
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    Profit Factor
+                  </div>
+                  <div className="text-sm font-semibold tabular-nums">
+                    {metrics.profitFactor.toFixed(2)}
+                  </div>
+                </div>
+                <div className="col-span-2 mt-1">
+                  <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>
+                    Total Return
+                  </div>
+                  <div className="text-lg font-bold uv-gradient-text">
+                    {metrics.totalReturn >= 0 ? "+" : ""}
+                    {metrics.totalReturn.toFixed(1)}%
+                  </div>
+                </div>
+              </>
             </div>
           </div>
 

@@ -46,6 +46,10 @@ function describeSchema(schema: z.ZodSchema) {
 }
 
 function readDefault(schema: z.ZodTypeAny): unknown {
+  if (schema instanceof z.ZodOptional || schema instanceof z.ZodNullable) {
+    return readDefault(schema.unwrap());
+  }
+
   if (schema instanceof z.ZodDefault) {
     return schema._def.defaultValue();
   }

@@ -4,10 +4,17 @@ import { mockData } from "../shared/mock-data";
 import { Theme5Frame } from "./components/ThemeFrame";
 
 const orderBook = mockData.orderBook;
+const candles = mockData.candles;
 const positions = mockData.positions;
 const openOrders = mockData.openOrders;
 
 export default function Trading() {
+  const latestClose = candles[candles.length - 1]?.close;
+  const bestAsk = orderBook.asks[0];
+  const bestBid = orderBook.bids[0];
+  const spreadLabel =
+    bestAsk && bestBid ? `Spread: $${(bestAsk.price - bestBid.price).toFixed(2)}` : "Spread: —";
+
   return (
     <Theme5Frame page="trading">
       <div className="grid grid-cols-4 gap-4">
@@ -17,7 +24,7 @@ export default function Trading() {
             <div className="flex items-center gap-3">
               <span className="text-sm font-semibold">BTC / USDT</span>
               <span className="text-xs tabular-nums" style={{ color: "var(--profit)" }}>
-                $94,125.40
+                {latestClose !== undefined ? `$${latestClose.toLocaleString()}` : "—"}
               </span>
               <span className="text-xs tabular-nums" style={{ color: "var(--profit)" }}>
                 +2.34%
@@ -79,7 +86,7 @@ export default function Trading() {
                 color: "var(--text-secondary)",
               }}
             >
-              Spread: ${(orderBook.asks[0].price - orderBook.bids[0].price).toFixed(2)}
+              {spreadLabel}
             </div>
 
             {/* Bids */}

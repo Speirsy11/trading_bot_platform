@@ -24,20 +24,45 @@ export const backtestRouter = createTrpcRouter({
         initialBalance: input.initialBalance.toString(),
         riskConfig: input.riskConfig,
         metrics: { fees: input.fees, slippage: input.slippage },
-        status: "pending",
+        status: "unqueued",
       })
       .returning();
 
-    const backtest = inserted[0]!;
-    await ctx.queues.backtestQueue.add(
-      BACKTEST_JOB_NAMES.RUN,
-      { backtestId: backtest.id },
-      { jobId: `backtest-${backtest.id}`, removeOnComplete: false, removeOnFail: false }
-    );
-    await ctx.redis.publish(
-      "backtest:progress",
-      JSON.stringify({ backtestId: backtest.id, progress: 0, currentDate: input.startTime })
-    );
+    const backtest = inserted[0];
+    if (!backtest) {
+      throw new TRPCError({
+        code: "INTERNAL_SERVER_ERROR",
+        message: "Failed to create backtest row before queueing",
+      });
+    }
+
+    const jobId = `backtest-${backtest.id}`;
+
+    try {
+      await ctx.queues.backtestQueue.add(
+        BACKTEST_JOB_NAMES.RUN,
+        { backtestId: backtest.id },
+        { jobId, removeOnComplete: false, removeOnFail: false }
+      );
+      await ctx.redis.publish(
+        "backtest:progress",
+        JSON.stringify({ backtestId: backtest.id, progress: 0, currentDate: input.startTime })
+      );
+      await ctx.db
+        .update(backtests)
+        .set({ status: "pending" })
+        .where(eq(backtests.id, backtest.id));
+    } catch (error) {
+      const job = await ctx.queues.backtestQueue.getJob(jobId);
+      await job?.remove().catch(() => undefined);
+      await ctx.db.delete(backtests).where(eq(backtests.id, backtest.id));
+      throw new TRPCError({
+        code: "BAD_GATEWAY",
+        message: "Failed to enqueue backtest job",
+        cause: error,
+      });
+    }
+
     return { backtestId: backtest.id };
   }),
 
@@ -46,19 +71,25 @@ export const backtestRouter = createTrpcRouter({
     .query(async ({ ctx, input }) => {
       const row = await findBacktest(ctx.db, input.backtestId);
       const job = await ctx.queues.backtestQueue.getJob(`backtest-${input.backtestId}`);
+      const jobProgress = job?.progress;
       const progress =
-        typeof job?.progress === "number"
-          ? job.progress
-          : row.status === "completed"
-            ? 100
-            : row.status === "running"
-              ? 50
-              : 0;
+        typeof jobProgress === "number"
+          ? jobProgress
+          : jobProgress && typeof jobProgress === "object" && "progress" in jobProgress
+            ? Number((jobProgress as { progress?: number }).progress ?? 0)
+            : row.status === "completed"
+              ? 100
+              : row.status === "running"
+                ? 50
+                : 0;
 
       return {
         status: row.status,
         progress,
-        currentDate: row.completedAt?.getTime() ?? null,
+        currentDate:
+          jobProgress && typeof jobProgress === "object" && "currentDate" in jobProgress
+            ? Number((jobProgress as { currentDate?: number }).currentDate ?? 0) || null
+            : (row.completedAt?.getTime() ?? null),
         error: row.error,
       };
     }),
@@ -122,6 +153,10 @@ export const backtestRouter = createTrpcRouter({
     .input(z.object({ backtestId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
       await findBacktest(ctx.db, input.backtestId);
+      const job = await ctx.queues.backtestQueue.getJob(`backtest-${input.backtestId}`);
+      await job?.remove().catch((error) => {
+        ctx.req?.log.warn({ error, backtestId: input.backtestId }, "failed to remove backtest job");
+      });
       await ctx.db.delete(backtests).where(eq(backtests.id, input.backtestId));
       return { success: true };
     }),

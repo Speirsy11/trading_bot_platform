@@ -33,56 +33,80 @@ export function createDataPipelineWorkers(options: {
   });
 
   collectionWorker.on("completed", async (job, result) => {
-    await options.redis.publish(
-      "data:status",
-      JSON.stringify({
-        exchange: job.data.exchange,
-        symbol: job.data.symbol,
-        timeframe: job.data.timeframe,
-        status: "idle",
-        result,
-        lastUpdated: Date.now(),
-      })
-    );
+    try {
+      await options.redis.publish(
+        "data:status",
+        JSON.stringify({
+          exchange: job.data.exchange,
+          symbol: job.data.symbol,
+          timeframe: job.data.timeframe,
+          status: "idle",
+          result,
+          lastUpdated: Date.now(),
+        })
+      );
+    } catch (error) {
+      console.error("Failed to publish data-collection completion", error);
+    }
   });
   collectionWorker.on("failed", async (job, error) => {
-    await options.redis.publish(
-      "worker:error",
-      JSON.stringify({
-        scope: "data-collection",
-        jobId: job?.id,
-        message: error.message,
-        timestamp: Date.now(),
-      })
-    );
+    try {
+      await options.redis.publish(
+        "worker:error",
+        JSON.stringify({
+          scope: "data-collection",
+          jobId: job?.id,
+          message: error.message,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (publishError) {
+      console.error("Failed to publish data-collection failure", publishError);
+    }
   });
   backfillWorker.on("failed", async (job, error) => {
-    await options.redis.publish(
-      "worker:error",
-      JSON.stringify({
-        scope: "data-backfill",
-        jobId: job?.id,
-        message: error.message,
-        timestamp: Date.now(),
-      })
-    );
+    try {
+      await options.redis.publish(
+        "worker:error",
+        JSON.stringify({
+          scope: "data-backfill",
+          jobId: job?.id,
+          message: error.message,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (publishError) {
+      console.error("Failed to publish data-backfill failure", publishError);
+    }
   });
   exportWorker.on("completed", async (job) => {
-    await options.redis.publish(
-      "data:status",
-      JSON.stringify({ exportId: job.data.exportId, status: "completed", lastUpdated: Date.now() })
-    );
+    try {
+      await options.redis.publish(
+        "data:status",
+        JSON.stringify({
+          exportId: job?.data?.exportId,
+          status: "completed",
+          lastUpdated: Date.now(),
+        })
+      );
+    } catch (error) {
+      console.error("Failed to publish data-export completion", error);
+    }
   });
   exportWorker.on("failed", async (job, error) => {
-    await options.redis.publish(
-      "worker:error",
-      JSON.stringify({
-        scope: "data-export",
-        exportId: job?.data.exportId,
-        message: error.message,
-        timestamp: Date.now(),
-      })
-    );
+    try {
+      await options.redis.publish(
+        "worker:error",
+        JSON.stringify({
+          scope: "data-export",
+          exportId: job?.data?.exportId,
+          message: error.message,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (publishError) {
+      console.error("Failed to publish data-export failure", publishError);
+    }
   });
 
   return {

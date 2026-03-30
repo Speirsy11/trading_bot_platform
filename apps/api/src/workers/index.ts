@@ -5,22 +5,30 @@ import { createDb } from "@tb/db";
 import IORedis from "ioredis";
 
 import { createExchangeManager } from "../services/exchangeManager.js";
-import { KeyVault } from "../services/keyVault.js";
+import { assertEncryptionSecret, KeyVault } from "../services/keyVault.js";
 
 import { createBacktestWorker } from "./backtestRunner.js";
 import { createBotExecutorWorker } from "./botExecutor.js";
 import { createDataPipelineWorkers } from "./dataPipelineWorkers.js";
 
+const processLogger = console;
+
 async function startWorkers() {
-  const databaseUrl = process.env["DATABASE_URL"];
+  const databaseUrl = process.env["DATABASE_URL"]?.trim();
   const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
   const exportsDir = resolve(process.cwd(), "exports");
+
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL must be set before starting workers");
+  }
+
+  const encryptionKey = assertEncryptionSecret(process.env["ENCRYPTION_KEY"]);
 
   await mkdir(exportsDir, { recursive: true });
 
   const { db, client } = createDb(databaseUrl);
   const redis = new IORedis(redisUrl, { maxRetriesPerRequest: null });
-  const keyVault = new KeyVault(process.env["ENCRYPTION_KEY"]);
+  const keyVault = new KeyVault(encryptionKey);
   const exchangeManager = createExchangeManager({ db, keyVault });
 
   const botWorker = createBotExecutorWorker({ db, redis, exchangeManager });
@@ -49,4 +57,7 @@ async function startWorkers() {
   });
 }
 
-void startWorkers();
+startWorkers().catch((error) => {
+  processLogger.error("Failed to start workers", error);
+  process.exit(1);
+});

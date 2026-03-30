@@ -45,20 +45,24 @@ export function toTrpcError(error: unknown): TRPCError {
 
   if (error instanceof AppError) {
     const code =
-      error.statusCode === 404
-        ? "NOT_FOUND"
-        : error.statusCode === 409
-          ? "CONFLICT"
-          : error.statusCode === 429
-            ? "TOO_MANY_REQUESTS"
-            : error.statusCode >= 500
-              ? "BAD_GATEWAY"
-              : "BAD_REQUEST";
+      error.statusCode === 401
+        ? "UNAUTHORIZED"
+        : error.statusCode === 403
+          ? "FORBIDDEN"
+          : error.statusCode === 404
+            ? "NOT_FOUND"
+            : error.statusCode === 409
+              ? "CONFLICT"
+              : error.statusCode === 429
+                ? "TOO_MANY_REQUESTS"
+                : error.statusCode >= 500
+                  ? "BAD_GATEWAY"
+                  : "BAD_REQUEST";
 
     return new TRPCError({
       code,
       message: error.message,
-      cause: { appCode: error.appCode },
+      cause: { appCode: error.appCode, originalCause: error.cause ?? null },
     });
   }
 

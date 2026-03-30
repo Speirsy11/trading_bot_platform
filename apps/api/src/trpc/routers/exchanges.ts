@@ -17,31 +17,38 @@ export const exchangesRouter = createTrpcRouter({
   }),
 
   add: publicProcedure.input(exchangeCreateSchema).mutation(async ({ ctx, input }) => {
-    const existing = await ctx.db
-      .select()
-      .from(exchangeConfigs)
-      .where(eq(exchangeConfigs.exchange, input.exchange))
-      .limit(1);
-    if (existing[0]) {
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: `Exchange ${input.exchange} is already configured`,
-      });
+    try {
+      const inserted = await ctx.db
+        .insert(exchangeConfigs)
+        .values({
+          exchange: input.exchange,
+          apiKey: ctx.keyVault.encrypt(input.apiKey),
+          apiSecret: ctx.keyVault.encrypt(input.apiSecret),
+          passphrase: input.passphrase ? ctx.keyVault.encrypt(input.passphrase) : null,
+          sandbox: input.testnet,
+          metadata: stringifyJsonValue({ name: input.name }),
+        })
+        .returning();
+
+      const row = inserted[0];
+      if (!row) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Failed to create exchange config",
+        });
+      }
+
+      return serializeExchange(row);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Exchange ${input.exchange} is already configured`,
+        });
+      }
+
+      throw error;
     }
-
-    const inserted = await ctx.db
-      .insert(exchangeConfigs)
-      .values({
-        exchange: input.exchange,
-        apiKey: ctx.keyVault.encrypt(input.apiKey),
-        apiSecret: ctx.keyVault.encrypt(input.apiSecret),
-        passphrase: ctx.keyVault.encrypt(input.passphrase),
-        sandbox: input.testnet,
-        metadata: stringifyJsonValue({ name: input.name }),
-      })
-      .returning();
-
-    return serializeExchange(inserted[0]!);
   }),
 
   testConnection: publicProcedure
@@ -81,10 +88,23 @@ export const exchangesRouter = createTrpcRouter({
         .where(eq(exchangeConfigs.id, input.exchangeId))
         .returning();
 
+      if (updated.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Exchange config not found" });
+      }
+
       ctx.exchangeManager.clearCache(input.exchangeId);
       return serializeExchange(updated[0]!);
     }),
 });
+
+function isUniqueViolation(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: string }).code === "23505"
+  );
+}
 
 function serializeExchange(row: typeof exchangeConfigs.$inferSelect) {
   const metadata = parseJsonValue<Record<string, unknown>>(row.metadata, {});

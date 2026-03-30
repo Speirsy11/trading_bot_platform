@@ -1,0 +1,75 @@
+"use client";
+
+import { LineChart } from "echarts/charts";
+import { TooltipComponent, GridComponent, DataZoomComponent } from "echarts/components";
+import * as echarts from "echarts/core";
+import { CanvasRenderer } from "echarts/renderers";
+import ReactEChartsCore from "echarts-for-react/lib/core";
+import { memo, useMemo } from "react";
+
+import { getChartThemeTokens, withAlpha } from "@/lib/chartTheme";
+import { useUiStore } from "@/stores/ui";
+
+echarts.use([LineChart, TooltipComponent, GridComponent, DataZoomComponent, CanvasRenderer]);
+
+interface EquityCurveProps {
+  data: Array<{ time: number; equity: number }>;
+  height?: number;
+}
+
+function EquityCurveInner({ data, height = 300 }: EquityCurveProps) {
+  const colourScheme = useUiStore((s) => s.colourScheme);
+
+  const option = useMemo(() => {
+    const { textSecondary, grid, accent, bgCard, fontFamily } = getChartThemeTokens(colourScheme);
+
+    return {
+      tooltip: {
+        trigger: "axis" as const,
+        backgroundColor: bgCard,
+        borderColor: "transparent",
+        textStyle: { color: textSecondary, fontSize: 12, fontFamily },
+      },
+      grid: { left: 60, right: 20, top: 20, bottom: 40 },
+      xAxis: {
+        type: "time" as const,
+        axisLine: { lineStyle: { color: grid } },
+        axisLabel: { color: textSecondary, fontSize: 10 },
+        splitLine: { show: false },
+      },
+      yAxis: {
+        type: "value" as const,
+        axisLine: { show: false },
+        axisLabel: { color: textSecondary, fontSize: 10 },
+        splitLine: { lineStyle: { color: grid } },
+      },
+      series: [
+        {
+          type: "line" as const,
+          data: data.map((d) => [d.time, d.equity]),
+          smooth: true,
+          showSymbol: false,
+          lineStyle: { color: accent, width: 2 },
+          areaStyle: {
+            color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+              { offset: 0, color: withAlpha(accent, 0.25) },
+              { offset: 1, color: withAlpha(accent, 0.02) },
+            ]),
+          },
+        },
+      ],
+    };
+  }, [data, colourScheme]);
+
+  return (
+    <ReactEChartsCore
+      echarts={echarts}
+      option={option}
+      notMerge
+      style={{ height }}
+      opts={{ renderer: "canvas" }}
+    />
+  );
+}
+
+export const EquityCurve = memo(EquityCurveInner);

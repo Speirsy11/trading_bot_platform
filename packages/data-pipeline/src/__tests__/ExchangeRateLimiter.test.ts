@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter.js";
+import { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
 
 describe("ExchangeRateLimiter", () => {
   describe("local mode (no Redis)", () => {

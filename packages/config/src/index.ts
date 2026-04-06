@@ -1,2 +1,2 @@
-export { validateEnv, type Env } from "./env.js";
-export { createLogger } from "./logger.js";
+export { validateEnv, type Env } from "./env";
+export { createLogger } from "./logger";

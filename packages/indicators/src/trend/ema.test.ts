@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { ema } from "./ema.js";
+import { ema } from "./ema";
 
 describe("EMA", () => {
   it("calculates EMA correctly for period 10", () => {

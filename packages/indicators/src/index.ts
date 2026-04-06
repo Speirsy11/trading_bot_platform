@@ -1,5 +1,5 @@
 // Calculator
-export { IndicatorCalculator } from "./calculator.js";
+export { IndicatorCalculator } from "./calculator";
 
 // Types
 export type {
@@ -8,16 +8,16 @@ export type {
   StochasticResult,
   VWAPResult,
   IndicatorInput,
-} from "./types.js";
+} from "./types";
 
 // Individual indicators
-export { sma } from "./trend/sma.js";
-export { ema } from "./trend/ema.js";
-export { adx } from "./trend/adx.js";
-export { rsi } from "./momentum/rsi.js";
-export { macd } from "./momentum/macd.js";
-export { stochastic } from "./momentum/stochastic.js";
-export { bollingerBands } from "./volatility/bollingerBands.js";
-export { atr } from "./volatility/atr.js";
-export { obv } from "./volume/obv.js";
-export { vwap } from "./volume/vwap.js";
+export { sma } from "./trend/sma";
+export { ema } from "./trend/ema";
+export { adx } from "./trend/adx";
+export { rsi } from "./momentum/rsi";
+export { macd } from "./momentum/macd";
+export { stochastic } from "./momentum/stochastic";
+export { bollingerBands } from "./volatility/bollingerBands";
+export { atr } from "./volatility/atr";
+export { obv } from "./volume/obv";
+export { vwap } from "./volume/vwap";

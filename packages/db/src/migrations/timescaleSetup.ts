@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 
-import type { Database } from "../client.js";
+import type { Database } from "../client";
 
 export async function runTimescaleSetup(db: Database) {
   // Create ohlcv hypertable

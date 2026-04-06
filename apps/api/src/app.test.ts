@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createApp } from "./app.js";
-import { KeyVault } from "./services/keyVault.js";
+import { createApp } from "./app";
+import { KeyVault } from "./services/keyVault";
 
 describe("createApp", () => {
   const apps: Array<Awaited<ReturnType<typeof createApp>>> = [];

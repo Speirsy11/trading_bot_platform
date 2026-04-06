@@ -12,10 +12,10 @@ import { Worker } from "bullmq";
 import { eq } from "drizzle-orm";
 import type IORedis from "ioredis";
 
-import { API_QUEUE_NAMES, BOT_JOB_NAMES, type BotJobData } from "../queues/types.js";
-import type { ExchangeManager } from "../services/exchangeManager.js";
-import { bootstrapStrategies } from "../services/strategyCatalog.js";
-import { parseJsonValue, toNumber } from "../utils/serialization.js";
+import { API_QUEUE_NAMES, BOT_JOB_NAMES, type BotJobData } from "../queues/types";
+import type { ExchangeManager } from "../services/exchangeManager";
+import { bootstrapStrategies } from "../services/strategyCatalog";
+import { parseJsonValue, toNumber } from "../utils/serialization";
 
 interface BotRuntime {
   bot: TradingBot;

@@ -1,4 +1,4 @@
-import type { IStrategy } from "./IStrategy.js";
+import type { IStrategy } from "./IStrategy";
 
 type StrategyFactory = () => IStrategy;
 

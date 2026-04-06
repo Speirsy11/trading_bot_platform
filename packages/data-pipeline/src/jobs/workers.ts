@@ -1,11 +1,11 @@
 import type { Database } from "@tb/db";
 import { Worker, type Job } from "bullmq";
 
-import { BackfillManager } from "../backfill/BackfillManager.js";
-import { DataCollector } from "../collection/DataCollector.js";
-import { ExportManager } from "../export/ExportManager.js";
-import { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter.js";
-import { GapDetector } from "../validation/GapDetector.js";
+import { BackfillManager } from "../backfill/BackfillManager";
+import { DataCollector } from "../collection/DataCollector";
+import { ExportManager } from "../export/ExportManager";
+import { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
+import { GapDetector } from "../validation/GapDetector";
 
 import {
   QUEUE_NAMES,
@@ -14,7 +14,7 @@ import {
   type BackfillJobData,
   type DetectGapsJobData,
   type ExportJobData,
-} from "./types.js";
+} from "./types";
 
 export interface WorkerConfig {
   db: Database;
@@ -48,13 +48,13 @@ export function createCollectionWorker(config: WorkerConfig) {
           data.symbol,
           data.timeframe,
           startTime,
-          endTime,
+          endTime
         );
         await gapDetector.updateGapCount(
           data.exchange,
           data.symbol,
           data.timeframe,
-          gaps.reduce((sum, g) => sum + g.missingCount, 0),
+          gaps.reduce((sum, g) => sum + g.missingCount, 0)
         );
         return { gaps: gaps.length, totalMissing: gaps.reduce((s, g) => s + g.missingCount, 0) };
       }
@@ -62,7 +62,7 @@ export function createCollectionWorker(config: WorkerConfig) {
     {
       connection: config.redisConnection,
       concurrency: 5,
-    },
+    }
   );
 }
 
@@ -79,14 +79,14 @@ export function createBackfillWorker(config: WorkerConfig) {
         data.symbol,
         data.timeframe,
         new Date(data.startTime),
-        new Date(data.endTime),
+        new Date(data.endTime)
       );
       return manager.runBackfill(jobConfig);
     },
     {
       connection: config.redisConnection,
       concurrency: 2,
-    },
+    }
   );
 }
 
@@ -112,6 +112,6 @@ export function createExportWorker(config: WorkerConfig) {
     {
       connection: config.redisConnection,
       concurrency: 1,
-    },
+    }
   );
 }

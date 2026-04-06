@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { rsi } from "../momentum/rsi.js";
+import { rsi } from "../momentum/rsi";
 
 describe("RSI", () => {
   it("calculates RSI correctly", () => {

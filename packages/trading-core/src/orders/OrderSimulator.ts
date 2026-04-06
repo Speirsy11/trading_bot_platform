@@ -1,6 +1,6 @@
 import type { Candle, Order, OrderSide } from "@tb/types";
 
-import type { FeeConfig, SlippageConfig } from "../exchange/types.js";
+import type { FeeConfig, SlippageConfig } from "../exchange/types";
 
 export interface FillResult {
   filled: boolean;

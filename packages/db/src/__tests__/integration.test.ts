@@ -1,7 +1,4 @@
-import {
-  PostgreSqlContainer,
-  type StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
@@ -13,18 +10,18 @@ import {
   insertOHLCV,
   queryOHLCVByRange,
   upsertOHLCV,
-} from "../queries/ohlcv.js";
-import * as backtestTradesSchema from "../schema/backtestTrades.js";
-import * as backtestsSchema from "../schema/backtests.js";
-import * as botLogsSchema from "../schema/botLogs.js";
-import * as botTradesSchema from "../schema/botTrades.js";
-import * as botsSchema from "../schema/bots.js";
-import * as dataCollectionSchema from "../schema/dataCollection.js";
-import * as dataExportsSchema from "../schema/dataExports.js";
-import * as exchangeConfigsSchema from "../schema/exchangeConfigs.js";
-import * as ohlcvSchema from "../schema/ohlcv.js";
-import type { OHLCVInsert } from "../schema/ohlcv.js";
-import * as settingsSchema from "../schema/settings.js";
+} from "../queries/ohlcv";
+import * as backtestTradesSchema from "../schema/backtestTrades";
+import * as backtestsSchema from "../schema/backtests";
+import * as botLogsSchema from "../schema/botLogs";
+import * as botTradesSchema from "../schema/botTrades";
+import * as botsSchema from "../schema/bots";
+import * as dataCollectionSchema from "../schema/dataCollection";
+import * as dataExportsSchema from "../schema/dataExports";
+import * as exchangeConfigsSchema from "../schema/exchangeConfigs";
+import * as ohlcvSchema from "../schema/ohlcv";
+import type { OHLCVInsert } from "../schema/ohlcv";
+import * as settingsSchema from "../schema/settings";
 
 // Use a plain Postgres container (TimescaleDB not available in default testcontainers)
 // We test schema creation and queries; TimescaleDB-specific features tested separately
@@ -271,7 +268,7 @@ describe("@tb/db integration tests", () => {
         "BTC/USDT",
         "1h",
         new Date("2024-01-01T00:00:00Z"),
-        new Date("2024-01-01T01:00:00Z"),
+        new Date("2024-01-01T01:00:00Z")
       );
       expect(result.length).toBeGreaterThanOrEqual(2);
     });
@@ -312,7 +309,7 @@ describe("@tb/db integration tests", () => {
         "BTC/USDT",
         "1h",
         new Date("2024-01-01T00:00:00Z"),
-        new Date("2024-01-01T00:00:00Z"),
+        new Date("2024-01-01T00:00:00Z")
       );
       expect(count).toBe(1);
     });
@@ -324,7 +321,7 @@ describe("@tb/db integration tests", () => {
         "BTC/USDT",
         "1h",
         new Date("2024-01-01T00:00:00Z"),
-        new Date("2024-01-01T01:00:00Z"),
+        new Date("2024-01-01T01:00:00Z")
       );
       expect(result).toHaveLength(0);
     });
@@ -337,13 +334,11 @@ describe("@tb/db integration tests", () => {
 
   describe("Settings table", () => {
     it("inserts and queries settings", async () => {
-      await db
-        .insert(settingsSchema.settings)
-        .values({
-          key: "collection.pairs",
-          value: JSON.stringify(["BTC/USDT", "ETH/USDT"]),
-          description: "Default pairs",
-        });
+      await db.insert(settingsSchema.settings).values({
+        key: "collection.pairs",
+        value: JSON.stringify(["BTC/USDT", "ETH/USDT"]),
+        description: "Default pairs",
+      });
 
       const rows = await db
         .select()

@@ -47,7 +47,7 @@ export class SQLiteExporter {
           row.low,
           row.close,
           row.volume,
-          row.tradesCount ?? null,
+          row.tradesCount ?? null
         );
       }
     });

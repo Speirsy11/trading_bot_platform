@@ -1,7 +1,7 @@
 import { and, eq, gte, lte, sql, count } from "drizzle-orm";
 
-import type { Database } from "../client.js";
-import { ohlcv, type OHLCVInsert } from "../schema/ohlcv.js";
+import type { Database } from "../client";
+import { ohlcv, type OHLCVInsert } from "../schema/ohlcv";
 
 export async function insertOHLCV(db: Database, rows: OHLCVInsert[]) {
   if (rows.length === 0) return [];
@@ -33,7 +33,7 @@ export async function queryOHLCVByRange(
   symbol: string,
   timeframe: string,
   startTime: Date,
-  endTime: Date,
+  endTime: Date
 ) {
   return db
     .select()
@@ -44,8 +44,8 @@ export async function queryOHLCVByRange(
         eq(ohlcv.symbol, symbol),
         eq(ohlcv.timeframe, timeframe),
         gte(ohlcv.time, startTime),
-        lte(ohlcv.time, endTime),
-      ),
+        lte(ohlcv.time, endTime)
+      )
     )
     .orderBy(ohlcv.time);
 }
@@ -54,19 +54,16 @@ export async function getLatestTimestamp(
   db: Database,
   exchange: string,
   symbol: string,
-  timeframe: string,
+  timeframe: string
 ): Promise<Date | null> {
   const result = await db
-    .select({ latest: sql<Date>`MAX(${ohlcv.time})` })
+    .select({ latest: sql<string>`MAX(${ohlcv.time})` })
     .from(ohlcv)
     .where(
-      and(
-        eq(ohlcv.exchange, exchange),
-        eq(ohlcv.symbol, symbol),
-        eq(ohlcv.timeframe, timeframe),
-      ),
+      and(eq(ohlcv.exchange, exchange), eq(ohlcv.symbol, symbol), eq(ohlcv.timeframe, timeframe))
     );
-  return result[0]?.latest ?? null;
+  const raw = result[0]?.latest;
+  return raw ? new Date(raw) : null;
 }
 
 export async function countCandles(
@@ -75,7 +72,7 @@ export async function countCandles(
   symbol: string,
   timeframe: string,
   startTime?: Date,
-  endTime?: Date,
+  endTime?: Date
 ): Promise<number> {
   const conditions = [
     eq(ohlcv.exchange, exchange),

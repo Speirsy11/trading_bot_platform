@@ -3,10 +3,10 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { BACKTEST_JOB_NAMES } from "../../queues/types.js";
-import { toNumber } from "../../utils/serialization.js";
-import { backtestConfigSchema, uuidSchema } from "../schemas.js";
-import { createTrpcRouter, publicProcedure } from "../trpc.js";
+import { BACKTEST_JOB_NAMES } from "../../queues/types";
+import { toNumber } from "../../utils/serialization";
+import { backtestConfigSchema, uuidSchema } from "../schemas";
+import { createTrpcRouter, publicProcedure } from "../trpc";
 
 export const backtestRouter = createTrpcRouter({
   run: publicProcedure.input(backtestConfigSchema).mutation(async ({ ctx, input }) => {

@@ -1,10 +1,11 @@
-import { backtestRouter } from "./routers/backtest.js";
-import { botsRouter } from "./routers/bots.js";
-import { dataExportRouter } from "./routers/dataExport.js";
-import { exchangesRouter } from "./routers/exchanges.js";
-import { marketRouter } from "./routers/market.js";
-import { portfolioRouter } from "./routers/portfolio.js";
-import { createTrpcRouter, createCallerFactory } from "./trpc.js";
+import { backtestRouter } from "./routers/backtest";
+import { botsRouter } from "./routers/bots";
+import { dataCollectionRouter } from "./routers/dataCollection";
+import { dataExportRouter } from "./routers/dataExport";
+import { exchangesRouter } from "./routers/exchanges";
+import { marketRouter } from "./routers/market";
+import { portfolioRouter } from "./routers/portfolio";
+import { createTrpcRouter, createCallerFactory } from "./trpc";
 
 export const appRouter = createTrpcRouter({
   portfolio: portfolioRouter,
@@ -13,6 +14,7 @@ export const appRouter = createTrpcRouter({
   market: marketRouter,
   exchanges: exchangesRouter,
   dataExport: dataExportRouter,
+  dataCollection: dataCollectionRouter,
 });
 
 export const createCaller = createCallerFactory(appRouter);

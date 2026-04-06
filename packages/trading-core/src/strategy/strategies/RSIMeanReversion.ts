@@ -1,8 +1,8 @@
 import type { Candle } from "@tb/types";
 import { z } from "zod";
 
-import type { IStrategy, Signal } from "../IStrategy.js";
-import type { StrategyContext } from "../StrategyContext.js";
+import type { IStrategy, Signal } from "../IStrategy";
+import type { StrategyContext } from "../StrategyContext";
 
 /**
  * RSI Mean Reversion Strategy

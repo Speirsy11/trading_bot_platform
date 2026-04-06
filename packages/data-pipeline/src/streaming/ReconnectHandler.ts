@@ -42,7 +42,7 @@ export class ReconnectHandler extends EventEmitter {
 
     const delay = Math.min(
       this.options.initialDelayMs * Math.pow(this.options.multiplier, this.attempt - 1),
-      this.options.maxDelayMs,
+      this.options.maxDelayMs
     );
 
     logger.info({ attempt: this.attempt, delayMs: delay }, "Scheduling reconnect");

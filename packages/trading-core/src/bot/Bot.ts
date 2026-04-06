@@ -1,14 +1,14 @@
 import { IndicatorCalculator } from "@tb/indicators";
 import type { Candle } from "@tb/types";
 
-import type { IExchange } from "../exchange/types.js";
-import { PositionManager } from "../orders/PositionManager.js";
-import { PositionSizer } from "../risk/PositionSizer.js";
-import { RiskManager, type RiskConfig, DEFAULT_RISK_CONFIG } from "../risk/RiskManager.js";
-import type { IStrategy, Signal } from "../strategy/IStrategy.js";
-import { StrategyContext, type Logger } from "../strategy/StrategyContext.js";
+import type { IExchange } from "../exchange/types";
+import { PositionManager } from "../orders/PositionManager";
+import { PositionSizer } from "../risk/PositionSizer";
+import { RiskManager, type RiskConfig, DEFAULT_RISK_CONFIG } from "../risk/RiskManager";
+import type { IStrategy, Signal } from "../strategy/IStrategy";
+import { StrategyContext, type Logger } from "../strategy/StrategyContext";
 
-import { BotStateMachine, type BotState } from "./BotStateMachine.js";
+import { BotStateMachine, type BotState } from "./BotStateMachine";
 
 export interface BotConfig {
   id: string;

@@ -1,7 +1,7 @@
 import type { Candle } from "@tb/types";
 import { describe, it, expect } from "vitest";
 
-import { CandleValidator } from "../validation/CandleValidator.js";
+import { CandleValidator } from "../validation/CandleValidator";
 
 describe("CandleValidator", () => {
   const validator = new CandleValidator();

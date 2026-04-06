@@ -97,21 +97,21 @@ This plan covers both the `@tb/data-pipeline` package and the `@tb/db` package's
 
 ## 2. Technology Stack
 
-| Concern | Library | Notes |
-|---|---|---|
-| Exchange API | **CCXT** | Unified REST API for 150+ exchanges |
-| Exchange WebSocket | **CCXT** `watch*` methods + native exchange WS | Real-time data feeds |
-| Database | **PostgreSQL 16 + TimescaleDB** | Hypertables, compression, automatic partitioning |
-| ORM | **Drizzle ORM** | Type-safe queries; raw SQL for TimescaleDB-specific features |
-| Job Queue | **BullMQ** | Scheduled data collection, backfill jobs, export jobs |
-| Rate Limiting | **p-limit** + custom rate limiter | Per-exchange rate limit management |
-| CSV Generation | **csv-stringify** | Streaming CSV generation |
-| Parquet | **parquetjs** or **hyparquet** | Columnar format for analytics |
-| SQLite Export | **better-sqlite3** | Portable database export |
-| Compression | **Node.js zlib** (built-in) | Gzip compression for exports |
-| Validation | **Zod** | Data validation schemas |
-| Date/Time | **date-fns** | Lightweight date manipulation |
-| Testing | **Vitest** + **Testcontainers** | Test against real TimescaleDB |
+| Concern            | Library                                        | Notes                                                        |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------------ |
+| Exchange API       | **CCXT**                                       | Unified REST API for 150+ exchanges                          |
+| Exchange WebSocket | **CCXT** `watch*` methods + native exchange WS | Real-time data feeds                                         |
+| Database           | **PostgreSQL 16 + TimescaleDB**                | Hypertables, compression, automatic partitioning             |
+| ORM                | **Drizzle ORM**                                | Type-safe queries; raw SQL for TimescaleDB-specific features |
+| Job Queue          | **BullMQ**                                     | Scheduled data collection, backfill jobs, export jobs        |
+| Rate Limiting      | **p-limit** + custom rate limiter              | Per-exchange rate limit management                           |
+| CSV Generation     | **csv-stringify**                              | Streaming CSV generation                                     |
+| Parquet            | **parquetjs** or **hyparquet**                 | Columnar format for analytics                                |
+| SQLite Export      | **better-sqlite3**                             | Portable database export                                     |
+| Compression        | **Node.js zlib** (built-in)                    | Gzip compression for exports                                 |
+| Validation         | **Zod**                                        | Data validation schemas                                      |
+| Date/Time          | **date-fns**                                   | Lightweight date manipulation                                |
+| Testing            | **Vitest** + **Testcontainers**                | Test against real TimescaleDB                                |
 
 ---
 
@@ -304,13 +304,13 @@ CREATE TABLE data_exports (
 
 ### 5.1 Exchange Configuration
 
-| Exchange | OHLCV History | Rate Limit | Max Candles/Request | WebSocket | Notes |
-|---|---|---|---|---|---|
-| **Binance** | 2017+ | 1200 req/min | 1000 | ✅ Stable | Primary data source |
-| **Kraken** | Years back | 15 req/sec | 720 | ✅ Good | Secondary source, good fiat pairs |
-| **KuCoin** | Varies | 10 req/sec | 1500 | ✅ Stable | Altcoin coverage |
-| **Bybit** | Available | 10 req/sec | 200 | ✅ Good | Futures funding rates |
-| **Coinbase** | Limited | 30 req/sec | 300 | ✅ Professional | Major pairs |
+| Exchange     | OHLCV History | Rate Limit   | Max Candles/Request | WebSocket       | Notes                             |
+| ------------ | ------------- | ------------ | ------------------- | --------------- | --------------------------------- |
+| **Binance**  | 2017+         | 1200 req/min | 1000                | ✅ Stable       | Primary data source               |
+| **Kraken**   | Years back    | 15 req/sec   | 720                 | ✅ Good         | Secondary source, good fiat pairs |
+| **KuCoin**   | Varies        | 10 req/sec   | 1500                | ✅ Stable       | Altcoin coverage                  |
+| **Bybit**    | Available     | 10 req/sec   | 200                 | ✅ Good         | Futures funding rates             |
+| **Coinbase** | Limited       | 30 req/sec   | 300                 | ✅ Professional | Major pairs                       |
 
 ### 5.2 Rate Limiter Design
 
@@ -327,11 +327,11 @@ The rate limiter tracks requests per exchange and enforces limits:
 
 ### 5.3 Free Third-Party APIs (Supplemental)
 
-| Provider | Use Case | Limits |
-|---|---|---|
-| **CoinGecko** | Daily OHLCV, market cap, metadata | 50 req/min (no key required) |
-| **CoinCap** | Real-time prices, basic market data | Unlimited (no key required) |
-| **CryptoCompare** | Hourly OHLCV, multi-exchange aggregation | 100 req/day |
+| Provider          | Use Case                                 | Limits                       |
+| ----------------- | ---------------------------------------- | ---------------------------- |
+| **CoinGecko**     | Daily OHLCV, market cap, metadata        | 50 req/min (no key required) |
+| **CoinCap**       | Real-time prices, basic market data      | Unlimited (no key required)  |
+| **CryptoCompare** | Hourly OHLCV, multi-exchange aggregation | 100 req/day                  |
 
 These supplement exchange APIs. Do not rely on them for minute-level data.
 
@@ -379,11 +379,13 @@ The collector only downloads data that's newer than what we already have:
 ### 6.3 What to Collect by Default
 
 **Auto-collection (background job):**
+
 - Top 20 pairs by volume on each enabled exchange
 - Timeframes: 1m, 5m, 15m, 1h, 4h, 1d
 - Continuous: runs every minute for 1m data, every hour for hourly+
 
 **On-demand (triggered when user configures a bot or backtest):**
+
 - Additional pairs/timeframes as needed
 - Historical backfill for date ranges not yet covered
 
@@ -407,6 +409,7 @@ NEAR/USDT, APT/USDT, ARB/USDT, OP/USDT, SUI/USDT
 Backfilling is the process of downloading historical data for the first time or filling gaps.
 
 **Prioritization:**
+
 1. Most recent data first (last 30 days) — needed for immediate backtesting
 2. Then progressively older data (last 90 days, 1 year, 2 years, etc.)
 3. Lower-priority timeframes last (1m data is huge but only needed for HFT strategies)
@@ -423,14 +426,14 @@ Backfilling is the process of downloading historical data for the first time or 
 For 20 pairs across 6 timeframes:
 
 | Timeframe | Candles/Year/Pair | Storage/Year (20 pairs) | Compressed |
-|---|---|---|---|
-| 1m | 525,600 | ~200 MB | ~20 MB |
-| 5m | 105,120 | ~40 MB | ~4 MB |
-| 15m | 35,040 | ~13 MB | ~1.3 MB |
-| 1h | 8,760 | ~3.3 MB | ~330 KB |
-| 4h | 2,190 | ~830 KB | ~83 KB |
-| 1d | 365 | ~140 KB | ~14 KB |
-| **Total** | | **~257 MB** | **~26 MB** |
+| --------- | ----------------- | ----------------------- | ---------- |
+| 1m        | 525,600           | ~200 MB                 | ~20 MB     |
+| 5m        | 105,120           | ~40 MB                  | ~4 MB      |
+| 15m       | 35,040            | ~13 MB                  | ~1.3 MB    |
+| 1h        | 8,760             | ~3.3 MB                 | ~330 KB    |
+| 4h        | 2,190             | ~830 KB                 | ~83 KB     |
+| 1d        | 365               | ~140 KB                 | ~14 KB     |
+| **Total** |                   | **~257 MB**             | **~26 MB** |
 
 With 5 years of data and 50 pairs: ~3.2 GB uncompressed, ~320 MB compressed.
 
@@ -481,16 +484,16 @@ Exchange WebSocket
 
 Every candle is validated before storage:
 
-| Rule | Severity | Description |
-|---|---|---|
-| `high >= low` | Error | High must be >= low |
-| `open` within `[low, high]` | Error | Open must be within range |
-| `close` within `[low, high]` | Error | Close must be within range |
-| `volume >= 0` | Error | Volume cannot be negative |
-| `time` is valid timestamp | Error | Timestamp must be valid and in the past |
-| `O == H == L == C` | Warning | All-same values may indicate stale data |
-| Price change > 20% in one candle | Warning | Extreme movement flagged but stored |
-| Volume is zero on major pair | Warning | May indicate exchange downtime |
+| Rule                             | Severity | Description                             |
+| -------------------------------- | -------- | --------------------------------------- |
+| `high >= low`                    | Error    | High must be >= low                     |
+| `open` within `[low, high]`      | Error    | Open must be within range               |
+| `close` within `[low, high]`     | Error    | Close must be within range              |
+| `volume >= 0`                    | Error    | Volume cannot be negative               |
+| `time` is valid timestamp        | Error    | Timestamp must be valid and in the past |
+| `O == H == L == C`               | Warning  | All-same values may indicate stale data |
+| Price change > 20% in one candle | Warning  | Extreme movement flagged but stored     |
+| Volume is zero on major pair     | Warning  | May indicate exchange downtime          |
 
 Candles failing **error** rules are rejected. Candles with **warnings** are stored with a flag.
 
@@ -533,11 +536,11 @@ Schedule: Run gap detection every 6 hours.
 
 ### 10.1 Export Formats
 
-| Format | Best For | Library | Compression |
-|---|---|---|---|
-| **CSV** | Spreadsheets, quick analysis, universal compatibility | `csv-stringify` | gzip |
-| **Parquet** | Big data tools, Python pandas, analytics | `parquetjs` | Snappy (built-in) |
-| **SQLite** | Portable queryable database, sharing with others | `better-sqlite3` | N/A (compact by nature) |
+| Format      | Best For                                              | Library          | Compression             |
+| ----------- | ----------------------------------------------------- | ---------------- | ----------------------- |
+| **CSV**     | Spreadsheets, quick analysis, universal compatibility | `csv-stringify`  | gzip                    |
+| **Parquet** | Big data tools, Python pandas, analytics              | `parquetjs`      | Snappy (built-in)       |
+| **SQLite**  | Portable queryable database, sharing with others      | `better-sqlite3` | N/A (compact by nature) |
 
 ### 10.2 Export Flow
 
@@ -576,14 +579,14 @@ For exports that could be hundreds of MB:
 
 ### 11.1 BullMQ Job Definitions
 
-| Job Name | Queue | Schedule | Priority | Concurrency |
-|---|---|---|---|---|
-| `collect-ohlcv-1m` | `data-collection` | Every 1 min | High | 5 |
-| `collect-ohlcv-1h` | `data-collection` | Every 1 hour | Medium | 3 |
-| `collect-ohlcv-daily` | `data-collection` | Every 1 hour | Low | 2 |
-| `detect-gaps` | `data-collection` | Every 6 hours | Low | 1 |
-| `backfill` | `data-backfill` | On-demand + hourly check | Low | 2 |
-| `export-data` | `data-export` | On-demand | Low | 1 |
+| Job Name              | Queue             | Schedule                 | Priority | Concurrency |
+| --------------------- | ----------------- | ------------------------ | -------- | ----------- |
+| `collect-ohlcv-1m`    | `data-collection` | Every 1 min              | High     | 5           |
+| `collect-ohlcv-1h`    | `data-collection` | Every 1 hour             | Medium   | 3           |
+| `collect-ohlcv-daily` | `data-collection` | Every 1 hour             | Low      | 2           |
+| `detect-gaps`         | `data-collection` | Every 6 hours            | Low      | 1           |
+| `backfill`            | `data-backfill`   | On-demand + hourly check | Low      | 2           |
+| `export-data`         | `data-export`     | On-demand                | Low      | 1           |
 
 ### 11.2 Job Retry Strategy
 
@@ -630,17 +633,17 @@ function toUTCMs(input: number | string | Date): number {
 
 ### Unit Tests
 
-| Component | What to Test |
-|---|---|
-| `CandleValidator` | Each validation rule with valid/invalid data |
-| `Deduplicator` | Duplicate detection, near-duplicate handling |
-| `GapDetector` | Gap detection with various missing patterns |
-| `ExchangeRateLimiter` | Rate limiting, wait time calculation, concurrent access |
-| `BackfillPrioritizer` | Priority ordering for different scenarios |
-| `CSVExporter` | Output format, correct column ordering, special characters |
-| `ParquetExporter` | Schema correctness, data types |
-| `SQLiteExporter` | Table creation, index creation, data integrity |
-| `CompressionHelper` | Gzip compression/decompression roundtrip |
+| Component             | What to Test                                               |
+| --------------------- | ---------------------------------------------------------- |
+| `CandleValidator`     | Each validation rule with valid/invalid data               |
+| `Deduplicator`        | Duplicate detection, near-duplicate handling               |
+| `GapDetector`         | Gap detection with various missing patterns                |
+| `ExchangeRateLimiter` | Rate limiting, wait time calculation, concurrent access    |
+| `BackfillPrioritizer` | Priority ordering for different scenarios                  |
+| `CSVExporter`         | Output format, correct column ordering, special characters |
+| `ParquetExporter`     | Schema correctness, data types                             |
+| `SQLiteExporter`      | Table creation, index creation, data integrity             |
+| `CompressionHelper`   | Gzip compression/decompression roundtrip                   |
 
 ### Integration Tests (Testcontainers)
 
@@ -653,6 +656,7 @@ function toUTCMs(input: number | string | Date): number {
 ### Test Data
 
 Create fixtures with known datasets:
+
 - 1000 candles of BTC/USDT 1h data (realistic values)
 - Dataset with intentional gaps
 - Dataset with invalid candles (high < low, negative volume)

@@ -4,12 +4,12 @@ import { resolve } from "node:path";
 import { createDb } from "@tb/db";
 import IORedis from "ioredis";
 
-import { createApp } from "./app.js";
-import { createQueueSet } from "./queues/index.js";
-import { createExchangeManager } from "./services/exchangeManager.js";
-import { assertEncryptionSecret, KeyVault } from "./services/keyVault.js";
-import { bootstrapStrategies } from "./services/strategyCatalog.js";
-import { createFastifyLoggerOptions } from "./utils/logger.js";
+import { createApp } from "./app";
+import { createQueueSet } from "./queues/index";
+import { createExchangeManager } from "./services/exchangeManager";
+import { assertEncryptionSecret, KeyVault } from "./services/keyVault";
+import { bootstrapStrategies } from "./services/strategyCatalog";
+import { createFastifyLoggerOptions } from "./utils/logger";
 
 async function start() {
   const databaseUrl = process.env["DATABASE_URL"]?.trim();

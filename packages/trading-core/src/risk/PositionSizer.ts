@@ -1,4 +1,4 @@
-import type { RiskConfig } from "./RiskManager.js";
+import type { RiskConfig } from "./RiskManager";
 
 /**
  * Calculates position size based on risk parameters.

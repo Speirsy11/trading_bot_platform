@@ -5,11 +5,10 @@ import { join } from "path";
 import type { OHLCVRow } from "@tb/db";
 import { describe, it, expect } from "vitest";
 
-import { CSVExporter } from "../export/CSVExporter.js";
-import { CompressionHelper } from "../export/CompressionHelper.js";
-import { ParquetExporter } from "../export/ParquetExporter.js";
-import { SQLiteExporter } from "../export/SQLiteExporter.js";
-
+import { CSVExporter } from "../export/CSVExporter";
+import { CompressionHelper } from "../export/CompressionHelper";
+import { ParquetExporter } from "../export/ParquetExporter";
+import { SQLiteExporter } from "../export/SQLiteExporter";
 
 function createTestRows(count: number): OHLCVRow[] {
   const rows: OHLCVRow[] = [];

@@ -3,10 +3,9 @@ import type { Database } from "@tb/db";
 import { getLatestTimestamp, upsertOHLCV, dataCollectionStatus, type OHLCVInsert } from "@tb/db";
 import { sql } from "drizzle-orm";
 
-import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter.js";
+import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
 
-import { OHLCVCollector } from "./OHLCVCollector.js";
-
+import { OHLCVCollector } from "./OHLCVCollector";
 
 const logger = createLogger("data-collector");
 
@@ -19,11 +18,7 @@ export class DataCollector {
     this.collector = new OHLCVCollector(rateLimiter);
   }
 
-  async collectOHLCV(
-    exchange: string,
-    symbol: string,
-    timeframe: string,
-  ) {
+  async collectOHLCV(exchange: string, symbol: string, timeframe: string) {
     try {
       // Update status to collecting
       await this.updateStatus(exchange, symbol, timeframe, "collecting");
@@ -36,13 +31,13 @@ export class DataCollector {
         exchange,
         symbol,
         timeframe,
-        latest,
+        latest
       );
 
       if (invalid.length > 0) {
         logger.warn(
           { exchange, symbol, timeframe, count: invalid.length },
-          "Invalid candles rejected",
+          "Invalid candles rejected"
         );
       }
 
@@ -71,10 +66,7 @@ export class DataCollector {
       // Update status
       await this.updateStatus(exchange, symbol, timeframe, "idle");
 
-      logger.info(
-        { exchange, symbol, timeframe, inserted: valid.length },
-        "OHLCV data collected",
-      );
+      logger.info({ exchange, symbol, timeframe, inserted: valid.length }, "OHLCV data collected");
 
       return { inserted: valid.length, invalid: invalid.length };
     } catch (error) {
@@ -90,7 +82,7 @@ export class DataCollector {
     symbol: string,
     timeframe: string,
     status: string,
-    errorMessage?: string,
+    errorMessage?: string
   ) {
     await this.db
       .insert(dataCollectionStatus)

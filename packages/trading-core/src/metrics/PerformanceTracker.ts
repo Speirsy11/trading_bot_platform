@@ -1,4 +1,4 @@
-import type { EquityPoint } from "./types.js";
+import type { EquityPoint } from "./types";
 
 /**
  * Tracks equity curve and daily returns over the course of a backtest or live run.

@@ -1,8 +1,8 @@
 import type { IndicatorCalculator } from "@tb/indicators";
 import type { Balance, Order } from "@tb/types";
 
-import type { IExchange, Position } from "../exchange/types.js";
-import type { PositionManager } from "../orders/PositionManager.js";
+import type { IExchange, Position } from "../exchange/types";
+import type { PositionManager } from "../orders/PositionManager";
 
 export interface StrategyConfig {
   symbol: string;

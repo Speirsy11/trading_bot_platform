@@ -1,8 +1,8 @@
 import type { Candle, Order, OrderType, OrderSide, Balance } from "@tb/types";
 
-import { roundTo } from "../utils/decimal.js";
+import { roundTo } from "../utils/decimal";
 
-import type { IExchange, Ticker, OrderBook, FeeConfig, SlippageConfig } from "./types.js";
+import type { IExchange, Ticker, OrderBook, FeeConfig, SlippageConfig } from "./types";
 
 /**
  * Paper trading exchange. Uses real market data (from another exchange source)

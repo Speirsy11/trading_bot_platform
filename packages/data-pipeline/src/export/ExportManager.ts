@@ -6,10 +6,10 @@ import type { Database } from "@tb/db";
 import { dataExports, queryOHLCVByRange } from "@tb/db";
 import { eq } from "drizzle-orm";
 
-import { CSVExporter } from "./CSVExporter.js";
-import { CompressionHelper } from "./CompressionHelper.js";
-import { ParquetExporter } from "./ParquetExporter.js";
-import { SQLiteExporter } from "./SQLiteExporter.js";
+import { CSVExporter } from "./CSVExporter";
+import { CompressionHelper } from "./CompressionHelper";
+import { ParquetExporter } from "./ParquetExporter";
+import { SQLiteExporter } from "./SQLiteExporter";
 
 const logger = createLogger("export-manager");
 
@@ -32,7 +32,9 @@ export class ExportManager {
     this.db = db;
   }
 
-  async runExport(request: ExportRequest): Promise<{ filePath: string; fileSize: number; rowCount: number }> {
+  async runExport(
+    request: ExportRequest
+  ): Promise<{ filePath: string; fileSize: number; rowCount: number }> {
     await this.updateExportStatus(request.id, "processing", 0);
 
     try {
@@ -49,7 +51,7 @@ export class ExportManager {
           symbol,
           request.timeframe,
           request.startTime,
-          request.endTime,
+          request.endTime
         );
         allRows.push(...rows);
 
@@ -104,7 +106,7 @@ export class ExportManager {
 
       logger.info(
         { exportId: request.id, format: request.format, rowCount, fileSize: fileStat.size },
-        "Export completed",
+        "Export completed"
       );
 
       return { filePath: finalPath, fileSize: fileStat.size, rowCount };
@@ -132,7 +134,7 @@ export class ExportManager {
     id: string,
     status: string,
     progress: number,
-    extra?: { filePath?: string; fileSize?: number; rowCount?: number; error?: string },
+    extra?: { filePath?: string; fileSize?: number; rowCount?: number; error?: string }
   ) {
     await this.db
       .update(dataExports)

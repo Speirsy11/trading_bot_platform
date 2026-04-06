@@ -51,18 +51,13 @@ export interface Signal {
 // ─── Exchange Abstraction ────────────────────────────────────────────────────
 
 export interface IExchange {
-  fetchOHLCV(
-    symbol: string,
-    timeframe: string,
-    since?: number,
-    limit?: number,
-  ): Promise<Candle[]>;
+  fetchOHLCV(symbol: string, timeframe: string, since?: number, limit?: number): Promise<Candle[]>;
   createOrder(
     symbol: string,
     type: OrderType,
     side: OrderSide,
     amount: number,
-    price?: number,
+    price?: number
   ): Promise<Order>;
   cancelOrder(id: string, symbol?: string): Promise<void>;
   fetchBalance(): Promise<Balance>;

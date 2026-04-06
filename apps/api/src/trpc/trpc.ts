@@ -1,6 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
-import type { TrpcContext } from "./context.js";
+import type { TrpcContext } from "./context";
 
 const trpc = initTRPC.context<TrpcContext>().create({
   errorFormatter({ shape, error }) {

@@ -103,19 +103,19 @@ The API server does NOT directly run trading bots or data collection — it disp
 
 ## 2. Technology Stack
 
-| Concern | Library | Notes |
-|---|---|---|
-| Framework | **Fastify** `^5.x` | Fastest Node.js framework; native async/await; plugin architecture |
-| Type-safe API | **tRPC** `^11.x` | End-to-end type safety with the Next.js frontend |
-| WebSocket | **Socket.IO** via `@fastify/socket.io` | Real-time event streaming to dashboard |
-| Validation | **Zod** | Input validation for all tRPC procedures |
-| Database | **Drizzle ORM** (from `@tb/db` package) | Type-safe queries, minimal runtime overhead |
-| Job Queue | **BullMQ** | Dispatch background jobs to workers |
-| Caching | **ioredis** | Direct Redis access for caching and pub/sub |
-| Logging | **Pino** (built into Fastify) | Structured JSON logging with redaction |
-| Auth (API keys) | **crypto** (Node.js built-in) | AES-256-GCM encryption for exchange keys |
-| Testing | **Vitest** + **Supertest** | Unit tests, API integration tests |
-| Process | **tsx** (dev) / **Node.js** (prod) | TypeScript execution |
+| Concern         | Library                                 | Notes                                                              |
+| --------------- | --------------------------------------- | ------------------------------------------------------------------ |
+| Framework       | **Fastify** `^5.x`                      | Fastest Node.js framework; native async/await; plugin architecture |
+| Type-safe API   | **tRPC** `^11.x`                        | End-to-end type safety with the Next.js frontend                   |
+| WebSocket       | **Socket.IO** via `@fastify/socket.io`  | Real-time event streaming to dashboard                             |
+| Validation      | **Zod**                                 | Input validation for all tRPC procedures                           |
+| Database        | **Drizzle ORM** (from `@tb/db` package) | Type-safe queries, minimal runtime overhead                        |
+| Job Queue       | **BullMQ**                              | Dispatch background jobs to workers                                |
+| Caching         | **ioredis**                             | Direct Redis access for caching and pub/sub                        |
+| Logging         | **Pino** (built into Fastify)           | Structured JSON logging with redaction                             |
+| Auth (API keys) | **crypto** (Node.js built-in)           | AES-256-GCM encryption for exchange keys                           |
+| Testing         | **Vitest** + **Supertest**              | Unit tests, API integration tests                                  |
+| Process         | **tsx** (dev) / **Node.js** (prod)      | TypeScript execution                                               |
 
 ---
 
@@ -214,7 +214,7 @@ portfolio.router({
 
   // Get portfolio allocation breakdown
   getAllocation: publicProcedure.query(),
-})
+});
 ```
 
 ### 4.2 Bots Router
@@ -224,20 +224,20 @@ portfolio.router({
 bots.router({
   // List all bots with status
   list: publicProcedure
-    .input(z.object({
-      status: z.enum(["all", "running", "paused", "stopped"]).optional(),
-      exchange: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        status: z.enum(["all", "running", "paused", "stopped"]).optional(),
+        exchange: z.string().optional(),
+      })
+    )
     .query(),
 
   // Get single bot with full details
-  getById: publicProcedure
-    .input(z.object({ botId: z.string().uuid() }))
-    .query(),
+  getById: publicProcedure.input(z.object({ botId: z.string().uuid() })).query(),
 
   // Create new bot
   create: publicProcedure
-    .input(botConfigSchema)   // Zod schema from @tb/types
+    .input(botConfigSchema) // Zod schema from @tb/types
     .mutation(),
 
   // Update bot configuration (only when stopped)
@@ -246,47 +246,41 @@ bots.router({
     .mutation(),
 
   // Start bot (dispatches BullMQ job)
-  start: publicProcedure
-    .input(z.object({ botId: z.string().uuid() }))
-    .mutation(),
+  start: publicProcedure.input(z.object({ botId: z.string().uuid() })).mutation(),
 
   // Pause bot
-  pause: publicProcedure
-    .input(z.object({ botId: z.string().uuid() }))
-    .mutation(),
+  pause: publicProcedure.input(z.object({ botId: z.string().uuid() })).mutation(),
 
   // Stop bot (graceful shutdown)
-  stop: publicProcedure
-    .input(z.object({ botId: z.string().uuid() }))
-    .mutation(),
+  stop: publicProcedure.input(z.object({ botId: z.string().uuid() })).mutation(),
 
   // Delete bot (only when stopped)
-  delete: publicProcedure
-    .input(z.object({ botId: z.string().uuid() }))
-    .mutation(),
+  delete: publicProcedure.input(z.object({ botId: z.string().uuid() })).mutation(),
 
   // Get bot performance metrics
-  getMetrics: publicProcedure
-    .input(z.object({ botId: z.string().uuid() }))
-    .query(),
+  getMetrics: publicProcedure.input(z.object({ botId: z.string().uuid() })).query(),
 
   // Get bot trade history
   getTrades: publicProcedure
-    .input(z.object({
-      botId: z.string().uuid(),
-      limit: z.number().min(1).max(500).default(50),
-      offset: z.number().min(0).default(0),
-    }))
+    .input(
+      z.object({
+        botId: z.string().uuid(),
+        limit: z.number().min(1).max(500).default(50),
+        offset: z.number().min(0).default(0),
+      })
+    )
     .query(),
 
   // Get bot logs
   getLogs: publicProcedure
-    .input(z.object({
-      botId: z.string().uuid(),
-      limit: z.number().min(1).max(200).default(50),
-    }))
+    .input(
+      z.object({
+        botId: z.string().uuid(),
+        limit: z.number().min(1).max(200).default(50),
+      })
+    )
     .query(),
-})
+});
 ```
 
 ### 4.3 Backtest Router
@@ -295,34 +289,28 @@ bots.router({
 // trpc/routers/backtest.ts
 backtest.router({
   // Run a new backtest (dispatches BullMQ job)
-  run: publicProcedure
-    .input(backtestConfigSchema)
-    .mutation(),  // Returns { backtestId }
+  run: publicProcedure.input(backtestConfigSchema).mutation(), // Returns { backtestId }
 
   // Get backtest status/progress
-  getStatus: publicProcedure
-    .input(z.object({ backtestId: z.string().uuid() }))
-    .query(),   // Returns { status, progress, currentDate }
+  getStatus: publicProcedure.input(z.object({ backtestId: z.string().uuid() })).query(), // Returns { status, progress, currentDate }
 
   // Get backtest results
-  getResults: publicProcedure
-    .input(z.object({ backtestId: z.string().uuid() }))
-    .query(),   // Returns full BacktestResults
+  getResults: publicProcedure.input(z.object({ backtestId: z.string().uuid() })).query(), // Returns full BacktestResults
 
   // List past backtests
   list: publicProcedure
-    .input(z.object({
-      strategy: z.string().optional(),
-      symbol: z.string().optional(),
-      limit: z.number().default(20),
-    }))
+    .input(
+      z.object({
+        strategy: z.string().optional(),
+        symbol: z.string().optional(),
+        limit: z.number().default(20),
+      })
+    )
     .query(),
 
   // Delete a backtest result
-  delete: publicProcedure
-    .input(z.object({ backtestId: z.string().uuid() }))
-    .mutation(),
-})
+  delete: publicProcedure.input(z.object({ backtestId: z.string().uuid() })).mutation(),
+});
 ```
 
 ### 4.4 Market Router
@@ -331,39 +319,39 @@ backtest.router({
 // trpc/routers/market.ts
 market.router({
   // Get current ticker for a symbol
-  getTicker: publicProcedure
-    .input(z.object({ exchange: z.string(), symbol: z.string() }))
-    .query(),
+  getTicker: publicProcedure.input(z.object({ exchange: z.string(), symbol: z.string() })).query(),
 
   // Get OHLCV candles from local database
   getCandles: publicProcedure
-    .input(z.object({
-      exchange: z.string(),
-      symbol: z.string(),
-      timeframe: z.string(),
-      startTime: z.number().optional(),
-      endTime: z.number().optional(),
-      limit: z.number().max(5000).default(500),
-    }))
+    .input(
+      z.object({
+        exchange: z.string(),
+        symbol: z.string(),
+        timeframe: z.string(),
+        startTime: z.number().optional(),
+        endTime: z.number().optional(),
+        limit: z.number().max(5000).default(500),
+      })
+    )
     .query(),
 
   // List available trading pairs for an exchange
-  getSymbols: publicProcedure
-    .input(z.object({ exchange: z.string() }))
-    .query(),
+  getSymbols: publicProcedure.input(z.object({ exchange: z.string() })).query(),
 
   // Get data coverage info (what data we have locally)
   getDataCoverage: publicProcedure
-    .input(z.object({
-      exchange: z.string(),
-      symbol: z.string(),
-      timeframe: z.string(),
-    }))
-    .query(),   // Returns { earliest, latest, gapCount, completeness% }
+    .input(
+      z.object({
+        exchange: z.string(),
+        symbol: z.string(),
+        timeframe: z.string(),
+      })
+    )
+    .query(), // Returns { earliest, latest, gapCount, completeness% }
 
   // Get available strategies and their parameter schemas
   getStrategies: publicProcedure.query(),
-})
+});
 ```
 
 ### 4.5 Exchanges Router
@@ -376,31 +364,29 @@ exchanges.router({
 
   // Add exchange API keys
   add: publicProcedure
-    .input(z.object({
-      exchange: z.string(),
-      name: z.string(),       // User-friendly label
-      apiKey: z.string(),
-      apiSecret: z.string(),
-      passphrase: z.string().optional(),  // Some exchanges require this
-      testnet: z.boolean().default(false),
-    }))
+    .input(
+      z.object({
+        exchange: z.string(),
+        name: z.string(), // User-friendly label
+        apiKey: z.string(),
+        apiSecret: z.string(),
+        passphrase: z.string().optional(), // Some exchanges require this
+        testnet: z.boolean().default(false),
+      })
+    )
     .mutation(),
 
   // Test exchange connection (validates API keys)
-  testConnection: publicProcedure
-    .input(z.object({ exchangeId: z.string().uuid() }))
-    .mutation(),  // Returns { success, permissions, balance }
+  testConnection: publicProcedure.input(z.object({ exchangeId: z.string().uuid() })).mutation(), // Returns { success, permissions, balance }
 
   // Remove exchange configuration
-  remove: publicProcedure
-    .input(z.object({ exchangeId: z.string().uuid() }))
-    .mutation(),
+  remove: publicProcedure.input(z.object({ exchangeId: z.string().uuid() })).mutation(),
 
   // Update exchange config (e.g., label)
   update: publicProcedure
     .input(z.object({ exchangeId: z.string().uuid(), name: z.string().optional() }))
     .mutation(),
-})
+});
 ```
 
 ### 4.6 Data Export Router
@@ -410,30 +396,28 @@ exchanges.router({
 dataExport.router({
   // Start an export job
   create: publicProcedure
-    .input(z.object({
-      exchange: z.string(),
-      symbols: z.array(z.string()).min(1),
-      timeframe: z.string(),
-      startTime: z.number(),
-      endTime: z.number(),
-      format: z.enum(["csv", "parquet", "sqlite"]),
-      compress: z.boolean().default(true),
-    }))
-    .mutation(),  // Returns { exportId }
+    .input(
+      z.object({
+        exchange: z.string(),
+        symbols: z.array(z.string()).min(1),
+        timeframe: z.string(),
+        startTime: z.number(),
+        endTime: z.number(),
+        format: z.enum(["csv", "parquet", "sqlite"]),
+        compress: z.boolean().default(true),
+      })
+    )
+    .mutation(), // Returns { exportId }
 
   // Get export job status
-  getStatus: publicProcedure
-    .input(z.object({ exportId: z.string().uuid() }))
-    .query(),   // Returns { status, progress, downloadUrl? }
+  getStatus: publicProcedure.input(z.object({ exportId: z.string().uuid() })).query(), // Returns { status, progress, downloadUrl? }
 
   // List past exports
   list: publicProcedure.query(),
 
   // Delete an export file
-  delete: publicProcedure
-    .input(z.object({ exportId: z.string().uuid() }))
-    .mutation(),
-})
+  delete: publicProcedure.input(z.object({ exportId: z.string().uuid() })).mutation(),
+});
 ```
 
 ---
@@ -456,7 +440,7 @@ Workers (bot, data pipeline)
 ```
 io.of("/")                      # Default namespace
   room: "ticker:{exchange}:{symbol}"     # Price subscribers
-  room: "candle:{exchange}:{symbol}:{tf}" # Candle subscribers  
+  room: "candle:{exchange}:{symbol}:{tf}" # Candle subscribers
   room: "bot:{botId}"                    # Bot-specific events
   room: "portfolio"                      # Portfolio updates
   room: "backtest:{backtestId}"          # Backtest progress
@@ -464,16 +448,16 @@ io.of("/")                      # Default namespace
 
 ### Events Emitted by Workers → Redis → Socket.IO
 
-| Redis Channel | Socket.IO Event | Payload |
-|---|---|---|
-| `market:ticker` | `price:ticker` | `{ exchange, symbol, bid, ask, last, volume, change24h }` |
-| `market:candle` | `price:candle` | `{ exchange, symbol, timeframe, candle }` |
-| `bot:status` | `bot:statusChange` | `{ botId, status, timestamp }` |
-| `bot:trade` | `bot:trade` | `{ botId, trade }` |
-| `bot:metrics` | `bot:metrics` | `{ botId, metrics }` |
-| `portfolio:update` | `portfolio:update` | `{ totalValue, change24h, positions }` |
-| `backtest:progress` | `backtest:progress` | `{ backtestId, progress, currentDate }` |
-| `data:status` | `data:collectionStatus` | `{ exchange, symbol, status, lastUpdated }` |
+| Redis Channel       | Socket.IO Event         | Payload                                                   |
+| ------------------- | ----------------------- | --------------------------------------------------------- |
+| `market:ticker`     | `price:ticker`          | `{ exchange, symbol, bid, ask, last, volume, change24h }` |
+| `market:candle`     | `price:candle`          | `{ exchange, symbol, timeframe, candle }`                 |
+| `bot:status`        | `bot:statusChange`      | `{ botId, status, timestamp }`                            |
+| `bot:trade`         | `bot:trade`             | `{ botId, trade }`                                        |
+| `bot:metrics`       | `bot:metrics`           | `{ botId, metrics }`                                      |
+| `portfolio:update`  | `portfolio:update`      | `{ totalValue, change24h, positions }`                    |
+| `backtest:progress` | `backtest:progress`     | `{ backtestId, progress, currentDate }`                   |
+| `data:status`       | `data:collectionStatus` | `{ exchange, symbol, status, lastUpdated }`               |
 
 ---
 
@@ -483,13 +467,13 @@ The API server creates and manages BullMQ **queues** and dispatches jobs. Separa
 
 ### Queues
 
-| Queue Name | Purpose | Concurrency | Notes |
-|---|---|---|---|
-| `bot-execution` | Start/stop/manage trading bots | 10 | Long-running; one job per active bot |
-| `backtest` | Run backtests | 2 | CPU-intensive; limit concurrency |
-| `data-collection` | OHLCV fetch jobs | 5 | Rate-limited per exchange |
-| `data-backfill` | Historical data download | 2 | Low priority, background |
-| `data-export` | Generate export files | 1 | I/O bound |
+| Queue Name        | Purpose                        | Concurrency | Notes                                |
+| ----------------- | ------------------------------ | ----------- | ------------------------------------ |
+| `bot-execution`   | Start/stop/manage trading bots | 10          | Long-running; one job per active bot |
+| `backtest`        | Run backtests                  | 2           | CPU-intensive; limit concurrency     |
+| `data-collection` | OHLCV fetch jobs               | 5           | Rate-limited per exchange            |
+| `data-backfill`   | Historical data download       | 2           | Low priority, background             |
+| `data-export`     | Generate export files          | 1           | I/O bound                            |
 
 ### Job Dispatch Pattern
 
@@ -572,17 +556,17 @@ The API uses the shared `@tb/db` package (Drizzle ORM) for all database operatio
 
 ### Key Tables (defined in `@tb/db`)
 
-| Table | Purpose |
-|---|---|
-| `exchange_configs` | Stored exchange API keys (encrypted) |
-| `bots` | Bot configurations and current status |
-| `bot_trades` | All trades executed by bots |
-| `bot_logs` | Bot event logs |
-| `backtests` | Backtest configurations and results |
-| `backtest_trades` | Simulated trades from backtests |
-| `ohlcv` | Historical OHLCV data (TimescaleDB hypertable) |
-| `data_exports` | Export job records and file paths |
-| `settings` | App settings key-value store |
+| Table              | Purpose                                        |
+| ------------------ | ---------------------------------------------- |
+| `exchange_configs` | Stored exchange API keys (encrypted)           |
+| `bots`             | Bot configurations and current status          |
+| `bot_trades`       | All trades executed by bots                    |
+| `bot_logs`         | Bot event logs                                 |
+| `backtests`        | Backtest configurations and results            |
+| `backtest_trades`  | Simulated trades from backtests                |
+| `ohlcv`            | Historical OHLCV data (TimescaleDB hypertable) |
+| `data_exports`     | Export job records and file paths              |
+| `settings`         | App settings key-value store                   |
 
 ---
 
@@ -595,6 +579,7 @@ GET /health → 200 { status: "ok", uptime, db: "connected", redis: "connected" 
 ```
 
 Checks:
+
 - Database connection (simple query)
 - Redis connection (PING)
 - BullMQ queue status

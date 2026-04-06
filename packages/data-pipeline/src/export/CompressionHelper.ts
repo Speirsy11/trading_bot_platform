@@ -4,18 +4,10 @@ import { createGzip, createGunzip } from "zlib";
 
 export class CompressionHelper {
   static async gzipFile(inputPath: string, outputPath: string): Promise<void> {
-    await pipeline(
-      createReadStream(inputPath),
-      createGzip(),
-      createWriteStream(outputPath),
-    );
+    await pipeline(createReadStream(inputPath), createGzip(), createWriteStream(outputPath));
   }
 
   static async gunzipFile(inputPath: string, outputPath: string): Promise<void> {
-    await pipeline(
-      createReadStream(inputPath),
-      createGunzip(),
-      createWriteStream(outputPath),
-    );
+    await pipeline(createReadStream(inputPath), createGunzip(), createWriteStream(outputPath));
   }
 }

@@ -19,7 +19,7 @@ export class ParquetExporter {
         close: row.close,
         volume: row.volume,
         trades_count: row.tradesCount,
-      }),
+      })
     );
 
     await writeFile(outputPath, lines.join("\n"), "utf-8");

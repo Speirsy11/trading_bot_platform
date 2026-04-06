@@ -35,10 +35,7 @@ export function generateRealisticCandles(count: number, startPrice = 42000): Can
 }
 
 // Generate candles with intentional gaps (missing candles at specific positions)
-export function generateCandlesWithGaps(
-  count: number,
-  gapPositions: number[],
-): Candle[] {
+export function generateCandlesWithGaps(count: number, gapPositions: number[]): Candle[] {
   const allCandles = generateRealisticCandles(count + gapPositions.length);
   return allCandles.filter((_, i) => !gapPositions.includes(i));
 }

@@ -1,12 +1,4 @@
-import {
-  pgTable,
-  text,
-  numeric,
-  timestamp,
-  bigint,
-  unique,
-  index,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, numeric, timestamp, bigint, unique, index } from "drizzle-orm/pg-core";
 
 export const ohlcv = pgTable(
   "ohlcv",
@@ -26,7 +18,7 @@ export const ohlcv = pgTable(
   (table) => [
     unique("ohlcv_unique").on(table.exchange, table.symbol, table.timeframe, table.time),
     index("idx_ohlcv_lookup").on(table.exchange, table.symbol, table.timeframe, table.time),
-  ],
+  ]
 );
 
 export type OHLCVRow = typeof ohlcv.$inferSelect;

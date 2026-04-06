@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { timeframeToMs, msToTimeframe, candlesInRange } from "../utils/timeframe.js";
+import { timeframeToMs, msToTimeframe, candlesInRange } from "../utils/timeframe";
 
 describe("timeframe utils", () => {
   describe("timeframeToMs", () => {

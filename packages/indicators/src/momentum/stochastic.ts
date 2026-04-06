@@ -1,5 +1,5 @@
-import { sma } from "../trend/sma.js";
-import type { StochasticResult } from "../types.js";
+import { sma } from "../trend/sma";
+import type { StochasticResult } from "../types";
 
 /**
  * Stochastic Oscillator

@@ -17,20 +17,16 @@ import {
   queryOHLCVByRange,
   type OHLCVInsert,
 } from "@tb/db";
-import {
-  PostgreSqlContainer,
-  type StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
+import { PostgreSqlContainer, type StartedPostgreSqlContainer } from "@testcontainers/postgresql";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
-import { CSVExporter } from "../export/CSVExporter.js";
-import { SQLiteExporter } from "../export/SQLiteExporter.js";
-import { GapDetector } from "../validation/GapDetector.js";
+import { CSVExporter } from "../export/CSVExporter";
+import { SQLiteExporter } from "../export/SQLiteExporter";
+import { GapDetector } from "../validation/GapDetector";
 
-import { generateRealisticCandles } from "./fixtures.js";
-
+import { generateRealisticCandles } from "./fixtures";
 
 const schema = {
   ohlcv,
@@ -130,7 +126,7 @@ describe("Data Pipeline Integration Tests", () => {
         "BTC/USDT",
         "1h",
         new Date(candles[0]!.time),
-        new Date(candles[49]!.time),
+        new Date(candles[49]!.time)
       );
 
       expect(result).toHaveLength(50);
@@ -144,39 +140,36 @@ describe("Data Pipeline Integration Tests", () => {
       const time = new Date("2025-01-01T00:00:00Z");
 
       // Insert initial
-      await upsertOHLCV(db, [{
-        time,
-        exchange: "binance",
-        symbol: "ETH/USDT",
-        timeframe: "1h",
-        open: "3000.00000000",
-        high: "3100.00000000",
-        low: "2900.00000000",
-        close: "3050.00000000",
-        volume: "100.00000000",
-      }]);
+      await upsertOHLCV(db, [
+        {
+          time,
+          exchange: "binance",
+          symbol: "ETH/USDT",
+          timeframe: "1h",
+          open: "3000.00000000",
+          high: "3100.00000000",
+          low: "2900.00000000",
+          close: "3050.00000000",
+          volume: "100.00000000",
+        },
+      ]);
 
       // Upsert with updated values
-      await upsertOHLCV(db, [{
-        time,
-        exchange: "binance",
-        symbol: "ETH/USDT",
-        timeframe: "1h",
-        open: "3010.00000000",
-        high: "3110.00000000",
-        low: "2910.00000000",
-        close: "3060.00000000",
-        volume: "200.00000000",
-      }]);
+      await upsertOHLCV(db, [
+        {
+          time,
+          exchange: "binance",
+          symbol: "ETH/USDT",
+          timeframe: "1h",
+          open: "3010.00000000",
+          high: "3110.00000000",
+          low: "2910.00000000",
+          close: "3060.00000000",
+          volume: "200.00000000",
+        },
+      ]);
 
-      const result = await queryOHLCVByRange(
-        db,
-        "binance",
-        "ETH/USDT",
-        "1h",
-        time,
-        time,
-      );
+      const result = await queryOHLCVByRange(db, "binance", "ETH/USDT", "1h", time, time);
 
       expect(result).toHaveLength(1);
       expect(result[0]!.open).toBe("3010.00000000");
@@ -216,7 +209,7 @@ describe("Data Pipeline Integration Tests", () => {
         symbol,
         timeframe,
         baseTime,
-        new Date(baseTime.getTime() + 9 * 3_600_000),
+        new Date(baseTime.getTime() + 9 * 3_600_000)
       );
 
       expect(gaps.length).toBe(1);
@@ -236,7 +229,7 @@ describe("Data Pipeline Integration Tests", () => {
         "BTC/USDT",
         "1h",
         new Date("2024-01-01T00:00:00Z"),
-        new Date("2024-12-31T23:59:59Z"),
+        new Date("2024-12-31T23:59:59Z")
       );
 
       const exporter = new CSVExporter();
@@ -258,7 +251,7 @@ describe("Data Pipeline Integration Tests", () => {
         "BTC/USDT",
         "1h",
         new Date("2024-01-01T00:00:00Z"),
-        new Date("2024-12-31T23:59:59Z"),
+        new Date("2024-12-31T23:59:59Z")
       );
 
       const exporter = new SQLiteExporter();

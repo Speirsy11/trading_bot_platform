@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { obv } from "../volume/obv.js";
+import { obv } from "../volume/obv";
 
 describe("OBV", () => {
   it("calculates OBV correctly", () => {

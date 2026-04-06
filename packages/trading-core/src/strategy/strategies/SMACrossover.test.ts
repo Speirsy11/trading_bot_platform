@@ -2,11 +2,11 @@ import { IndicatorCalculator } from "@tb/indicators";
 import type { Candle } from "@tb/types";
 import { describe, it, expect } from "vitest";
 
-import { BacktestExchange } from "../../exchange/BacktestExchange.js";
-import { PositionManager } from "../../orders/PositionManager.js";
-import { StrategyContext } from "../StrategyContext.js";
+import { BacktestExchange } from "../../exchange/BacktestExchange";
+import { PositionManager } from "../../orders/PositionManager";
+import { StrategyContext } from "../StrategyContext";
 
-import { SMACrossover } from "./SMACrossover.js";
+import { SMACrossover } from "./SMACrossover";
 
 describe("SMACrossover strategy", () => {
   it("generates buy signal on golden cross", async () => {

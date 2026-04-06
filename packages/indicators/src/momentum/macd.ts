@@ -1,5 +1,5 @@
-import { ema } from "../trend/ema.js";
-import type { MACDResult } from "../types.js";
+import { ema } from "../trend/ema";
+import type { MACDResult } from "../types";
 
 /**
  * Moving Average Convergence Divergence (MACD)

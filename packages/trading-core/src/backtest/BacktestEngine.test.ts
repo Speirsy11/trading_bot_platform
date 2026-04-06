@@ -1,11 +1,11 @@
 import type { Candle } from "@tb/types";
 import { describe, it, expect } from "vitest";
 
-import type { BacktestConfig } from "../backtest/BacktestConfig.js";
-import { BacktestEngine } from "../backtest/BacktestEngine.js";
-import { DEFAULT_RISK_CONFIG } from "../risk/RiskManager.js";
-import { StrategyRegistry } from "../strategy/StrategyRegistry.js";
-import { SMACrossover } from "../strategy/strategies/SMACrossover.js";
+import type { BacktestConfig } from "../backtest/BacktestConfig";
+import { BacktestEngine } from "../backtest/BacktestEngine";
+import { DEFAULT_RISK_CONFIG } from "../risk/RiskManager";
+import { StrategyRegistry } from "../strategy/StrategyRegistry";
+import { SMACrossover } from "../strategy/strategies/SMACrossover";
 
 /**
  * Generate synthetic market data with an uptrend followed by downtrend.

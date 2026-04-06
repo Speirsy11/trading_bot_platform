@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { stochastic } from "../momentum/stochastic.js";
+import { stochastic } from "../momentum/stochastic";
 
 describe("Stochastic", () => {
   it("calculates %K and %D correctly", () => {

@@ -1,16 +1,16 @@
 import type { Candle } from "@tb/types";
 
-import { macd } from "./momentum/macd.js";
-import { rsi } from "./momentum/rsi.js";
-import { stochastic } from "./momentum/stochastic.js";
-import { adx } from "./trend/adx.js";
-import { ema } from "./trend/ema.js";
-import { sma } from "./trend/sma.js";
-import type { BollingerBandsResult, MACDResult, StochasticResult } from "./types.js";
-import { atr } from "./volatility/atr.js";
-import { bollingerBands } from "./volatility/bollingerBands.js";
-import { obv } from "./volume/obv.js";
-import { vwap } from "./volume/vwap.js";
+import { macd } from "./momentum/macd";
+import { rsi } from "./momentum/rsi";
+import { stochastic } from "./momentum/stochastic";
+import { adx } from "./trend/adx";
+import { ema } from "./trend/ema";
+import { sma } from "./trend/sma";
+import type { BollingerBandsResult, MACDResult, StochasticResult } from "./types";
+import { atr } from "./volatility/atr";
+import { bollingerBands } from "./volatility/bollingerBands";
+import { obv } from "./volume/obv";
+import { vwap } from "./volume/vwap";
 
 /**
  * Unified indicator calculator that strategies consume.

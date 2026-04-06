@@ -1,6 +1,6 @@
-import type { TradeRecord } from "../exchange/types.js";
+import type { TradeRecord } from "../exchange/types";
 
-import type { PerformanceMetrics, EquityPoint } from "./types.js";
+import type { PerformanceMetrics, EquityPoint } from "./types";
 
 /**
  * Computes all performance metrics from trade results and equity curve.

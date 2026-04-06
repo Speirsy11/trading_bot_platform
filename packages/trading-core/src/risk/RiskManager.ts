@@ -1,6 +1,6 @@
 import type { Balance } from "@tb/types";
 
-import type { Position } from "../exchange/types.js";
+import type { Position } from "../exchange/types";
 
 export interface RiskConfig {
   maxPositionSizePercent: number;

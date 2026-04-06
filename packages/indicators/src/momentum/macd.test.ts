@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { macd } from "../momentum/macd.js";
+import { macd } from "../momentum/macd";
 
 describe("MACD", () => {
   it("calculates MACD with default parameters", () => {

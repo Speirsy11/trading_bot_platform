@@ -1,4 +1,4 @@
-import type { RiskConfig } from "../risk/RiskManager.js";
+import type { RiskConfig } from "../risk/RiskManager";
 
 /**
  * Configuration for a backtest run.

@@ -3,12 +3,12 @@ import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { BOT_JOB_NAMES } from "../../queues/types.js";
-import { getStrategyCatalog } from "../../services/strategyCatalog.js";
-import { AppErrorCode } from "../../utils/errors.js";
-import { parseJsonValue, toNumber } from "../../utils/serialization.js";
-import { botConfigSchema, riskConfigSchema, uuidSchema } from "../schemas.js";
-import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc.js";
+import { BOT_JOB_NAMES } from "../../queues/types";
+import { getStrategyCatalog } from "../../services/strategyCatalog";
+import { AppErrorCode } from "../../utils/errors";
+import { parseJsonValue, toNumber } from "../../utils/serialization";
+import { botConfigSchema, riskConfigSchema, uuidSchema } from "../schemas";
+import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc";
 
 const botStatusFilterSchema = z.object({
   status: z.enum(["all", "running", "paused", "stopped", "starting", "idle", "error"]).optional(),

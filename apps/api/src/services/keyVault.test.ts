@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { KeyVault } from "./keyVault.js";
+import { KeyVault } from "./keyVault";
 
 describe("KeyVault", () => {
   it("encrypts and decrypts values with a stable secret", () => {

@@ -64,11 +64,7 @@ export class CandleValidator {
     }
 
     // Rule 6: all-same values warning (stale data)
-    if (
-      candle.open === candle.high &&
-      candle.high === candle.low &&
-      candle.low === candle.close
-    ) {
+    if (candle.open === candle.high && candle.high === candle.low && candle.low === candle.close) {
       warnings.push({
         rule: "all_same_values",
         message: "Open, High, Low, Close are all identical — may indicate stale data",
@@ -107,7 +103,11 @@ export class CandleValidator {
     };
   }
 
-  validateBatch(candles: Candle[]): { valid: Candle[]; invalid: Candle[]; results: Map<number, ValidationResult> } {
+  validateBatch(candles: Candle[]): {
+    valid: Candle[];
+    invalid: Candle[];
+    results: Map<number, ValidationResult>;
+  } {
     const valid: Candle[] = [];
     const invalid: Candle[] = [];
     const results = new Map<number, ValidationResult>();

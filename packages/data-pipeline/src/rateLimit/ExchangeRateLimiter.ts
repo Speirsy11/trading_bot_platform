@@ -1,6 +1,6 @@
 import type Redis from "ioredis";
 
-import { RATE_LIMIT_DEFAULTS, type RateLimitOptions } from "./RateLimitConfig.js";
+import { RATE_LIMIT_DEFAULTS, type RateLimitOptions } from "./RateLimitConfig";
 
 export class ExchangeRateLimiter {
   private redis: Redis | null;

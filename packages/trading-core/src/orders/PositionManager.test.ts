@@ -1,7 +1,7 @@
 import type { Order } from "@tb/types";
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { PositionManager } from "./PositionManager.js";
+import { PositionManager } from "./PositionManager";
 
 function makeFilledOrder(overrides: Partial<Order> = {}): Order {
   return {

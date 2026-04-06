@@ -1,5 +1,4 @@
 import { timingSafeEqual } from "node:crypto";
-import { createRequire } from "node:module";
 import { resolve } from "node:path";
 
 import { createBullBoard } from "@bull-board/api";
@@ -19,12 +18,12 @@ import Fastify, {
 import type IORedis from "ioredis";
 import { Server } from "socket.io";
 
-import type { QueueSet } from "./queues/index.js";
-import type { ExchangeManager } from "./services/exchangeManager.js";
-import type { KeyVault } from "./services/keyVault.js";
-import { createTrpcContext } from "./trpc/context.js";
-import { appRouter } from "./trpc/router.js";
-import { setupSocketHub } from "./websocket/index.js";
+import type { QueueSet } from "./queues/index";
+import type { ExchangeManager } from "./services/exchangeManager";
+import type { KeyVault } from "./services/keyVault";
+import { createTrpcContext } from "./trpc/context";
+import { appRouter } from "./trpc/router";
+import { setupSocketHub } from "./websocket/index";
 
 interface CreateAppOptions {
   db: Database;
@@ -41,11 +40,6 @@ interface CreateAppOptions {
   };
   loggerOptions?: FastifyServerOptions["logger"];
 }
-
-const require = createRequire(import.meta.url);
-const RedisStore = require("@fastify/rate-limit/store/RedisStore") as new (
-  options: Record<string, unknown>
-) => unknown;
 
 export async function createApp(options: CreateAppOptions) {
   const app = Fastify({ logger: options.loggerOptions ?? true });
@@ -76,7 +70,6 @@ export async function createApp(options: CreateAppOptions) {
         ...rateLimitOptions,
         nameSpace: "api-rate-limit-",
         redis: rateLimitRedis,
-        store: RedisStore,
       };
     } catch (error) {
       app.log.warn({ error }, "rate-limit redis unavailable, falling back to in-memory store");

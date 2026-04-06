@@ -1,4 +1,4 @@
-import type { TradeRecord } from "../exchange/types.js";
+import type { TradeRecord } from "../exchange/types";
 
 export interface EquityPoint {
   time: number;

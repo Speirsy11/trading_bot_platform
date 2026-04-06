@@ -85,6 +85,7 @@ Refer to 00-ARCHITECTURE.md for the overall vision and tech stack decisions.
 Set up the **monorepo foundation**, **Docker infrastructure**, **development tooling**, and **CI/CD pipeline** for the crypto trading bot platform. This is the first thing that needs to be built — all other agents depend on this foundation.
 
 Priority order:
+
 1. Turborepo + pnpm workspace structure
 2. Shared TypeScript/ESLint/Prettier configuration
 3. Docker Compose for local development (PostgreSQL + TimescaleDB, Redis)
@@ -479,11 +480,14 @@ export default [
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
       "@typescript-eslint/consistent-type-imports": "error",
       "@typescript-eslint/no-explicit-any": "warn",
-      "import/order": ["error", {
-        groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
-        "newlines-between": "always",
-        alphabetize: { order: "asc" },
-      }],
+      "import/order": [
+        "error",
+        {
+          groups: ["builtin", "external", "internal", "parent", "sibling", "index"],
+          "newlines-between": "always",
+          alphabetize: { order: "asc" },
+        },
+      ],
     },
   },
 ];
@@ -692,10 +696,7 @@ CMD ["node", "apps/web/server.js"]
 ```typescript
 import { defineWorkspace } from "vitest/config";
 
-export default defineWorkspace([
-  "apps/*/vitest.config.ts",
-  "packages/*/vitest.config.ts",
-]);
+export default defineWorkspace(["apps/*/vitest.config.ts", "packages/*/vitest.config.ts"]);
 ```
 
 ### 8.2 Package Vitest Config Pattern
@@ -873,9 +874,10 @@ export function createLogger(name: string) {
     name,
     level: process.env.LOG_LEVEL || "info",
     redact: ["apiKey", "apiSecret", "secret", "password", "*.apiKey", "*.apiSecret"],
-    transport: process.env.NODE_ENV === "development"
-      ? { target: "pino-pretty", options: { colorize: true } }
-      : undefined,
+    transport:
+      process.env.NODE_ENV === "development"
+        ? { target: "pino-pretty", options: { colorize: true } }
+        : undefined,
   });
 }
 ```
@@ -974,14 +976,15 @@ jobs:
 
 When ready to deploy, here are the recommended options ranked by simplicity and cost:
 
-| Option | Monthly Cost | Pros | Cons |
-|---|---|---|---|
-| **Hetzner VPS** (CX22) | ~€4-8 | Cheapest, full Docker Compose, EU servers | Self-managed, no auto-scaling |
-| **DigitalOcean Droplet** | $6-12 | Simple, good docs, backup snapshots | Self-managed |
-| **Railway** | $5-20 | Git push deploy, managed Postgres/Redis | Can get expensive with multiple services |
-| **Fly.io** | $5-15 | Edge deployment, auto-sleep for low traffic | Learning curve, config complexity |
+| Option                   | Monthly Cost | Pros                                        | Cons                                     |
+| ------------------------ | ------------ | ------------------------------------------- | ---------------------------------------- |
+| **Hetzner VPS** (CX22)   | ~€4-8        | Cheapest, full Docker Compose, EU servers   | Self-managed, no auto-scaling            |
+| **DigitalOcean Droplet** | $6-12        | Simple, good docs, backup snapshots         | Self-managed                             |
+| **Railway**              | $5-20        | Git push deploy, managed Postgres/Redis     | Can get expensive with multiple services |
+| **Fly.io**               | $5-15        | Edge deployment, auto-sleep for low traffic | Learning curve, config complexity        |
 
 **Recommended path:**
+
 1. Develop locally with `docker compose up` + `pnpm dev`
 2. When ready, deploy to a Hetzner VPS with Docker Compose (same setup as local)
 3. Use a GitHub Actions workflow to SSH + deploy on merge to main

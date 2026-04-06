@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 
-import { CandleValidator } from "../validation/CandleValidator.js";
+import { CandleValidator } from "../validation/CandleValidator";
 
 import {
   generateRealisticCandles,
   generateCandlesWithGaps,
   generateCandlesWithInvalid,
   generateCandlesWithDuplicates,
-} from "./fixtures.js";
+} from "./fixtures";
 
 describe("Test Fixtures", () => {
   const validator = new CandleValidator();

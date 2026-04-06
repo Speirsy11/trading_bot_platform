@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
-import { PositionSizer } from "./PositionSizer.js";
-import { DEFAULT_RISK_CONFIG } from "./RiskManager.js";
+import { PositionSizer } from "./PositionSizer";
+import { DEFAULT_RISK_CONFIG } from "./RiskManager";
 
 describe("PositionSizer", () => {
   const sizer = new PositionSizer(DEFAULT_RISK_CONFIG);

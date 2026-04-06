@@ -1,7 +1,7 @@
 import type { Candle } from "@tb/types";
 import type { z } from "zod";
 
-import type { StrategyContext } from "./StrategyContext.js";
+import type { StrategyContext } from "./StrategyContext";
 
 export type SignalAction = "BUY" | "SELL" | "CLOSE_LONG" | "CLOSE_SHORT" | "NEUTRAL";
 

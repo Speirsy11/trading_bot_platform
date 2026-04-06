@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 
-import { BotStateMachine, type BotState } from "../bot/BotStateMachine.js";
+import { BotStateMachine, type BotState } from "../bot/BotStateMachine";
 
 describe("BotStateMachine", () => {
   let sm: BotStateMachine;

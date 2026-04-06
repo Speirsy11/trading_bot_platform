@@ -1,18 +1,18 @@
 import { IndicatorCalculator } from "@tb/indicators";
 import type { Candle } from "@tb/types";
 
-import { BacktestExchange } from "../exchange/BacktestExchange.js";
-import { MetricsCalculator } from "../metrics/MetricsCalculator.js";
-import { PerformanceTracker } from "../metrics/PerformanceTracker.js";
-import type { BacktestResult } from "../metrics/types.js";
-import { PositionManager } from "../orders/PositionManager.js";
-import { PositionSizer } from "../risk/PositionSizer.js";
-import { RiskManager } from "../risk/RiskManager.js";
-import type { IStrategy, Signal } from "../strategy/IStrategy.js";
-import { StrategyContext, type Logger } from "../strategy/StrategyContext.js";
-import { StrategyRegistry } from "../strategy/StrategyRegistry.js";
+import { BacktestExchange } from "../exchange/BacktestExchange";
+import { MetricsCalculator } from "../metrics/MetricsCalculator";
+import { PerformanceTracker } from "../metrics/PerformanceTracker";
+import type { BacktestResult } from "../metrics/types";
+import { PositionManager } from "../orders/PositionManager";
+import { PositionSizer } from "../risk/PositionSizer";
+import { RiskManager } from "../risk/RiskManager";
+import type { IStrategy, Signal } from "../strategy/IStrategy";
+import { StrategyContext, type Logger } from "../strategy/StrategyContext";
+import { StrategyRegistry } from "../strategy/StrategyRegistry";
 
-import type { BacktestConfig } from "./BacktestConfig.js";
+import type { BacktestConfig } from "./BacktestConfig";
 
 /**
  * Event-driven backtesting engine.

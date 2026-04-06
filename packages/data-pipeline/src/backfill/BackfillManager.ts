@@ -1,8 +1,8 @@
 import type { Database } from "@tb/db";
 
-import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter.js";
+import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
 
-import { BackfillJob, type BackfillJobConfig } from "./BackfillJob.js";
+import { BackfillJob, type BackfillJobConfig } from "./BackfillJob";
 
 const TIMEFRAME_MS: Record<string, number> = {
   "1m": 60_000,
@@ -35,7 +35,7 @@ export class BackfillManager {
     symbol: string,
     timeframe: string,
     startTime: Date,
-    endTime: Date,
+    endTime: Date
   ): number {
     const now = Date.now();
     const daysSinceEnd = (now - endTime.getTime()) / (24 * 60 * 60_000);
@@ -61,7 +61,7 @@ export class BackfillManager {
     symbol: string,
     timeframe: string,
     startTime: Date,
-    endTime: Date,
+    endTime: Date
   ): Promise<BackfillJobConfig> {
     const tfMs = TIMEFRAME_MS[timeframe] ?? 60_000;
     const maxCandles = MAX_CANDLES_PER_REQUEST[exchange] ?? 500;

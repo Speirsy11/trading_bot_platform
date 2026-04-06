@@ -8,7 +8,7 @@ import {
   type BackfillJobData,
   type DetectGapsJobData,
   type ExportJobData,
-} from "./types.js";
+} from "./types";
 
 export interface SchedulerConfig {
   redisConnection: { host: string; port: number };
@@ -29,7 +29,7 @@ export function createQueues(config: SchedulerConfig) {
 export async function setupRepeatableJobs(
   collectionQueue: Queue<CollectOHLCVJobData>,
   pairs: string[],
-  exchanges: string[],
+  exchanges: string[]
 ) {
   // collect-ohlcv-1m: every 1 minute for each exchange/pair
   for (const exchange of exchanges) {
@@ -42,7 +42,7 @@ export async function setupRepeatableJobs(
           repeat: { every: 60_000 },
           jobId: `collect-1m-${exchange}-${symbol.replace("/", "-")}`,
           priority: 1,
-        },
+        }
       );
     }
   }
@@ -59,7 +59,7 @@ export async function setupRepeatableJobs(
             repeat: { every: 3_600_000 },
             jobId: `collect-${tf}-${exchange}-${symbol.replace("/", "-")}`,
             priority: 2,
-          },
+          }
         );
       }
     }
@@ -70,7 +70,7 @@ export async function addDetectGapsJob(
   collectionQueue: Queue,
   exchange: string,
   symbol: string,
-  timeframe: string,
+  timeframe: string
 ) {
   await collectionQueue.add(
     JOB_NAMES.DETECT_GAPS,
@@ -80,14 +80,11 @@ export async function addDetectGapsJob(
       repeat: { every: 6 * 3_600_000 },
       jobId: `detect-gaps-${exchange}-${symbol.replace("/", "-")}-${timeframe}`,
       priority: 3,
-    },
+    }
   );
 }
 
-export async function addBackfillJob(
-  backfillQueue: Queue<BackfillJobData>,
-  data: BackfillJobData,
-) {
+export async function addBackfillJob(backfillQueue: Queue<BackfillJobData>, data: BackfillJobData) {
   await backfillQueue.add(JOB_NAMES.BACKFILL, data, {
     ...DEFAULT_JOB_OPTIONS,
     priority: 3,
@@ -95,10 +92,7 @@ export async function addBackfillJob(
   });
 }
 
-export async function addExportJob(
-  exportQueue: Queue<ExportJobData>,
-  data: ExportJobData,
-) {
+export async function addExportJob(exportQueue: Queue<ExportJobData>, data: ExportJobData) {
   await exportQueue.add(JOB_NAMES.EXPORT_DATA, data, {
     ...DEFAULT_JOB_OPTIONS,
     priority: 4,

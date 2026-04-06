@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { GapDetector } from "../validation/GapDetector.js";
+import { GapDetector } from "../validation/GapDetector";
 
 describe("GapDetector (unit)", () => {
   it("returns correct timeframe in ms", () => {

@@ -2,9 +2,9 @@ import type { Database } from "@tb/db";
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type IORedis from "ioredis";
 
-import type { QueueSet } from "../queues/index.js";
-import type { ExchangeManager } from "../services/exchangeManager.js";
-import type { KeyVault } from "../services/keyVault.js";
+import type { QueueSet } from "../queues/index";
+import type { ExchangeManager } from "../services/exchangeManager";
+import type { KeyVault } from "../services/keyVault";
 
 export interface AppContextOptions {
   db: Database;

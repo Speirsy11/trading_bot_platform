@@ -1,16 +1,16 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import * as backtestTradesSchema from "./schema/backtestTrades.js";
-import * as backtestsSchema from "./schema/backtests.js";
-import * as botLogsSchema from "./schema/botLogs.js";
-import * as botTradesSchema from "./schema/botTrades.js";
-import * as botsSchema from "./schema/bots.js";
-import * as dataCollectionSchema from "./schema/dataCollection.js";
-import * as dataExportsSchema from "./schema/dataExports.js";
-import * as exchangeConfigsSchema from "./schema/exchangeConfigs.js";
-import * as ohlcvSchema from "./schema/ohlcv.js";
-import * as settingsSchema from "./schema/settings.js";
+import * as backtestTradesSchema from "./schema/backtestTrades";
+import * as backtestsSchema from "./schema/backtests";
+import * as botLogsSchema from "./schema/botLogs";
+import * as botTradesSchema from "./schema/botTrades";
+import * as botsSchema from "./schema/bots";
+import * as dataCollectionSchema from "./schema/dataCollection";
+import * as dataExportsSchema from "./schema/dataExports";
+import * as exchangeConfigsSchema from "./schema/exchangeConfigs";
+import * as ohlcvSchema from "./schema/ohlcv";
+import * as settingsSchema from "./schema/settings";
 
 const schema = {
   ...ohlcvSchema,

@@ -1,6 +1,6 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
-import { AppError, AppErrorCode } from "../utils/errors.js";
+import { AppError, AppErrorCode } from "../utils/errors";
 
 const IV_LENGTH = 16;
 const AUTH_TAG_LENGTH = 16;

@@ -20,7 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: tb-redis
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy noeviction
     volumes:
       - redis_data:/data
     ports:
@@ -31,6 +31,56 @@ services:
       timeout: 5s
       retries: 5
 
+  bootstrap:
+    profiles: ["ingest"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+      target: deps
+    working_dir: /app
+    command: ["sh", "-lc", "corepack enable && pnpm --filter api exec tsx src/bootstrap.ts"]
+    environment:
+      DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    volumes:
+      - ../:/app
+      - worker_node_modules:/app/node_modules
+      - worker_api_node_modules:/app/apps/api/node_modules
+
+  workers:
+    profiles: ["ingest"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+      target: deps
+    container_name: tb-workers
+    working_dir: /app
+    command: ["sh", "-lc", "corepack enable && pnpm --filter api exec tsx src/workers/index.ts"]
+    env_file:
+      - ../.env
+    environment:
+      DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      bootstrap:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    volumes:
+      - ../:/app
+      - worker_node_modules:/app/node_modules
+      - worker_api_node_modules:/app/apps/api/node_modules
+      - worker_exports:/app/apps/api/exports
+
 volumes:
   postgres_data:
   redis_data:
+  worker_node_modules:
+  worker_api_node_modules:
+  worker_exports:

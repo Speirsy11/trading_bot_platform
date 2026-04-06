@@ -1,7 +1,7 @@
 import type { Order } from "@tb/types";
 
-import type { Position, TradeRecord } from "../exchange/types.js";
-import { roundTo } from "../utils/decimal.js";
+import type { Position, TradeRecord } from "../exchange/types";
+import { roundTo } from "../utils/decimal";
 
 /**
  * Tracks open positions and computes unrealised/realised PnL.

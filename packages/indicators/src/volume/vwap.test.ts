@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { vwap } from "../volume/vwap.js";
+import { vwap } from "../volume/vwap";
 
 describe("VWAP", () => {
   it("calculates VWAP correctly", () => {

@@ -1,13 +1,29 @@
 import { sql } from "drizzle-orm";
 
-import type { Database } from "../client.js";
-import { settings } from "../schema/settings.js";
+import type { Database } from "../client";
+import { settings } from "../schema/settings";
 
 const DEFAULT_PAIRS = [
-  "BTC/USDT", "ETH/USDT", "BNB/USDT", "SOL/USDT", "XRP/USDT",
-  "ADA/USDT", "DOGE/USDT", "AVAX/USDT", "DOT/USDT", "MATIC/USDT",
-  "LINK/USDT", "UNI/USDT", "ATOM/USDT", "LTC/USDT", "FIL/USDT",
-  "NEAR/USDT", "APT/USDT", "ARB/USDT", "OP/USDT", "SUI/USDT",
+  "BTC/USDT",
+  "ETH/USDT",
+  "BNB/USDT",
+  "SOL/USDT",
+  "XRP/USDT",
+  "ADA/USDT",
+  "DOGE/USDT",
+  "AVAX/USDT",
+  "DOT/USDT",
+  "MATIC/USDT",
+  "LINK/USDT",
+  "UNI/USDT",
+  "ATOM/USDT",
+  "LTC/USDT",
+  "FIL/USDT",
+  "NEAR/USDT",
+  "APT/USDT",
+  "ARB/USDT",
+  "OP/USDT",
+  "SUI/USDT",
 ];
 
 const DEFAULT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];

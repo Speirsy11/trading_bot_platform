@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { adx } from "../trend/adx.js";
+import { adx } from "../trend/adx";
 
 describe("ADX", () => {
   it("calculates ADX correctly with trending data", () => {

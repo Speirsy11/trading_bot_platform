@@ -1,12 +1,6 @@
-import {
-  pgTable,
-  text,
-  uuid,
-  timestamp,
-  jsonb,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, jsonb } from "drizzle-orm/pg-core";
 
-import { bots } from "./bots.js";
+import { bots } from "./bots";
 
 export const botLogs = pgTable("bot_logs", {
   id: uuid("id").primaryKey().defaultRandom(),

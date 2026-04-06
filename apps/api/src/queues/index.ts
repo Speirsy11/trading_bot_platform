@@ -1,7 +1,7 @@
 import { Queue } from "bullmq";
 import type IORedis from "ioredis";
 
-import { API_QUEUE_NAMES, type BacktestJobData, type BotJobData } from "./types.js";
+import { API_QUEUE_NAMES, type BacktestJobData, type BotJobData } from "./types";
 
 export interface QueueSet {
   botExecutionQueue: Queue<BotJobData>;

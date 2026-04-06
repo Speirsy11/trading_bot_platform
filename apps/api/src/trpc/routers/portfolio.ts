@@ -2,8 +2,8 @@ import { bots, botTrades } from "@tb/db";
 import { asc, desc, gte } from "drizzle-orm";
 import { z } from "zod";
 
-import { toNumber } from "../../utils/serialization.js";
-import { createTrpcRouter, publicProcedure } from "../trpc.js";
+import { toNumber } from "../../utils/serialization";
+import { createTrpcRouter, publicProcedure } from "../trpc";
 
 const periodSchema = z.object({
   period: z.enum(["1d", "1w", "1m", "3m", "1y", "all"]),

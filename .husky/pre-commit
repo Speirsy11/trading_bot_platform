@@ -1,2 +1,3 @@
+pnpm format:fix
 pnpm turbo type-check lint test build
 pnpm lint-staged

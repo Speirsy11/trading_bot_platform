@@ -1,5 +1,5 @@
-import { sma } from "../trend/sma.js";
-import type { BollingerBandsResult } from "../types.js";
+import { sma } from "../trend/sma";
+import type { BollingerBandsResult } from "../types";
 
 /**
  * Bollinger Bands

@@ -1,7 +1,7 @@
 import { createLogger } from "@tb/config";
 import type { Candle } from "@tb/types";
 
-import { CandleValidator } from "../validation/CandleValidator.js";
+import { CandleValidator } from "../validation/CandleValidator";
 
 const logger = createLogger("stream-processor");
 

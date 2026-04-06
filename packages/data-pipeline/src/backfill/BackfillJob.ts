@@ -3,9 +3,9 @@ import type { Database } from "@tb/db";
 import { upsertOHLCV, dataCollectionStatus, type OHLCVInsert } from "@tb/db";
 import { sql } from "drizzle-orm";
 
-import { OHLCVCollector } from "../collection/OHLCVCollector.js";
-import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter.js";
-import { CandleValidator } from "../validation/CandleValidator.js";
+import { OHLCVCollector } from "../collection/OHLCVCollector";
+import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
+import { CandleValidator } from "../validation/CandleValidator";
 
 const logger = createLogger("backfill-job");
 
@@ -35,7 +35,7 @@ export class BackfillJob {
 
     logger.info(
       { exchange, symbol, timeframe, start: startTime.toISOString(), end: endTime.toISOString() },
-      "Starting backfill job",
+      "Starting backfill job"
     );
 
     await this.updateStatus(exchange, symbol, timeframe, "backfilling");
@@ -52,7 +52,7 @@ export class BackfillJob {
           symbol,
           timeframe,
           currentSince,
-          maxCandlesPerRequest,
+          maxCandlesPerRequest
         );
 
         if (candles.length === 0) break;
@@ -84,15 +84,23 @@ export class BackfillJob {
         currentSince = lastCandleTime + 1;
 
         logger.debug(
-          { exchange, symbol, timeframe, progress: ((currentSince - startTime.getTime()) / (endMs - startTime.getTime()) * 100).toFixed(1) },
-          "Backfill progress",
+          {
+            exchange,
+            symbol,
+            timeframe,
+            progress: (
+              ((currentSince - startTime.getTime()) / (endMs - startTime.getTime())) *
+              100
+            ).toFixed(1),
+          },
+          "Backfill progress"
         );
       }
 
       await this.updateStatus(exchange, symbol, timeframe, "idle");
       logger.info(
         { exchange, symbol, timeframe, totalInserted, totalInvalid },
-        "Backfill job completed",
+        "Backfill job completed"
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -108,7 +116,7 @@ export class BackfillJob {
     symbol: string,
     timeframe: string,
     status: string,
-    errorMessage?: string,
+    errorMessage?: string
   ) {
     await this.db
       .insert(dataCollectionStatus)

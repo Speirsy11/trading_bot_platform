@@ -1,12 +1,4 @@
-import {
-  pgTable,
-  text,
-  uuid,
-  timestamp,
-  bigint,
-  integer,
-  unique,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, bigint, integer, unique } from "drizzle-orm/pg-core";
 
 export const dataCollectionStatus = pgTable(
   "data_collection_status",
@@ -27,7 +19,7 @@ export const dataCollectionStatus = pgTable(
   },
   (table) => [
     unique("data_collection_status_unique").on(table.exchange, table.symbol, table.timeframe),
-  ],
+  ]
 );
 
 export type DataCollectionStatusRow = typeof dataCollectionStatus.$inferSelect;

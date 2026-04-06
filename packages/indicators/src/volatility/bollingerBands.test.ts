@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { bollingerBands } from "../volatility/bollingerBands.js";
+import { bollingerBands } from "../volatility/bollingerBands";
 
 describe("Bollinger Bands", () => {
   it("calculates bands correctly", () => {

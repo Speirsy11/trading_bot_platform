@@ -36,7 +36,7 @@ export class GapDetector {
     symbol: string,
     timeframe: string,
     startTime: Date,
-    endTime: Date,
+    endTime: Date
   ): Promise<Gap[]> {
     const intervalMs = this.getTimeframeMs(timeframe);
     const gaps: Gap[] = [];
@@ -51,8 +51,8 @@ export class GapDetector {
           eq(ohlcv.symbol, symbol),
           eq(ohlcv.timeframe, timeframe),
           gte(ohlcv.time, startTime),
-          lte(ohlcv.time, endTime),
-        ),
+          lte(ohlcv.time, endTime)
+        )
       )
       .orderBy(ohlcv.time);
 
@@ -62,11 +62,7 @@ export class GapDetector {
     let currentGapStart: Date | null = null;
     let gapMissing = 0;
 
-    for (
-      let ts = startTime.getTime();
-      ts <= endTime.getTime();
-      ts += intervalMs
-    ) {
+    for (let ts = startTime.getTime(); ts <= endTime.getTime(); ts += intervalMs) {
       if (!existingTimestamps.has(ts)) {
         if (!currentGapStart) {
           currentGapStart = new Date(ts);
@@ -104,12 +100,7 @@ export class GapDetector {
     return gaps;
   }
 
-  async updateGapCount(
-    exchange: string,
-    symbol: string,
-    timeframe: string,
-    gapCount: number,
-  ) {
+  async updateGapCount(exchange: string, symbol: string, timeframe: string, gapCount: number) {
     await this.db
       .update(dataCollectionStatus)
       .set({ gapCount, updatedAt: new Date() })
@@ -117,8 +108,8 @@ export class GapDetector {
         and(
           eq(dataCollectionStatus.exchange, exchange),
           eq(dataCollectionStatus.symbol, symbol),
-          eq(dataCollectionStatus.timeframe, timeframe),
-        ),
+          eq(dataCollectionStatus.timeframe, timeframe)
+        )
       );
   }
 }

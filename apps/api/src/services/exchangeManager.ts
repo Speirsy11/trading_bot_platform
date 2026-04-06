@@ -2,10 +2,10 @@ import { exchangeConfigs, type Database, type ExchangeConfigRow } from "@tb/db";
 import ccxt, { type Exchange } from "ccxt";
 import { eq } from "drizzle-orm";
 
-import { AppError, AppErrorCode, mapExchangeError } from "../utils/errors.js";
-import { parseJsonValue } from "../utils/serialization.js";
+import { AppError, AppErrorCode, mapExchangeError } from "../utils/errors";
+import { parseJsonValue } from "../utils/serialization";
 
-import type { KeyVault } from "./keyVault.js";
+import type { KeyVault } from "./keyVault";
 
 interface ExchangeManagerOptions {
   db: Database;

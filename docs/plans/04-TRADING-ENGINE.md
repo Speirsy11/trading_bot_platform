@@ -112,15 +112,15 @@ The critical design principle: **the same strategy code must run without modific
 
 ## 2. Technology Stack
 
-| Concern | Library | Notes |
-|---|---|---|
-| Technical Indicators | **tulind** (`tulipnode`) | C-native bindings, 100+ indicators, fastest option |
-| Indicator Fallback | Custom TypeScript implementations | For environments where tulind compilation fails |
-| Statistics | **simple-statistics** | Sharpe ratio, standard deviation, correlation |
-| Exchange API | **CCXT** | Used exclusively by the `LiveExchange` adapter |
-| Validation | **Zod** | Strategy config and order validation |
-| Testing | **Vitest** | TDD for all logic |
-| UUID | **crypto.randomUUID()** | Built-in; no external dependency |
+| Concern              | Library                           | Notes                                              |
+| -------------------- | --------------------------------- | -------------------------------------------------- |
+| Technical Indicators | **tulind** (`tulipnode`)          | C-native bindings, 100+ indicators, fastest option |
+| Indicator Fallback   | Custom TypeScript implementations | For environments where tulind compilation fails    |
+| Statistics           | **simple-statistics**             | Sharpe ratio, standard deviation, correlation      |
+| Exchange API         | **CCXT**                          | Used exclusively by the `LiveExchange` adapter     |
+| Validation           | **Zod**                           | Strategy config and order validation               |
+| Testing              | **Vitest**                        | TDD for all logic                                  |
+| UUID                 | **crypto.randomUUID()**           | Built-in; no external dependency                   |
 
 ---
 
@@ -233,7 +233,13 @@ interface IExchange {
   fetchClosedOrders(symbol?: string, since?: number, limit?: number): Promise<Order[]>;
 
   // Trading
-  createOrder(symbol: string, type: OrderType, side: OrderSide, amount: number, price?: number): Promise<Order>;
+  createOrder(
+    symbol: string,
+    type: OrderType,
+    side: OrderSide,
+    amount: number,
+    price?: number
+  ): Promise<Order>;
   cancelOrder(orderId: string, symbol?: string): Promise<void>;
 
   // Info
@@ -276,12 +282,12 @@ enum SignalAction {
 interface Signal {
   action: SignalAction;
   symbol: string;
-  orderType: OrderType;       // market, limit, stop
-  price?: number;             // Required for limit/stop orders
-  amount?: number;            // If undefined, use PositionSizer
+  orderType: OrderType; // market, limit, stop
+  price?: number; // Required for limit/stop orders
+  amount?: number; // If undefined, use PositionSizer
   stopLoss?: number;
   takeProfit?: number;
-  reason?: string;            // Human-readable reason for logging
+  reason?: string; // Human-readable reason for logging
 }
 ```
 
@@ -291,9 +297,9 @@ interface Signal {
 interface StrategyContext {
   exchange: IExchange;
   config: StrategyConfig;
-  indicators: IndicatorCalculator;  // From @tb/indicators
+  indicators: IndicatorCalculator; // From @tb/indicators
   logger: Logger;
-  
+
   // Convenience accessors
   getBalance(): Promise<Balance>;
   getPositions(): Promise<Position[]>;
@@ -343,19 +349,19 @@ The backtesting engine processes historical candles **one at a time**, simulatin
 interface BacktestConfig {
   strategyName: string;
   strategyParams: Record<string, unknown>;
-  exchange: string;           // Which exchange data to use
+  exchange: string; // Which exchange data to use
   symbol: string;
   timeframe: string;
-  startDate: number;          // Unix timestamp
+  startDate: number; // Unix timestamp
   endDate: number;
-  initialBalance: number;     // In quote currency (e.g., USDT)
+  initialBalance: number; // In quote currency (e.g., USDT)
   fees: {
-    maker: number;            // e.g., 0.001 = 0.1%
-    taker: number;            // e.g., 0.001 = 0.1%
+    maker: number; // e.g., 0.001 = 0.1%
+    taker: number; // e.g., 0.001 = 0.1%
   };
   slippage: {
     enabled: boolean;
-    percentage: number;       // e.g., 0.0005 = 0.05%
+    percentage: number; // e.g., 0.0005 = 0.05%
   };
   riskConfig: RiskConfig;
 }
@@ -403,13 +409,13 @@ fee = filledAmount × fillPrice × feePercentage
 
 ```typescript
 interface RiskConfig {
-  maxPositionSizePercent: number;     // Max % of portfolio in one position (e.g., 10%)
-  maxDrawdownPercent: number;         // Stop bot if drawdown exceeds this (e.g., 20%)
-  riskPerTradePercent: number;        // Risk per trade (e.g., 2%)
-  maxConcurrentPositions: number;     // Max open positions at once
-  maxDailyLossPercent: number;        // Stop trading if daily loss exceeds this
-  trailingStopEnabled: boolean;       // Auto-adjust stop-loss as price moves
-  trailingStopPercent: number;        // Distance from peak (e.g., 5%)
+  maxPositionSizePercent: number; // Max % of portfolio in one position (e.g., 10%)
+  maxDrawdownPercent: number; // Stop bot if drawdown exceeds this (e.g., 20%)
+  riskPerTradePercent: number; // Risk per trade (e.g., 2%)
+  maxConcurrentPositions: number; // Max open positions at once
+  maxDailyLossPercent: number; // Stop trading if daily loss exceeds this
+  trailingStopEnabled: boolean; // Auto-adjust stop-loss as price moves
+  trailingStopPercent: number; // Distance from peak (e.g., 5%)
 }
 ```
 
@@ -442,24 +448,24 @@ This ensures each trade risks a consistent percentage of the portfolio.
 
 ### 8.1 Metrics to Calculate
 
-| Metric | Formula | Target |
-|---|---|---|
-| **Total Return** | `(endBalance - startBalance) / startBalance × 100` | — |
-| **CAGR** | `(endBalance / startBalance)^(1/years) - 1` | — |
-| **Net Profit** | `endBalance - startBalance` | — |
-| **Sharpe Ratio** | `(annualizedReturn - riskFreeRate) / annualizedStdDev` | > 1.0 |
-| **Sortino Ratio** | `(annualizedReturn - riskFreeRate) / downsideStdDev` | > 1.5 |
-| **Calmar Ratio** | `annualizedReturn / maxDrawdown` | > 1.0 |
-| **Max Drawdown** | Worst peak-to-trough decline | < 20% |
-| **Win Rate** | `winningTrades / totalTrades × 100` | > 50% |
-| **Profit Factor** | `grossProfit / grossLoss` | > 1.5 |
-| **Average Win** | Mean profit of winning trades | — |
-| **Average Loss** | Mean loss of losing trades | — |
-| **Risk/Reward** | `averageWin / averageLoss` | > 1.5 |
-| **Expectancy** | `(winRate × avgWin) - (lossRate × avgLoss)` | > 0 |
-| **Total Trades** | Count of all closed trades | — |
-| **Avg Hold Time** | Mean duration of positions | — |
-| **Win/Loss Streaks** | Longest consecutive wins/losses | — |
+| Metric               | Formula                                                | Target |
+| -------------------- | ------------------------------------------------------ | ------ |
+| **Total Return**     | `(endBalance - startBalance) / startBalance × 100`     | —      |
+| **CAGR**             | `(endBalance / startBalance)^(1/years) - 1`            | —      |
+| **Net Profit**       | `endBalance - startBalance`                            | —      |
+| **Sharpe Ratio**     | `(annualizedReturn - riskFreeRate) / annualizedStdDev` | > 1.0  |
+| **Sortino Ratio**    | `(annualizedReturn - riskFreeRate) / downsideStdDev`   | > 1.5  |
+| **Calmar Ratio**     | `annualizedReturn / maxDrawdown`                       | > 1.0  |
+| **Max Drawdown**     | Worst peak-to-trough decline                           | < 20%  |
+| **Win Rate**         | `winningTrades / totalTrades × 100`                    | > 50%  |
+| **Profit Factor**    | `grossProfit / grossLoss`                              | > 1.5  |
+| **Average Win**      | Mean profit of winning trades                          | —      |
+| **Average Loss**     | Mean loss of losing trades                             | —      |
+| **Risk/Reward**      | `averageWin / averageLoss`                             | > 1.5  |
+| **Expectancy**       | `(winRate × avgWin) - (lossRate × avgLoss)`            | > 0    |
+| **Total Trades**     | Count of all closed trades                             | —      |
+| **Avg Hold Time**    | Mean duration of positions                             | —      |
+| **Win/Loss Streaks** | Longest consecutive wins/losses                        | —      |
 
 ### 8.2 Equity Curve Tracking
 
@@ -503,6 +509,7 @@ The `PerformanceTracker` records the portfolio value at each candle to build:
 ### 9.2 Graceful Shutdown
 
 When a bot is stopped:
+
 1. Stop processing new candles
 2. Cancel all pending orders
 3. Optionally close all open positions (configurable)
@@ -513,6 +520,7 @@ When a bot is stopped:
 ### 9.3 Crash Recovery
 
 If a bot worker crashes:
+
 1. BullMQ retries the job automatically
 2. Bot loads last known state from database
 3. Resumes from last processed candle
@@ -531,7 +539,7 @@ If a bot worker crashes:
 class SMACrossover implements IStrategy {
   readonly name = "SMA Crossover";
   readonly description = "Buy when fast SMA crosses above slow SMA, sell on cross below";
-  
+
   readonly paramsSchema = z.object({
     fastPeriod: z.number().int().min(2).max(200).default(9),
     slowPeriod: z.number().int().min(5).max(500).default(21),
@@ -549,7 +557,7 @@ class SMACrossover implements IStrategy {
 
   async onCandle(candle: Candle, history: Candle[]): Promise<Signal[]> {
     const closes = history.map((c) => c.close);
-    
+
     if (closes.length < this.params.slowPeriod) {
       return []; // Not enough data yet
     }
@@ -604,6 +612,7 @@ class SMACrossover implements IStrategy {
 **Problem**: Using data that wouldn't be available at the time of the decision.
 
 **Prevention**:
+
 - `onCandle()` receives a **completed** candle plus history of **previous** candles only.
 - The current candle's close price represents the CLOSE of the previous period, not the current unfinished candle.
 - The BacktestEngine enforces this by only providing completed candles.
@@ -613,6 +622,7 @@ class SMACrossover implements IStrategy {
 **Problem**: Optimising strategy parameters to fit historical data so well that they fail on new data.
 
 **Prevention**:
+
 - Split data into training (70%) and validation (30%) periods.
 - Display both in-sample and out-of-sample results.
 - Limit the number of tunable parameters.
@@ -623,6 +633,7 @@ class SMACrossover implements IStrategy {
 **Problem**: Only backtesting on assets that survived (exist today).
 
 **Prevention**:
+
 - Store and use historical data including delisted assets.
 - Filter available pairs by what was tradeable at each point in time.
 
@@ -631,6 +642,7 @@ class SMACrossover implements IStrategy {
 **Problem**: Assuming orders always fill at the exact requested price.
 
 **Prevention**:
+
 - Implement slippage simulation in `BacktestExchange`.
 - Use maker/taker fee differentiation.
 - Check candle volume — don't fill orders larger than a fraction of the candle's volume.
@@ -641,18 +653,18 @@ class SMACrossover implements IStrategy {
 
 ### Unit Tests for Every Component
 
-| Component | What to Test |
-|---|---|
-| `BacktestExchange` | Order fills (market, limit, stop), fee calculation, slippage, balance tracking, edge cases (insufficient funds, cancelled orders) |
-| `OrderSimulator` | Fill logic against different candle patterns |
-| `PositionManager` | Open/close/update positions, PnL calculation |
-| `RiskManager` | Each risk check independently, combined checks |
-| `PositionSizer` | Position size calculation for various risk configs |
-| `MetricsCalculator` | Each metric against known values (use hand-calculated examples) |
-| `PerformanceTracker` | Equity curve building, daily returns extraction |
-| `BotStateMachine` | Valid/invalid state transitions |
-| Each Strategy | Against known market data with expected signals |
-| Each Indicator | Against known values (compare with reference implementations) |
+| Component            | What to Test                                                                                                                      |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `BacktestExchange`   | Order fills (market, limit, stop), fee calculation, slippage, balance tracking, edge cases (insufficient funds, cancelled orders) |
+| `OrderSimulator`     | Fill logic against different candle patterns                                                                                      |
+| `PositionManager`    | Open/close/update positions, PnL calculation                                                                                      |
+| `RiskManager`        | Each risk check independently, combined checks                                                                                    |
+| `PositionSizer`      | Position size calculation for various risk configs                                                                                |
+| `MetricsCalculator`  | Each metric against known values (use hand-calculated examples)                                                                   |
+| `PerformanceTracker` | Equity curve building, daily returns extraction                                                                                   |
+| `BotStateMachine`    | Valid/invalid state transitions                                                                                                   |
+| Each Strategy        | Against known market data with expected signals                                                                                   |
+| Each Indicator       | Against known values (compare with reference implementations)                                                                     |
 
 ### Integration Tests
 
@@ -662,6 +674,7 @@ class SMACrossover implements IStrategy {
 ### Test Data Fixtures
 
 Create known test datasets:
+
 - Trending upward (100 candles)
 - Trending downward (100 candles)
 - Sideways/ranging (100 candles)
@@ -682,6 +695,7 @@ Each indicator must be tested against **known reference values**. Sources for re
 - Python `ta` library outputs (generate expected values, commit as fixtures)
 
 Example approach:
+
 ```
 Given: closes = [44.34, 44.09, 43.61, 44.33, 44.83, 45.10, 45.42, 45.84]
 When: SMA(period=5) is calculated

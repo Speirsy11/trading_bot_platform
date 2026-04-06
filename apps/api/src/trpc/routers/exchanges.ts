@@ -3,9 +3,9 @@ import { TRPCError } from "@trpc/server";
 import { desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { parseJsonValue, stringifyJsonValue } from "../../utils/serialization.js";
-import { exchangeCreateSchema, uuidSchema } from "../schemas.js";
-import { createTrpcRouter, publicProcedure } from "../trpc.js";
+import { parseJsonValue, stringifyJsonValue } from "../../utils/serialization";
+import { exchangeCreateSchema, uuidSchema } from "../schemas";
+import { createTrpcRouter, publicProcedure } from "../trpc";
 
 export const exchangesRouter = createTrpcRouter({
   list: publicProcedure.query(async ({ ctx }) => {

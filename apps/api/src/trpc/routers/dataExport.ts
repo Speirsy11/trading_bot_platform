@@ -6,8 +6,8 @@ import { TRPCError } from "@trpc/server";
 import { desc, eq, lt } from "drizzle-orm";
 import { z } from "zod";
 
-import { dataExportSchema, uuidSchema } from "../schemas.js";
-import { createTrpcRouter, publicProcedure } from "../trpc.js";
+import { dataExportSchema, uuidSchema } from "../schemas";
+import { createTrpcRouter, publicProcedure } from "../trpc";
 
 export const dataExportRouter = createTrpcRouter({
   create: publicProcedure.input(dataExportSchema).mutation(async ({ ctx, input }) => {

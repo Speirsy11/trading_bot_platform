@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { sma } from "../trend/sma.js";
+import { sma } from "../trend/sma";
 
 describe("SMA", () => {
   it("calculates SMA correctly for period 5", () => {

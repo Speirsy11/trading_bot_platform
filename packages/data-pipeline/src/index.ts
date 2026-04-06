@@ -1,52 +1,48 @@
 // Validation
-export { CandleValidator } from "./validation/CandleValidator.js";
-export { Deduplicator } from "./validation/Deduplicator.js";
-export { GapDetector, type Gap } from "./validation/GapDetector.js";
+export { CandleValidator } from "./validation/CandleValidator";
+export { Deduplicator } from "./validation/Deduplicator";
+export { GapDetector, type Gap } from "./validation/GapDetector";
 
 // Collection
-export { OHLCVCollector } from "./collection/OHLCVCollector.js";
-export { DataCollector } from "./collection/DataCollector.js";
+export { OHLCVCollector } from "./collection/OHLCVCollector";
+export { DataCollector } from "./collection/DataCollector";
 
 // Backfill
-export { BackfillJob, type BackfillJobConfig } from "./backfill/BackfillJob.js";
-export { BackfillManager } from "./backfill/BackfillManager.js";
+export { BackfillJob, type BackfillJobConfig } from "./backfill/BackfillJob";
+export { BackfillManager } from "./backfill/BackfillManager";
 
 // Streaming
-export { WebSocketManager } from "./streaming/WebSocketManager.js";
-export { StreamProcessor } from "./streaming/StreamProcessor.js";
-export { ReconnectHandler } from "./streaming/ReconnectHandler.js";
+export { WebSocketManager } from "./streaming/WebSocketManager";
+export { StreamProcessor } from "./streaming/StreamProcessor";
+export { ReconnectHandler } from "./streaming/ReconnectHandler";
 
 // Export
-export { CSVExporter } from "./export/CSVExporter.js";
-export { ParquetExporter } from "./export/ParquetExporter.js";
-export { SQLiteExporter } from "./export/SQLiteExporter.js";
-export { CompressionHelper } from "./export/CompressionHelper.js";
-export { ExportManager, type ExportRequest } from "./export/ExportManager.js";
+export { CSVExporter } from "./export/CSVExporter";
+export { ParquetExporter } from "./export/ParquetExporter";
+export { SQLiteExporter } from "./export/SQLiteExporter";
+export { CompressionHelper } from "./export/CompressionHelper";
+export { ExportManager, type ExportRequest } from "./export/ExportManager";
 
 // Rate Limiting
-export { ExchangeRateLimiter } from "./rateLimit/ExchangeRateLimiter.js";
-export { RATE_LIMIT_DEFAULTS, type RateLimitOptions } from "./rateLimit/RateLimitConfig.js";
+export { ExchangeRateLimiter } from "./rateLimit/ExchangeRateLimiter";
+export { RATE_LIMIT_DEFAULTS, type RateLimitOptions } from "./rateLimit/RateLimitConfig";
 
 // Jobs
-export { QUEUE_NAMES, JOB_NAMES, DEFAULT_JOB_OPTIONS } from "./jobs/types.js";
+export { QUEUE_NAMES, JOB_NAMES, DEFAULT_JOB_OPTIONS } from "./jobs/types";
 export type {
   CollectOHLCVJobData,
   BackfillJobData,
   DetectGapsJobData,
   ExportJobData,
-} from "./jobs/types.js";
+} from "./jobs/types";
 export {
   createQueues,
   setupRepeatableJobs,
   addDetectGapsJob,
   addBackfillJob,
   addExportJob,
-} from "./jobs/scheduler.js";
-export {
-  createCollectionWorker,
-  createBackfillWorker,
-  createExportWorker,
-} from "./jobs/workers.js";
+} from "./jobs/scheduler";
+export { createCollectionWorker, createBackfillWorker, createExportWorker } from "./jobs/workers";
 
 // Types
-export type { PipelineConfig, CollectionResult } from "./types.js";
+export type { PipelineConfig, CollectionResult } from "./types";

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createTrpcContext } from "../context.js";
-import { createCaller } from "../router.js";
+import { createTrpcContext } from "../context";
+import { createCaller } from "../router";
 
 function createQueryBuilder<T>(rows: T[]) {
   const state = {

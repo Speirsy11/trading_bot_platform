@@ -3,8 +3,8 @@ import { EventEmitter } from "events";
 import { createLogger } from "@tb/config";
 import ccxt from "ccxt";
 
-import { ReconnectHandler } from "./ReconnectHandler.js";
-import { StreamProcessor } from "./StreamProcessor.js";
+import { ReconnectHandler } from "./ReconnectHandler";
+import { StreamProcessor } from "./StreamProcessor";
 
 const logger = createLogger("websocket-manager");
 
@@ -32,7 +32,14 @@ export class WebSocketManager extends EventEmitter {
   private getExchange(exchangeId: string) {
     let exchange = this.exchanges.get(exchangeId);
     if (!exchange) {
-      const ExchangeClass = (ccxt.pro as unknown as Record<string, new (config?: Record<string, unknown>) => InstanceType<(typeof ccxt.pro)[keyof typeof ccxt.pro]>>)[exchangeId];
+      const ExchangeClass = (
+        ccxt.pro as unknown as Record<
+          string,
+          new (
+            config?: Record<string, unknown>
+          ) => InstanceType<(typeof ccxt.pro)[keyof typeof ccxt.pro]>
+        >
+      )[exchangeId];
       if (!ExchangeClass) {
         throw new Error(`Unsupported pro exchange: ${exchangeId}`);
       }

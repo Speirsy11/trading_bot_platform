@@ -3,10 +3,10 @@ import { timeframeToMs } from "@tb/trading-core";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
-import { getStrategyCatalog } from "../../services/strategyCatalog.js";
-import { mapExchangeError } from "../../utils/errors.js";
-import { toNumber } from "../../utils/serialization.js";
-import { createTrpcRouter, publicProcedure } from "../trpc.js";
+import { getStrategyCatalog } from "../../services/strategyCatalog";
+import { mapExchangeError } from "../../utils/errors";
+import { toNumber } from "../../utils/serialization";
+import { createTrpcRouter, publicProcedure } from "../trpc";
 
 export const marketRouter = createTrpcRouter({
   getTicker: publicProcedure

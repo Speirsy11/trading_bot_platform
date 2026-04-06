@@ -1,15 +1,8 @@
 import type { Candle, Order, OrderType, OrderSide, Balance } from "@tb/types";
 
-import { roundTo } from "../utils/decimal.js";
+import { roundTo } from "../utils/decimal";
 
-import type {
-  IExchange,
-  Ticker,
-  OrderBook,
-  FeeConfig,
-  SlippageConfig,
-  TradeRecord,
-} from "./types.js";
+import type { IExchange, Ticker, OrderBook, FeeConfig, SlippageConfig, TradeRecord } from "./types";
 
 interface PendingOrder extends Order {
   stopPrice?: number;

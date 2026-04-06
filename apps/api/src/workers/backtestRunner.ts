@@ -4,9 +4,9 @@ import { Worker } from "bullmq";
 import { and, eq } from "drizzle-orm";
 import type IORedis from "ioredis";
 
-import { API_QUEUE_NAMES, BACKTEST_JOB_NAMES, type BacktestJobData } from "../queues/types.js";
-import { bootstrapStrategies } from "../services/strategyCatalog.js";
-import { parseJsonValue, toNumber } from "../utils/serialization.js";
+import { API_QUEUE_NAMES, BACKTEST_JOB_NAMES, type BacktestJobData } from "../queues/types";
+import { bootstrapStrategies } from "../services/strategyCatalog";
+import { parseJsonValue, toNumber } from "../utils/serialization";
 
 export function createBacktestWorker(options: { db: Database; redis: IORedis }) {
   bootstrapStrategies();

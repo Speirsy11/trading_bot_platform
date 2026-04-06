@@ -1,12 +1,6 @@
-import {
-  pgTable,
-  text,
-  uuid,
-  timestamp,
-  numeric,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, uuid, timestamp, numeric } from "drizzle-orm/pg-core";
 
-import { backtests } from "./backtests.js";
+import { backtests } from "./backtests";
 
 export const backtestTrades = pgTable("backtest_trades", {
   id: uuid("id").primaryKey().defaultRandom(),

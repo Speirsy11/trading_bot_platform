@@ -1,7 +1,7 @@
 import type { Candle, Order, OrderType, OrderSide, Balance } from "@tb/types";
 import type { Exchange as CcxtExchange, Order as CcxtOrder } from "ccxt";
 
-import type { IExchange, Ticker, OrderBook } from "./types.js";
+import type { IExchange, Ticker, OrderBook } from "./types";
 
 /**
  * Live exchange wrapper. Delegates all calls to a CCXT instance.

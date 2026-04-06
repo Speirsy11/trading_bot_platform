@@ -1,9 +1,9 @@
 import type { Candle } from "@tb/types";
 
-import type { IExchange } from "../exchange/types.js";
-import { timeframeToMs } from "../utils/timeframe.js";
+import type { IExchange } from "../exchange/types";
+import { timeframeToMs } from "../utils/timeframe";
 
-import type { Bot } from "./Bot.js";
+import type { Bot } from "./Bot";
 
 /**
  * Execution loop for live/paper bots.

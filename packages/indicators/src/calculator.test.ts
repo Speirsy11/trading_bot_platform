@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { IndicatorCalculator } from "./calculator.js";
+import { IndicatorCalculator } from "./calculator";
 
 describe("IndicatorCalculator", () => {
   const calc = new IndicatorCalculator();

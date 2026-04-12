@@ -137,6 +137,45 @@ export class ExchangeManager {
     }
   }
 
+  async createOrder(
+    exchangeConfigId: string,
+    symbol: string,
+    type: "market" | "limit",
+    side: "buy" | "sell",
+    amount: number,
+    price?: number
+  ) {
+    try {
+      const instance = await this.getExchangeById(exchangeConfigId);
+      const order = await instance.createOrder(symbol, type, side, amount, price);
+      return {
+        id: order.id ?? "",
+        symbol: order.symbol ?? symbol,
+        type: order.type ?? type,
+        side: order.side ?? side,
+        amount: order.amount ?? amount,
+        price: order.price ?? price ?? null,
+        status: order.status ?? "open",
+        filled: order.filled ?? 0,
+        remaining: order.remaining ?? amount,
+        cost: order.cost ?? 0,
+        timestamp: order.timestamp ?? Date.now(),
+      };
+    } catch (error) {
+      throw mapExchangeError(error);
+    }
+  }
+
+  async cancelOrder(exchangeConfigId: string, symbol: string, orderId: string) {
+    try {
+      const instance = await this.getExchangeById(exchangeConfigId);
+      await instance.cancelOrder(orderId, symbol);
+      return { success: true, orderId, symbol };
+    } catch (error) {
+      throw mapExchangeError(error);
+    }
+  }
+
   async getAvailableSymbols(exchangeId: string): Promise<string[]> {
     try {
       const instance = await this.getPublicExchange(exchangeId);

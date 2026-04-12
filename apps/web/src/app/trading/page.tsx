@@ -8,6 +8,7 @@ import { useMarketData } from "@/hooks/useMarketData";
 import { useOrderBook } from "@/hooks/useOrderBook";
 import { useTicker } from "@/hooks/useTicker";
 import { formatCurrency, formatNumber, pnlColor } from "@/lib/format";
+import { trpc } from "@/lib/trpc";
 import { useUiStore } from "@/stores/ui";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
@@ -20,6 +21,22 @@ export default function TradingPage() {
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [orderPrice, setOrderPrice] = useState("");
   const [orderAmount, setOrderAmount] = useState("");
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+
+  const placeOrder = trpc.trading.placeOrder.useMutation({
+    onSuccess(data) {
+      setLastOrderId(data.id);
+      setOrderError(null);
+      setOrderAmount("");
+      setOrderPrice("");
+    },
+    onError(error) {
+      setOrderError(error.message);
+      setLastOrderId(null);
+      console.error("[placeOrder]", error);
+    },
+  });
 
   const { data: ticker } = useTicker(selectedExchange, selectedSymbol);
   const { data: candles } = useMarketData(selectedExchange, selectedSymbol, timeframe);
@@ -230,14 +247,71 @@ export default function TradingPage() {
               />
             </div>
 
+            {orderError && (
+              <p className="text-xs" style={{ color: "var(--loss)" }}>
+                {orderError}
+              </p>
+            )}
+
+            {lastOrderId && !orderError && (
+              <p className="text-xs" style={{ color: "var(--profit)" }}>
+                Order placed — ID: {lastOrderId}
+              </p>
+            )}
+
             <button
-              className="w-full rounded-lg py-2.5 text-sm font-medium transition-colors"
+              disabled={placeOrder.isPending || !selectedExchange || !selectedSymbol}
+              onClick={() => {
+                setOrderError(null);
+                setLastOrderId(null);
+
+                const parsedAmount = parseFloat(orderAmount);
+                if (!parsedAmount || parsedAmount <= 0) {
+                  setOrderError("Amount must be greater than 0");
+                  return;
+                }
+
+                if (orderType === "limit") {
+                  const parsedPrice = parseFloat(orderPrice);
+                  if (!parsedPrice || parsedPrice <= 0) {
+                    setOrderError("Price is required for limit orders");
+                    return;
+                  }
+                  placeOrder.mutate({
+                    exchange: selectedExchange,
+                    symbol: selectedSymbol,
+                    side: orderSide,
+                    type: orderType,
+                    amount: parsedAmount,
+                    price: parsedPrice,
+                  });
+                } else {
+                  placeOrder.mutate({
+                    exchange: selectedExchange,
+                    symbol: selectedSymbol,
+                    side: orderSide,
+                    type: orderType,
+                    amount: parsedAmount,
+                  });
+                }
+              }}
+              className="w-full rounded-lg py-2.5 text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
                 background: orderSide === "buy" ? "var(--profit)" : "var(--loss)",
                 color: "var(--primary-foreground)",
               }}
             >
-              {orderSide === "buy" ? "Buy" : "Sell"} {baseAsset}
+              {placeOrder.isPending ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span
+                    className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
+                    aria-hidden="true"
+                  />
+                  Placing…
+                </span>
+              ) : (
+                `${orderSide === "buy" ? "Buy" : "Sell"} ${baseAsset}`
+              )}
             </button>
           </div>
         </div>

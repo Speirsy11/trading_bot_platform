@@ -5,6 +5,7 @@ import { dataExportRouter } from "./routers/dataExport";
 import { exchangesRouter } from "./routers/exchanges";
 import { marketRouter } from "./routers/market";
 import { portfolioRouter } from "./routers/portfolio";
+import { tradingRouter } from "./routers/trading";
 import { createTrpcRouter, createCallerFactory } from "./trpc";
 
 export const appRouter = createTrpcRouter({
@@ -15,6 +16,7 @@ export const appRouter = createTrpcRouter({
   exchanges: exchangesRouter,
   dataExport: dataExportRouter,
   dataCollection: dataCollectionRouter,
+  trading: tradingRouter,
 });
 
 export const createCaller = createCallerFactory(appRouter);

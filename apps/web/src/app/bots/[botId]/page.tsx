@@ -2,7 +2,7 @@
 
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { use } from "react";
+import { use, useMemo } from "react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BotControlPanel } from "@/components/bots/BotControlPanel";
@@ -17,8 +17,64 @@ export default function BotDetailPage({ params }: { params: Promise<{ botId: str
   const { botId } = use(params);
   const { data: bot, isLoading } = useBotStatus(botId);
   const { data: metrics } = trpc.bots.getMetrics.useQuery({ botId });
-  const { data: tradesData } = trpc.bots.getTrades.useQuery({ botId, limit: 50, offset: 0 });
+
+  // Fetch up to 500 trades for markers + equity curve
+  const { data: tradesData, isLoading: tradesLoading } = trpc.bots.getTrades.useQuery({
+    botId,
+    limit: 500,
+    offset: 0,
+  });
   const { data: logs } = trpc.bots.getLogs.useQuery({ botId, limit: 50 });
+
+  // Fetch candles using the bot's exchange / symbol / timeframe
+  const { data: candleData, isLoading: candlesLoading } = trpc.market.getCandles.useQuery(
+    {
+      exchange: bot?.exchange ?? "",
+      symbol: bot?.symbol ?? "",
+      timeframe: bot?.timeframe ?? "1h",
+      limit: 500,
+    },
+    { enabled: !!bot }
+  );
+
+  // Build equity curve from trades (oldest → newest, cumulative PnL from starting balance)
+  const equityCurveData = useMemo(() => {
+    if (!tradesData || tradesData.length === 0) return [];
+
+    // Trades are returned newest-first; reverse to chronological order
+    const sorted = [...tradesData].reverse();
+
+    // Derive the starting balance by subtracting total cumulative PnL from current balance
+    const totalPnl = sorted.reduce((sum, t) => sum + t.pnl, 0);
+    const currentBalance = metrics?.currentBalance ?? 0;
+    let runningBalance = currentBalance - totalPnl;
+
+    return sorted.map((trade) => {
+      runningBalance += trade.pnl;
+      return {
+        time: new Date(trade.executedAt).getTime(),
+        equity: runningBalance,
+      };
+    });
+  }, [tradesData, metrics?.currentBalance]);
+
+  // Map trades to lightweight-charts series markers
+  const tradeMarkers = useMemo(() => {
+    if (!tradesData || tradesData.length === 0) return [];
+
+    return tradesData
+      .map((trade) => ({
+        time: new Date(trade.executedAt).getTime(),
+        position: trade.side === "buy" ? ("belowBar" as const) : ("aboveBar" as const),
+        color: trade.side === "buy" ? "var(--profit)" : "var(--loss)",
+        shape: trade.side === "buy" ? ("arrowUp" as const) : ("arrowDown" as const),
+        text: trade.side === "buy" ? "B" : "S",
+      }))
+      .sort((a, b) => a.time - b.time);
+  }, [tradesData]);
+
+  // Show only the first 50 trades in the table
+  const trades = tradesData?.slice(0, 50) ?? [];
 
   if (isLoading) {
     return (
@@ -39,8 +95,6 @@ export default function BotDetailPage({ params }: { params: Promise<{ botId: str
       </div>
     );
   }
-
-  const trades = tradesData ?? [];
 
   return (
     <div className="space-y-6">
@@ -75,12 +129,30 @@ export default function BotDetailPage({ params }: { params: Promise<{ botId: str
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="glass-panel p-5">
           <h2 className="text-lg mb-4">Chart</h2>
-          <CandlestickChart data={[]} height={300} />
+          {candlesLoading ? (
+            <div
+              className="animate-pulse rounded-lg"
+              style={{ height: 300, background: "var(--bg-input)" }}
+            />
+          ) : (
+            <CandlestickChart
+              data={candleData ?? []}
+              height={300}
+              markers={tradeMarkers.length > 0 ? tradeMarkers : undefined}
+            />
+          )}
         </div>
 
         <div className="glass-panel p-5">
           <h2 className="text-lg mb-4">Equity Curve</h2>
-          <EquityCurve data={[]} height={300} />
+          {tradesLoading ? (
+            <div
+              className="animate-pulse rounded-lg"
+              style={{ height: 300, background: "var(--bg-input)" }}
+            />
+          ) : (
+            <EquityCurve data={equityCurveData} height={300} />
+          )}
         </div>
       </div>
 

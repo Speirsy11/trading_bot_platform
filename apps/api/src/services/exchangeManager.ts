@@ -117,6 +117,26 @@ export class ExchangeManager {
     }
   }
 
+  async fetchOrderBook(exchangeId: string, symbol: string, limit: number) {
+    try {
+      const instance = await this.getPublicExchange(exchangeId);
+      const book = await instance.fetchOrderBook(symbol, limit);
+      return {
+        exchange: exchangeId,
+        symbol,
+        bids: (book.bids ?? []).map(
+          ([price, amount]) => [price ?? 0, amount ?? 0] as [number, number]
+        ),
+        asks: (book.asks ?? []).map(
+          ([price, amount]) => [price ?? 0, amount ?? 0] as [number, number]
+        ),
+        timestamp: book.timestamp ?? Date.now(),
+      };
+    } catch (error) {
+      throw mapExchangeError(error);
+    }
+  }
+
   async getAvailableSymbols(exchangeId: string): Promise<string[]> {
     try {
       const instance = await this.getPublicExchange(exchangeId);

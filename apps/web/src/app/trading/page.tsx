@@ -5,12 +5,12 @@ import { useState } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
 import { useMarketData } from "@/hooks/useMarketData";
+import { useOrderBook } from "@/hooks/useOrderBook";
 import { useTicker } from "@/hooks/useTicker";
 import { formatCurrency, formatNumber, pnlColor } from "@/lib/format";
 import { useUiStore } from "@/stores/ui";
 
 const TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
-const ORDER_BOOK_SIZES = [4.8211, 4.1124, 3.4863, 2.7742, 1.9635];
 
 export default function TradingPage() {
   const selectedSymbol = useUiStore((s) => s.selectedSymbol);
@@ -23,6 +23,11 @@ export default function TradingPage() {
 
   const { data: ticker } = useTicker(selectedExchange, selectedSymbol);
   const { data: candles } = useMarketData(selectedExchange, selectedSymbol, timeframe);
+  const { data: orderBook, isLoading: orderBookLoading } = useOrderBook(
+    selectedExchange,
+    selectedSymbol,
+    20
+  );
   const lastPrice = ticker?.last ?? candles?.[candles.length - 1]?.close ?? 0;
   const slashIndex = selectedSymbol.indexOf("/");
   const baseAsset =
@@ -89,35 +94,44 @@ export default function TradingPage() {
             <h3 className="text-xs font-medium mb-3" style={{ color: "var(--text-muted)" }}>
               Order Book
             </h3>
-            <div className="space-y-1">
-              {/* Asks */}
-              {ORDER_BOOK_SIZES.map((size, i) => (
-                <div key={`ask-${i}`} className="flex justify-between text-xs tabular-nums">
-                  <span style={{ color: "var(--loss)" }}>
-                    {lastPrice > 0 ? formatCurrency(lastPrice * (1 + (5 - i) * 0.001)) : "—"}
-                  </span>
-                  <span style={{ color: "var(--text-muted)" }}>{size.toFixed(4)}</span>
-                </div>
-              ))}
-              {/* Spread */}
-              <div
-                className="flex justify-center py-1 text-xs font-medium"
-                style={{ color: "var(--accent)" }}
-              >
-                {lastPrice > 0 ? formatCurrency(lastPrice) : "—"}
+            {orderBookLoading ? (
+              <div className="space-y-1">
+                {Array.from({ length: 11 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-4 rounded animate-pulse"
+                    style={{ background: "var(--bg-input)" }}
+                  />
+                ))}
               </div>
-              {/* Bids */}
-              {ORDER_BOOK_SIZES.map((size, i) => (
-                <div key={`bid-${i}`} className="flex justify-between text-xs tabular-nums">
-                  <span style={{ color: "var(--profit)" }}>
-                    {lastPrice > 0 ? formatCurrency(lastPrice * (1 - (i + 1) * 0.001)) : "—"}
-                  </span>
-                  <span style={{ color: "var(--text-muted)" }}>
-                    {ORDER_BOOK_SIZES[ORDER_BOOK_SIZES.length - 1 - i]!.toFixed(4)}
-                  </span>
+            ) : (
+              <div className="space-y-1">
+                {/* Asks — show up to 5, reversed so lowest ask is closest to mid */}
+                {(orderBook?.asks ?? [])
+                  .slice(0, 5)
+                  .reverse()
+                  .map(([price, amount], i) => (
+                    <div key={`ask-${i}`} className="flex justify-between text-xs tabular-nums">
+                      <span style={{ color: "var(--loss)" }}>{formatCurrency(price)}</span>
+                      <span style={{ color: "var(--text-muted)" }}>{amount.toFixed(4)}</span>
+                    </div>
+                  ))}
+                {/* Spread / mid price */}
+                <div
+                  className="flex justify-center py-1 text-xs font-medium"
+                  style={{ color: "var(--accent)" }}
+                >
+                  {lastPrice > 0 ? formatCurrency(lastPrice) : "—"}
                 </div>
-              ))}
-            </div>
+                {/* Bids — show up to 5 */}
+                {(orderBook?.bids ?? []).slice(0, 5).map(([price, amount], i) => (
+                  <div key={`bid-${i}`} className="flex justify-between text-xs tabular-nums">
+                    <span style={{ color: "var(--profit)" }}>{formatCurrency(price)}</span>
+                    <span style={{ color: "var(--text-muted)" }}>{amount.toFixed(4)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Order Form */}

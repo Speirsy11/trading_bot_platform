@@ -82,6 +82,22 @@ export const marketRouter = createTrpcRouter({
       return rows.reverse().map(serializeCandleRow);
     }),
 
+  getOrderBook: publicProcedure
+    .input(
+      z.object({
+        exchange: z.string(),
+        symbol: z.string(),
+        limit: z.number().min(1).max(100).default(20),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      try {
+        return await ctx.exchangeManager.fetchOrderBook(input.exchange, input.symbol, input.limit);
+      } catch (error) {
+        throw mapExchangeError(error);
+      }
+    }),
+
   getSymbols: publicProcedure
     .input(z.object({ exchange: z.string() }))
     .query(async ({ ctx, input }) => {

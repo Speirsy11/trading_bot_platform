@@ -5,6 +5,7 @@ import type { Server, Socket } from "socket.io";
 const CHANNELS = [
   "market:ticker",
   "market:candle",
+  "market:orderBook",
   "bot:status",
   "bot:trade",
   "bot:metrics",
@@ -73,6 +74,8 @@ function resolveRoom(payload: Record<string, unknown>) {
       return buildTickerRoom(payload);
     case "candle":
       return buildCandleRoom(payload);
+    case "orderBook":
+      return buildOrderBookRoom(payload);
     case "bot":
       return buildBotRoom(payload);
     case "portfolio":
@@ -109,6 +112,15 @@ function fanOut(
         return;
       }
       io.to(room).emit("price:candle", payload);
+      return;
+    }
+    case "market:orderBook": {
+      const room = buildOrderBookRoom(payload);
+      if (!room) {
+        logger.warn({ channel, payload }, "dropping malformed websocket payload");
+        return;
+      }
+      io.to(room).emit("price:orderBook", payload);
       return;
     }
     case "bot:status":
@@ -165,6 +177,12 @@ function buildCandleRoom(payload: Record<string, unknown>) {
   const symbol = getRequiredRoomField(payload, "symbol");
   const timeframe = getRequiredRoomField(payload, "timeframe");
   return exchange && symbol && timeframe ? `candle:${exchange}:${symbol}:${timeframe}` : null;
+}
+
+function buildOrderBookRoom(payload: Record<string, unknown>) {
+  const exchange = getRequiredRoomField(payload, "exchange");
+  const symbol = getRequiredRoomField(payload, "symbol");
+  return exchange && symbol ? `orderBook:${exchange}:${symbol}` : null;
 }
 
 function buildBotRoom(payload: Record<string, unknown>) {

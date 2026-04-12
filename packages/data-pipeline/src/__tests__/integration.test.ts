@@ -41,7 +41,17 @@ const schema = {
   backtestTrades,
 };
 
-describe("Data Pipeline Integration Tests", () => {
+const hasDocker = await (async () => {
+  try {
+    const { execSync } = await import("child_process");
+    execSync("docker info", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+describe.skipIf(!hasDocker)("Data Pipeline Integration Tests", () => {
   let container: StartedPostgreSqlContainer;
   let client: ReturnType<typeof postgres>;
   let db: ReturnType<typeof drizzle>;

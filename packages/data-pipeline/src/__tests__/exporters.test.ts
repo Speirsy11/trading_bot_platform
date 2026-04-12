@@ -3,11 +3,12 @@ import { tmpdir } from "os";
 import { join } from "path";
 
 import type { OHLCVRow } from "@tb/db";
-import { describe, it, expect } from "vitest";
+import parquet from "parquetjs-lite";
+import { describe, it, expect, afterEach } from "vitest";
 
 import { CSVExporter } from "../export/CSVExporter";
 import { CompressionHelper } from "../export/CompressionHelper";
-import { ParquetExporter } from "../export/ParquetExporter";
+import { exportParquet, ParquetExporter } from "../export/ParquetExporter";
 import { SQLiteExporter } from "../export/SQLiteExporter";
 
 function createTestRows(count: number): OHLCVRow[] {
@@ -86,27 +87,81 @@ describe("SQLiteExporter", () => {
 describe("ParquetExporter", () => {
   const testDir = join(tmpdir(), "tb-test-parquet-" + Date.now());
 
-  it("exports OHLCV data to JSONL", async () => {
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it("exports OHLCV data to Parquet and reads back correct row count", async () => {
+    mkdirSync(testDir, { recursive: true });
+    const outputPath = join(testDir, "test.parquet");
+    const rows = createTestRows(7);
+
+    const result = await exportParquet(rows, outputPath);
+
+    expect(result.rowCount).toBe(7);
+    expect(existsSync(outputPath)).toBe(true);
+
+    // Read back with parquetjs-lite and count rows
+    const reader = await parquet.ParquetReader.openFile(outputPath);
+    const cursor = reader.getCursor();
+    let readCount = 0;
+    let firstRow: Record<string, unknown> | null = null;
+    while (true) {
+      const row = await cursor.next();
+      if (row === null) break;
+      if (firstRow === null) firstRow = row;
+      readCount++;
+    }
+    await reader.close();
+
+    expect(readCount).toBe(7);
+    expect(firstRow).not.toBeNull();
+
+    // Round-trip check: timestamp and close value
+    // parquetjs-lite decodes INT64 as BigInt; convert to Number for comparison
+    const ts = firstRow!["time"];
+    const tsMs =
+      typeof ts === "bigint" ? Number(ts) : ts instanceof Date ? ts.getTime() : Number(ts);
+    expect(tsMs).toBe(new Date("2024-01-01T00:00:00Z").getTime());
+
+    expect(Number(firstRow!["close"])).toBeCloseTo(42300.0, 2);
+    expect(firstRow!["exchange"]).toBe("binance");
+    expect(firstRow!["symbol"]).toBe("BTC/USDT");
+  });
+
+  it("exports OHLCV data via ParquetExporter class wrapper", async () => {
     mkdirSync(testDir, { recursive: true });
     const exporter = new ParquetExporter();
-    const outputPath = join(testDir, "test.jsonl");
+    const outputPath = join(testDir, "test-class.parquet");
     const rows = createTestRows(5);
 
     const result = await exporter.export(rows, outputPath);
 
     expect(result.rowCount).toBe(5);
     expect(existsSync(outputPath)).toBe(true);
+  });
 
-    const content = readFileSync(outputPath, "utf-8");
-    const lines = content.trim().split("\n");
-    expect(lines).toHaveLength(5);
+  it("handles async iterable source (streaming, no full buffer)", async () => {
+    mkdirSync(testDir, { recursive: true });
+    const outputPath = join(testDir, "test-async.parquet");
 
-    // Verify each line is valid JSON
-    const parsed = JSON.parse(lines[0]!);
-    expect(parsed.exchange).toBe("binance");
-    expect(parsed.symbol).toBe("BTC/USDT");
+    async function* rowGenerator(): AsyncGenerator<OHLCVRow> {
+      for (const row of createTestRows(10)) {
+        yield row;
+      }
+    }
 
-    rmSync(testDir, { recursive: true, force: true });
+    const result = await exportParquet(rowGenerator(), outputPath);
+    expect(result.rowCount).toBe(10);
+    expect(existsSync(outputPath)).toBe(true);
+
+    // Verify the file can be read back
+    const reader = await parquet.ParquetReader.openFile(outputPath);
+    const cursor = reader.getCursor();
+    let count = 0;
+    while ((await cursor.next()) !== null) count++;
+    await reader.close();
+    expect(count).toBe(10);
   });
 });
 

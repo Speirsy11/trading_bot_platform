@@ -25,7 +25,17 @@ import * as settingsSchema from "../schema/settings";
 
 // Use a plain Postgres container (TimescaleDB not available in default testcontainers)
 // We test schema creation and queries; TimescaleDB-specific features tested separately
-describe("@tb/db integration tests", () => {
+const hasDocker = await (async () => {
+  try {
+    const { execSync } = await import("child_process");
+    execSync("docker info", { stdio: "ignore" });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+
+describe.skipIf(!hasDocker)("@tb/db integration tests", () => {
   let container: StartedPostgreSqlContainer;
   let client: ReturnType<typeof postgres>;
   let db: ReturnType<typeof drizzle>;

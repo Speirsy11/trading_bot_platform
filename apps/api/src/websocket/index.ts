@@ -79,6 +79,8 @@ function resolveRoom(payload: Record<string, unknown>) {
       return "portfolio";
     case "backtest":
       return buildBacktestRoom(payload);
+    case "trades:all":
+      return "trades:all";
     default:
       return null;
   }
@@ -124,6 +126,9 @@ function fanOut(
             ? "bot:trade"
             : "bot:metrics";
       io.to(room).emit(eventName, payload);
+      if (channel === "bot:trade") {
+        io.to("trades:all").emit("bot:trade", payload);
+      }
       return;
     }
     case "backtest:progress": {

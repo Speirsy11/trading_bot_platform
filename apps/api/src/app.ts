@@ -1,5 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
-import { resolve } from "node:path";
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { createBullBoard } from "@bull-board/api";
 import { BullMQAdapter } from "@bull-board/api/bullMQAdapter";
@@ -17,6 +19,29 @@ import Fastify, {
 } from "fastify";
 import type IORedis from "ioredis";
 import { Server } from "socket.io";
+
+const API_VERSION = resolveApiVersion();
+
+function resolveApiVersion(): string {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url));
+    // src/app.ts -> ../package.json; dist/app.js -> ../package.json
+    for (const candidate of ["../package.json", "../../package.json"]) {
+      try {
+        const raw = readFileSync(resolve(here, candidate), "utf8");
+        const parsed = JSON.parse(raw) as { name?: string; version?: string };
+        if (parsed.name === "api" && typeof parsed.version === "string") {
+          return parsed.version;
+        }
+      } catch {
+        // try next candidate
+      }
+    }
+  } catch {
+    // fall through
+  }
+  return process.env["npm_package_version"] ?? "0.0.0";
+}
 
 import type { QueueSet } from "./queues/index";
 import type { ExchangeManager } from "./services/exchangeManager";
@@ -107,42 +132,50 @@ export async function createApp(options: CreateAppOptions) {
   });
 
   app.get("/", async () => ({ message: "Trading Bot API" }));
-  app.get("/health", async () => {
+  app.get("/health", async (_request, reply) => {
     const [dbResult, redisResult] = await Promise.allSettled([
       options.db.execute(sql`select 1`),
       options.redis.ping(),
     ]);
 
-    const db = dbResult.status === "fulfilled" ? "connected" : "degraded";
-    const redis =
-      redisResult.status === "fulfilled" && redisResult.value === "PONG" ? "connected" : "degraded";
+    const db: "ok" | "error" = dbResult.status === "fulfilled" ? "ok" : "error";
+    const redis: "ok" | "error" =
+      redisResult.status === "fulfilled" && redisResult.value === "PONG" ? "ok" : "error";
+
+    const errors: string[] = [];
+    if (dbResult.status === "rejected") {
+      errors.push(
+        `db: ${dbResult.reason instanceof Error ? dbResult.reason.message : String(dbResult.reason)}`
+      );
+    } else if (redisResult.status === "fulfilled" && redis === "error") {
+      // ping resolved but returned something other than PONG
+      errors.push(`redis: unexpected ping response ${String(redisResult.value)}`);
+    }
+    if (redisResult.status === "rejected") {
+      errors.push(
+        `redis: ${redisResult.reason instanceof Error ? redisResult.reason.message : String(redisResult.reason)}`
+      );
+    }
+
+    const healthy = db === "ok" && redis === "ok";
+    if (!healthy) {
+      reply.code(503);
+      return {
+        status: "degraded" as const,
+        db,
+        redis,
+        uptime: process.uptime(),
+        version: API_VERSION,
+        ...(errors.length > 0 ? { error: errors.join("; ") } : {}),
+      };
+    }
 
     return {
-      status: db === "connected" && redis === "connected" ? "ok" : "degraded",
+      status: "ok" as const,
       db,
       redis,
-      queues: {
-        botExecution: options.queues.botExecutionQueue.name,
-        backtest: options.queues.backtestQueue.name,
-        dataCollection: options.queues.dataCollectionQueue.name,
-        dataBackfill: options.queues.dataBackfillQueue.name,
-        dataExport: options.queues.dataExportQueue.name,
-      },
-      errors: {
-        db:
-          dbResult.status === "rejected"
-            ? dbResult.reason instanceof Error
-              ? dbResult.reason.message
-              : String(dbResult.reason)
-            : null,
-        redis:
-          redisResult.status === "rejected"
-            ? redisResult.reason instanceof Error
-              ? redisResult.reason.message
-              : String(redisResult.reason)
-            : null,
-      },
       uptime: process.uptime(),
+      version: API_VERSION,
     };
   });
 

@@ -290,6 +290,28 @@ export const botsRouter = createTrpcRouter({
       }));
     }),
 
+  getRecentTrades: publicProcedure
+    .input(z.object({ limit: z.number().min(1).max(100).default(10) }))
+    .query(async ({ ctx, input }) => {
+      const trades = await ctx.db
+        .select()
+        .from(botTrades)
+        .orderBy(desc(botTrades.executedAt))
+        .limit(input.limit);
+
+      return trades.map((trade) => ({
+        ...trade,
+        amount: toNumber(trade.amount),
+        price: toNumber(trade.price),
+        cost: toNumber(trade.cost),
+        fee: toNumber(trade.fee),
+        pnl: toNumber(trade.pnl),
+        pnlPercent: toNumber(trade.pnlPercent),
+        executedAt: trade.executedAt.toISOString(),
+        createdAt: trade.createdAt?.toISOString() ?? null,
+      }));
+    }),
+
   getLogs: publicProcedure
     .input(z.object({ botId: uuidSchema, limit: z.number().min(1).max(200).default(50) }))
     .query(async ({ ctx, input }) => {

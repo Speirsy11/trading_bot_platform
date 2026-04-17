@@ -13,6 +13,7 @@ import { createBacktestWorker } from "./backtestRunner";
 import { createBotExecutorWorker } from "./botExecutor";
 import { createDataPipelineWorkers } from "./dataPipelineWorkers";
 import { createDataRetentionWorker, scheduleDataRetentionJob } from "./dataRetentionWorker";
+import { startHealthServer } from "./healthServer";
 
 const processLogger = console;
 
@@ -101,6 +102,8 @@ async function startWorkers() {
   const backtestWorker = createBacktestWorker({ db, redis });
   const pipelineWorkers = createDataPipelineWorkers({ db, redis, exportsDir });
   const retentionWorker = createDataRetentionWorker({ db, redis });
+
+  startHealthServer();
 
   const shutdown = async (signal: string) => {
     console.warn(`workers shutting down: ${signal}`);

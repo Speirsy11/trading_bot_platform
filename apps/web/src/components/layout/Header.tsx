@@ -1,14 +1,16 @@
 "use client";
 
-import { Bell, Wifi, WifiOff } from "lucide-react";
+import { Bell, Search, Wifi, WifiOff } from "lucide-react";
 
 import { PnLTicker } from "@/components/layout/PnLTicker";
+import { useCmdK } from "@/hooks/useCmdK";
 import { useSocket } from "@/providers/SocketProvider";
 import { useUiStore } from "@/stores/ui";
 
 export function Header() {
   const selectedSymbol = useUiStore((s) => s.selectedSymbol);
   const { isConnected } = useSocket();
+  const { open: openPalette } = useCmdK();
 
   return (
     <header
@@ -42,6 +44,28 @@ export function Header() {
           {isConnected ? <Wifi size={12} /> : <WifiOff size={12} />}
           {isConnected ? "Live" : "Offline"}
         </div>
+
+        <button
+          onClick={openPalette}
+          className="flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs transition-colors"
+          style={{
+            background: "var(--bg-input)",
+            color: "var(--text-muted)",
+            border: "1px solid var(--border)",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--text-primary)")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--text-muted)")}
+          aria-label="Open command palette (⌘K)"
+        >
+          <Search size={12} />
+          <span>Search</span>
+          <kbd
+            className="rounded px-1 py-0.5 text-[10px] font-mono"
+            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+          >
+            ⌘K
+          </kbd>
+        </button>
 
         <button
           className="rounded-lg p-2 transition-colors"

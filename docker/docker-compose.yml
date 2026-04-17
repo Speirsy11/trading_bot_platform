@@ -71,7 +71,13 @@ services:
         condition: service_healthy
       bootstrap:
         condition: service_completed_successfully
-    restart: unless-stopped
+    restart: on-failure:5
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
     volumes:
       - ../:/app
       - worker_node_modules:/app/node_modules

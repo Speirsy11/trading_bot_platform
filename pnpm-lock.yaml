@@ -138,6 +138,9 @@ importers:
       '@tanstack/react-virtual':
         specifier: ^3.13.23
         version: 3.13.23(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tb/indicators':
+        specifier: workspace:*
+        version: link:../../packages/indicators
       '@tb/types':
         specifier: workspace:*
         version: link:../../packages/types

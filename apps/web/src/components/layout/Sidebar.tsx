@@ -8,6 +8,7 @@ import {
   Database,
   History,
   Settings,
+  Activity,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/market-data", label: "Market Data", icon: Database },
   { href: "/history", label: "History", icon: History },
   { href: "/settings", label: "Settings", icon: Settings },
+  { href: "/status", label: "Status", icon: Activity },
 ];
 
 export function Sidebar() {

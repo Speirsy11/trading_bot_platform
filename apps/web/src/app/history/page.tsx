@@ -10,8 +10,9 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { Activity } from "lucide-react";
-import { useState, useMemo } from "react";
+import { Activity, ChevronDown, X } from "lucide-react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { useState, useMemo, useEffect, useRef } from "react";
 
 import { formatCurrency, formatDateShort, pnlColor } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
@@ -35,17 +36,119 @@ interface Trade {
   createdAt: string | null;
 }
 
+interface FilterPreset {
+  name: string;
+  q: string;
+  side: "" | "buy" | "sell";
+  symbol: string;
+}
+
+const PRESETS_KEY = "history-filter-presets";
+
+const BUILTIN_PRESETS: FilterPreset[] = [
+  { name: "All trades", q: "", side: "", symbol: "" },
+  { name: "Buy only", q: "", side: "buy", symbol: "" },
+  { name: "Sell only", q: "", side: "sell", symbol: "" },
+];
+
+function loadUserPresets(): FilterPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(PRESETS_KEY);
+    return raw ? (JSON.parse(raw) as FilterPreset[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveUserPresets(presets: FilterPreset[]) {
+  localStorage.setItem(PRESETS_KEY, JSON.stringify(presets));
+}
+
 export default function HistoryPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+
+  // Read filter state from URL
+  const globalFilter = searchParams.get("q") ?? "";
+  const sideFilter = (searchParams.get("side") ?? "") as "" | "buy" | "sell";
+  const symbolFilter = searchParams.get("symbol") ?? "";
+
   const [sorting, setSorting] = useState<SortingState>([{ id: "executedAt", desc: true }]);
-  const [globalFilter, setGlobalFilter] = useState("");
-  const [sideFilter, setSideFilter] = useState<"" | "buy" | "sell">("");
+
+  // Preset UI state
+  const [userPresets, setUserPresets] = useState<FilterPreset[]>([]);
+  const [presetDropdownOpen, setPresetDropdownOpen] = useState(false);
+  const [savingPreset, setSavingPreset] = useState(false);
+  const [presetName, setPresetName] = useState("");
+  const presetNameInputRef = useRef<HTMLInputElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Load persisted presets on mount
+  useEffect(() => {
+    setUserPresets(loadUserPresets());
+  }, []);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setPresetDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  // Focus preset name input when it appears
+  useEffect(() => {
+    if (savingPreset) {
+      presetNameInputRef.current?.focus();
+    }
+  }, [savingPreset]);
+
+  function updateFilter(key: string, value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value) {
+      params.set(key, value);
+    } else {
+      params.delete(key);
+    }
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }
+
+  function applyPreset(preset: FilterPreset) {
+    const params = new URLSearchParams();
+    if (preset.q) params.set("q", preset.q);
+    if (preset.side) params.set("side", preset.side);
+    if (preset.symbol) params.set("symbol", preset.symbol);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    setPresetDropdownOpen(false);
+  }
+
+  function handleSavePreset() {
+    const name = presetName.trim();
+    if (!name) return;
+    const preset: FilterPreset = { name, q: globalFilter, side: sideFilter, symbol: symbolFilter };
+    const updated = [...userPresets.filter((p) => p.name !== name), preset];
+    setUserPresets(updated);
+    saveUserPresets(updated);
+    setPresetName("");
+    setSavingPreset(false);
+  }
+
+  function deletePreset(name: string) {
+    const updated = userPresets.filter((p) => p.name !== name);
+    setUserPresets(updated);
+    saveUserPresets(updated);
+  }
 
   const {
     data: bots = [],
     isError: isBotsError,
     refetch: refetchBots,
   } = trpc.bots.list.useQuery({});
-  // Fetch trades from the first few bots (trade history is per-bot in the API)
   const botIds = (bots as { id: string }[]).slice(0, 10).map((b) => b.id);
   const tradeQueries = trpc.useQueries((t) =>
     botIds.map((botId) => t.bots.getTrades({ botId, limit: 50 }))
@@ -54,9 +157,14 @@ export default function HistoryPage() {
   const allTrades = tradeQueries.filter((q) => q.data).flatMap((q) => q.data ?? []);
 
   const filtered = useMemo(() => {
-    if (!sideFilter) return allTrades;
-    return allTrades.filter((t: Trade) => t.side === sideFilter);
-  }, [allTrades, sideFilter]);
+    let result = allTrades;
+    if (sideFilter) result = result.filter((t: Trade) => t.side === sideFilter);
+    if (symbolFilter)
+      result = result.filter((t: Trade) =>
+        t.symbol.toLowerCase().includes(symbolFilter.toLowerCase())
+      );
+    return result;
+  }, [allTrades, sideFilter, symbolFilter]);
 
   const columns = useMemo<ColumnDef<Trade>[]>(
     () => [
@@ -119,7 +227,7 @@ export default function HistoryPage() {
     columns,
     state: { sorting, globalFilter },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    onGlobalFilterChange: (val) => updateFilter("q", val as string),
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -134,6 +242,8 @@ export default function HistoryPage() {
     const wins = arr.filter((t) => t.pnl > 0).length;
     return { totalPnl, totalFees, wins, total: arr.length };
   }, [filtered]);
+
+  const allPresets = [...BUILTIN_PRESETS, ...userPresets];
 
   return (
     <div className="space-y-4">
@@ -155,11 +265,12 @@ export default function HistoryPage() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
+        {/* Text search — synced to ?q= */}
         <input
           type="text"
           placeholder="Search trades…"
           value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
+          onChange={(e) => updateFilter("q", e.target.value)}
           className="rounded-lg px-3 py-2 text-sm outline-none min-w-[200px]"
           style={{
             background: "var(--bg-input)",
@@ -167,11 +278,27 @@ export default function HistoryPage() {
             border: "1px solid var(--border)",
           }}
         />
+
+        {/* Symbol filter — synced to ?symbol= */}
+        <input
+          type="text"
+          placeholder="Symbol (e.g. BTC/USDT)"
+          value={symbolFilter}
+          onChange={(e) => updateFilter("symbol", e.target.value)}
+          className="rounded-lg px-3 py-2 text-sm outline-none min-w-[160px]"
+          style={{
+            background: "var(--bg-input)",
+            color: "var(--text-primary)",
+            border: "1px solid var(--border)",
+          }}
+        />
+
+        {/* Side filter — synced to ?side= */}
         <div className="flex gap-1">
           {(["", "buy", "sell"] as const).map((s) => (
             <button
               key={s}
-              onClick={() => setSideFilter(s)}
+              onClick={() => updateFilter("side", s)}
               className="px-3 py-2 rounded-lg text-xs transition-colors"
               style={{
                 background: sideFilter === s ? "var(--accent-dim)" : "var(--bg-input)",
@@ -182,6 +309,107 @@ export default function HistoryPage() {
             </button>
           ))}
         </div>
+
+        {/* Preset dropdown */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            onClick={() => setPresetDropdownOpen((o) => !o)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs transition-colors"
+            style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}
+          >
+            Presets
+            <ChevronDown size={12} />
+          </button>
+
+          {presetDropdownOpen && (
+            <div
+              className="absolute left-0 top-full mt-1 z-50 min-w-[180px] rounded-lg overflow-hidden shadow-lg"
+              style={{ background: "var(--bg-card)", border: "1px solid var(--border)" }}
+            >
+              {allPresets.map((preset) => {
+                const isBuiltin = BUILTIN_PRESETS.some((b) => b.name === preset.name);
+                return (
+                  <div
+                    key={preset.name}
+                    className="flex items-center justify-between px-3 py-2 text-xs cursor-pointer transition-colors group"
+                    style={{ color: "var(--text-primary)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--accent-dim)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <span className="flex-1 truncate" onClick={() => applyPreset(preset)}>
+                      {preset.name}
+                    </span>
+                    {!isBuiltin && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deletePreset(preset.name);
+                        }}
+                        className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: "var(--loss)" }}
+                        aria-label={`Delete preset ${preset.name}`}
+                      >
+                        <X size={11} />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Save preset */}
+        {savingPreset ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              ref={presetNameInputRef}
+              type="text"
+              placeholder="Preset name…"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleSavePreset();
+                if (e.key === "Escape") {
+                  setSavingPreset(false);
+                  setPresetName("");
+                }
+              }}
+              className="rounded-lg px-3 py-2 text-xs outline-none w-[140px]"
+              style={{
+                background: "var(--bg-input)",
+                color: "var(--text-primary)",
+                border: "1px solid var(--border)",
+              }}
+            />
+            <button
+              onClick={handleSavePreset}
+              disabled={!presetName.trim()}
+              className="px-3 py-2 rounded-lg text-xs disabled:opacity-40 transition-colors"
+              style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+            >
+              Save
+            </button>
+            <button
+              onClick={() => {
+                setSavingPreset(false);
+                setPresetName("");
+              }}
+              className="px-2 py-2 rounded-lg text-xs"
+              style={{ color: "var(--text-muted)" }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setSavingPreset(true)}
+            className="px-3 py-2 rounded-lg text-xs transition-colors"
+            style={{ background: "var(--bg-input)", color: "var(--text-muted)" }}
+          >
+            Save preset
+          </button>
+        )}
       </div>
 
       {/* Table */}

@@ -7,8 +7,10 @@ export type DecimalPlaces = 2 | 4 | 6 | 8;
 interface FormatPreferencesState {
   currency: DisplayCurrency;
   decimalPlaces: DecimalPlaces;
+  timezone: string;
   setCurrency: (currency: DisplayCurrency) => void;
   setDecimalPlaces: (decimals: DecimalPlaces) => void;
+  setTimezone: (timezone: string) => void;
 }
 
 export const useFormatPreferences = create<FormatPreferencesState>()(
@@ -16,8 +18,10 @@ export const useFormatPreferences = create<FormatPreferencesState>()(
     (set) => ({
       currency: "USD",
       decimalPlaces: 2,
+      timezone: "UTC",
       setCurrency: (currency) => set({ currency }),
       setDecimalPlaces: (decimalPlaces) => set({ decimalPlaces }),
+      setTimezone: (timezone) => set({ timezone }),
     }),
     {
       name: "tb-format-preferences",

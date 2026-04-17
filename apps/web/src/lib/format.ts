@@ -1,4 +1,4 @@
-import { format, formatDistanceToNow, parseISO } from "date-fns";
+import { formatDistanceToNow, parseISO } from "date-fns";
 
 // Currency symbol map for non-Intl currencies (e.g. BTC)
 const CURRENCY_SYMBOLS: Record<string, string> = {
@@ -36,14 +36,42 @@ export function formatNumber(value: number, decimals = 2): string {
   }).format(value);
 }
 
-export function formatDate(date: Date | string | number): string {
-  const d = typeof date === "string" ? parseISO(date) : new Date(date);
-  return format(d, "MMM d, yyyy HH:mm");
+function resolveTimezone(tz?: string): string {
+  if (tz !== undefined) return tz;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const store = require("@/stores/formatPreferences");
+    return store.useFormatPreferences.getState().timezone as string;
+  } catch {
+    return "UTC";
+  }
 }
 
-export function formatDateShort(date: Date | string | number): string {
+export function formatDate(date: Date | string | number, timezone?: string): string {
   const d = typeof date === "string" ? parseISO(date) : new Date(date);
-  return format(d, "MMM d, HH:mm");
+  const tz = resolveTimezone(timezone);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
+}
+
+export function formatDateShort(date: Date | string | number, timezone?: string): string {
+  const d = typeof date === "string" ? parseISO(date) : new Date(date);
+  const tz = resolveTimezone(timezone);
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: tz,
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(d);
 }
 
 export function formatRelative(date: Date | string | number): string {

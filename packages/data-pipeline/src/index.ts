@@ -26,6 +26,15 @@ export { ExportManager, type ExportRequest } from "./export/ExportManager";
 // Rate Limiting
 export { ExchangeRateLimiter } from "./rateLimit/ExchangeRateLimiter";
 export { RATE_LIMIT_DEFAULTS, type RateLimitOptions } from "./rateLimit/RateLimitConfig";
+export { AdaptiveRateLimiter } from "./rateLimiter";
+
+// Gap Detection
+export { detectGaps, detectAllGaps, type OhlcvGap } from "./gapDetector";
+export {
+  createGapDetectorWorker,
+  GAP_DETECTION_QUEUE,
+  GAP_DETECTION_REPEAT_PATTERN,
+} from "./gapDetectorWorker";
 
 // Jobs
 export { QUEUE_NAMES, JOB_NAMES, DEFAULT_JOB_OPTIONS } from "./jobs/types";
@@ -38,6 +47,7 @@ export type {
 export {
   createQueues,
   setupRepeatableJobs,
+  setupGapDetectionJob,
   addDetectGapsJob,
   addBackfillJob,
   addExportJob,

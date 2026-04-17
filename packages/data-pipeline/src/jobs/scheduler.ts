@@ -1,5 +1,7 @@
 import { Queue, type QueueOptions } from "bullmq";
 
+import { GAP_DETECTION_QUEUE, GAP_DETECTION_REPEAT_PATTERN } from "../gapDetectorWorker";
+
 import {
   QUEUE_NAMES,
   JOB_NAMES,
@@ -22,8 +24,22 @@ export function createQueues(config: SchedulerConfig) {
   const collectionQueue = new Queue<CollectOHLCVJobData>(QUEUE_NAMES.DATA_COLLECTION, queueOpts);
   const backfillQueue = new Queue<BackfillJobData>(QUEUE_NAMES.DATA_BACKFILL, queueOpts);
   const exportQueue = new Queue<ExportJobData>(QUEUE_NAMES.DATA_EXPORT, queueOpts);
+  const gapDetectionQueue = new Queue(GAP_DETECTION_QUEUE, queueOpts);
 
-  return { collectionQueue, backfillQueue, exportQueue };
+  return { collectionQueue, backfillQueue, exportQueue, gapDetectionQueue };
+}
+
+export async function setupGapDetectionJob(gapDetectionQueue: Queue) {
+  await gapDetectionQueue.add(
+    "detect-all-gaps",
+    {},
+    {
+      ...DEFAULT_JOB_OPTIONS,
+      repeat: { pattern: GAP_DETECTION_REPEAT_PATTERN },
+      jobId: "detect-all-gaps-recurring",
+      priority: 3,
+    }
+  );
 }
 
 export async function setupRepeatableJobs(

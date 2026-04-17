@@ -6,6 +6,11 @@ function syncSidebarDom(sidebarOpen: boolean) {
     return;
   }
 
+  // On mobile (< 768px / md breakpoint) the sidebar is an overlay — no margin shift.
+  if (window.innerWidth < 768) {
+    return;
+  }
+
   const mainContent = document.getElementById("main-content");
   if (mainContent) {
     mainContent.style.marginLeft = sidebarOpen ? "240px" : "64px";

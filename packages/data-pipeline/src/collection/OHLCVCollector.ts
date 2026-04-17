@@ -2,16 +2,22 @@ import type { Candle } from "@tb/types";
 import ccxt, { type Exchange } from "ccxt";
 
 import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
+import { AdaptiveRateLimiter } from "../rateLimiter";
 import { CandleValidator } from "../validation/CandleValidator";
+
+const RATE_LIMIT_ERRORS = /429|ddos|rate\s*limit/i;
+const MAX_RETRIES = 5;
 
 export class OHLCVCollector {
   private exchanges: Map<string, Exchange>;
   private rateLimiter: ExchangeRateLimiter;
+  private adaptiveLimiter: AdaptiveRateLimiter;
   private validator: CandleValidator;
 
   constructor(rateLimiter: ExchangeRateLimiter) {
     this.exchanges = new Map();
     this.rateLimiter = rateLimiter;
+    this.adaptiveLimiter = new AdaptiveRateLimiter();
     this.validator = new CandleValidator();
   }
 
@@ -40,21 +46,37 @@ export class OHLCVCollector {
     since?: number,
     limit?: number
   ): Promise<Candle[]> {
-    await this.rateLimiter.waitForSlot(exchangeId);
+    let attempt = 0;
 
-    const exchange = this.getExchange(exchangeId);
-    const rawCandles = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
+    for (;;) {
+      await this.rateLimiter.waitForSlot(exchangeId);
+      await this.adaptiveLimiter.wait(exchangeId);
 
-    const candles: Candle[] = rawCandles.map((c) => ({
-      time: c[0] as number,
-      open: c[1] as number,
-      high: c[2] as number,
-      low: c[3] as number,
-      close: c[4] as number,
-      volume: c[5] as number,
-    }));
+      try {
+        const exchange = this.getExchange(exchangeId);
+        const rawCandles = await exchange.fetchOHLCV(symbol, timeframe, since, limit);
 
-    return candles;
+        this.adaptiveLimiter.onSuccess(exchangeId);
+
+        return rawCandles.map((c) => ({
+          time: c[0] as number,
+          open: c[1] as number,
+          high: c[2] as number,
+          low: c[3] as number,
+          close: c[4] as number,
+          volume: c[5] as number,
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (RATE_LIMIT_ERRORS.test(message) && attempt < MAX_RETRIES) {
+          attempt++;
+          this.adaptiveLimiter.onRateLimit(exchangeId);
+          await this.adaptiveLimiter.wait(exchangeId);
+          continue;
+        }
+        throw error;
+      }
+    }
   }
 
   async fetchIncremental(

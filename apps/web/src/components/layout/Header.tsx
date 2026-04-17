@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Search, Wifi, WifiOff } from "lucide-react";
+import { Bell, Menu, Search, Wifi, WifiOff } from "lucide-react";
 
 import { PnLTicker } from "@/components/layout/PnLTicker";
 import { useCmdK } from "@/hooks/useCmdK";
@@ -9,20 +9,34 @@ import { useUiStore } from "@/stores/ui";
 
 export function Header() {
   const selectedSymbol = useUiStore((s) => s.selectedSymbol);
+  const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const { isConnected } = useSocket();
   const { open: openPalette } = useCmdK();
 
   return (
     <header
-      className="sticky top-0 z-30 flex h-14 items-center justify-between border-b px-8"
+      className="sticky top-0 z-30 flex h-14 items-center justify-between border-b px-4 md:px-8"
       style={{
         background: "var(--bg-secondary)",
         borderColor: "var(--border)",
       }}
     >
-      <h1 className="text-lg capitalize tracking-wide" style={{ color: "var(--text-primary)" }}>
-        {selectedSymbol}
-      </h1>
+      <div className="flex items-center gap-3">
+        {/* Hamburger — mobile only */}
+        <button
+          onClick={toggleSidebar}
+          className="rounded-lg p-2 transition-colors md:hidden"
+          style={{ color: "var(--text-muted)" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          aria-label="Toggle sidebar"
+        >
+          <Menu size={18} />
+        </button>
+        <h1 className="text-lg capitalize tracking-wide" style={{ color: "var(--text-primary)" }}>
+          {selectedSymbol}
+        </h1>
+      </div>
 
       <div className="flex items-center gap-4">
         <PnLTicker />

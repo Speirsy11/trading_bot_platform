@@ -35,18 +35,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             id="main-content"
           >
             <Header />
-            <main className="flex-1 p-8">{children}</main>
+            <main className="flex-1 p-4 md:p-8">{children}</main>
           </div>
         </Providers>
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const stored = JSON.parse(localStorage.getItem('tb-ui-store') || '{}');
-                const sidebar = stored?.state?.sidebarOpen;
-                const ml = sidebar === false ? '64px' : '240px';
-                const mainContent = document.getElementById('main-content');
-                if (mainContent) mainContent.style.marginLeft = ml;
+                if (window.innerWidth >= 768) {
+                  const stored = JSON.parse(localStorage.getItem('tb-ui-store') || '{}');
+                  const sidebar = stored?.state?.sidebarOpen;
+                  const ml = sidebar === false ? '64px' : '240px';
+                  const mainContent = document.getElementById('main-content');
+                  if (mainContent) mainContent.style.marginLeft = ml;
+                }
               } catch(e) {}
             `,
           }}

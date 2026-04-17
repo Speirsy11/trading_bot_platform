@@ -150,7 +150,7 @@ export default function BotsPage() {
         </div>
       </div>
 
-      <div className="glass-panel overflow-hidden">
+      <div className="glass-panel overflow-x-auto">
         {isLoading ? (
           <div
             className="animate-pulse p-8 text-center text-sm"

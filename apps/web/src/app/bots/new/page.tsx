@@ -531,7 +531,7 @@ function StepRisk({ form }: { form: UseFormReturn<BotFormData> }) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg">Risk Management</h2>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <FormField label="Max Position Size %" htmlFor="risk-max-position">
           <InputField
             id="risk-max-position"
@@ -572,7 +572,10 @@ function StepRisk({ form }: { form: UseFormReturn<BotFormData> }) {
             {...register("riskConfig.maxDailyLossPercent", { valueAsNumber: true })}
           />
         </FormField>
-        <div className="col-span-2 rounded-lg p-3" style={{ background: "var(--bg-input)" }}>
+        <div
+          className="col-span-1 rounded-lg p-3 sm:col-span-2"
+          style={{ background: "var(--bg-input)" }}
+        >
           <label
             htmlFor="risk-trailing-stop-enabled"
             className="flex items-center gap-2 text-sm"
@@ -606,7 +609,7 @@ function StepMode({ form }: { form: UseFormReturn<BotFormData> }) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg">Mode Selection</h2>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {(["paper", "backtest", "live"] as const).map((m) => (
           <button
             key={m}

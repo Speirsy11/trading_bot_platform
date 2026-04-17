@@ -8,11 +8,13 @@ vi.mock("next/navigation", () => ({
 
 // Mock the store
 const mockToggleSidebar = vi.fn();
+const mockSetSidebarOpen = vi.fn();
 vi.mock("@/stores/ui", () => ({
   useUiStore: (selector: (s: Record<string, unknown>) => unknown) =>
     selector({
       sidebarOpen: true,
       toggleSidebar: mockToggleSidebar,
+      setSidebarOpen: mockSetSidebarOpen,
     }),
 }));
 

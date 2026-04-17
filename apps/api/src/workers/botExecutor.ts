@@ -4,6 +4,7 @@ import { botLogs, bots, exchangeConfigs, type Database } from "@tb/db";
 import {
   Bot as TradingBot,
   BotRunner,
+  type IExchange,
   LiveExchange,
   PaperExchange,
   StrategyRegistry,
@@ -11,15 +12,64 @@ import {
 import { Worker } from "bullmq";
 import { eq } from "drizzle-orm";
 import type IORedis from "ioredis";
+import pino from "pino";
 
 import { API_QUEUE_NAMES, BOT_JOB_NAMES, type BotJobData } from "../queues/types";
 import type { ExchangeManager } from "../services/exchangeManager";
 import { bootstrapStrategies } from "../services/strategyCatalog";
+import { hasExceededDailyLossLimit } from "../utils/dailyLossCheck";
+import { checkNotionalCap } from "../utils/notionalCap";
 import { parseJsonValue, toNumber } from "../utils/serialization";
+
+const logger = pino({ name: "botExecutor" });
 
 interface BotRuntime {
   bot: TradingBot;
   runner: BotRunner;
+}
+
+/**
+ * Wraps an exchange's createOrder to enforce MAX_NOTIONAL_USD cap on bot orders.
+ * Violations are logged and the order is skipped (no throw) so the bot stays running.
+ */
+function wrapExchangeWithNotionalCap(exchange: IExchange, botId: string): IExchange {
+  const original = exchange.createOrder.bind(exchange);
+  exchange.createOrder = async (symbol, type, side, amount, price, stopPrice) => {
+    try {
+      checkNotionalCap(amount, price, type);
+    } catch (e) {
+      logger.warn(
+        {
+          botId,
+          symbol,
+          type,
+          side,
+          amount,
+          price,
+          cap: e instanceof Error ? e.message : String(e),
+        },
+        "Bot order blocked by notional cap"
+      );
+      // Return a synthetic rejected order so callers can handle gracefully
+      return {
+        id: "",
+        symbol,
+        type,
+        side,
+        amount,
+        price: price ?? 0,
+        average: 0,
+        filled: 0,
+        remaining: amount,
+        status: "rejected",
+        timestamp: Date.now(),
+        fee: 0,
+        cost: 0,
+      } as never;
+    }
+    return original(symbol, type, side, amount, price, stopPrice);
+  };
+  return exchange;
 }
 
 export function createBotExecutorWorker(options: {
@@ -77,7 +127,10 @@ async function startBot(
   const fallbackStatus = botRow.status === "starting" ? "idle" : botRow.status;
 
   const strategy = StrategyRegistry.create(botRow.strategy);
-  const runtimeExchange = await createRuntimeExchange(botRow, db, exchangeManager);
+  const runtimeExchange = wrapExchangeWithNotionalCap(
+    await createRuntimeExchange(botRow, db, exchangeManager),
+    botId
+  );
   const tradingBot = new TradingBot(
     {
       id: botRow.id,
@@ -102,7 +155,45 @@ async function startBot(
 
   let runner: BotRunner | undefined;
   try {
-    runner = new BotRunner(tradingBot, runtimeExchange, botRow.symbol, botRow.timeframe);
+    const afterCandle = async () => {
+      const exceeded = await hasExceededDailyLossLimit(db, botId).catch(() => false);
+      if (!exceeded) return;
+
+      logger.warn({ botId }, "Daily loss limit exceeded — bot auto-paused");
+      await logBot(db, botId, "warn", "Daily loss limit exceeded — bot auto-paused");
+
+      // Pause the in-process bot runner and update DB/Redis.
+      // Fire-and-forget errors so we don't crash the interval loop.
+      const runtime = runtimes.get(botId);
+      if (runtime) {
+        await runtime.bot.pause().catch(() => undefined);
+        runtimes.delete(botId);
+      }
+      await db
+        .update(bots)
+        .set({ status: "paused", updatedAt: new Date() })
+        .where(eq(bots.id, botId))
+        .catch(() => undefined);
+      await redis
+        .publish(
+          "bot:status",
+          JSON.stringify({
+            botId,
+            status: "paused",
+            reason: "daily_loss_limit_exceeded",
+            timestamp: Date.now(),
+          })
+        )
+        .catch(() => undefined);
+    };
+
+    runner = new BotRunner(
+      tradingBot,
+      runtimeExchange,
+      botRow.symbol,
+      botRow.timeframe,
+      afterCandle
+    );
     await runner.start();
   } catch (error) {
     await tradingBot.stop().catch(() => undefined);

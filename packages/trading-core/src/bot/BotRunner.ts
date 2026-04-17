@@ -5,6 +5,8 @@ import { timeframeToMs } from "../utils/timeframe";
 
 import type { Bot } from "./Bot";
 
+export type AfterCandleCallback = () => Promise<void>;
+
 /**
  * Execution loop for live/paper bots.
  * Polls the exchange for new candles and feeds them to the bot.
@@ -17,12 +19,20 @@ export class BotRunner {
   private running = false;
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private lastCandleTime = 0;
+  private afterCandle: AfterCandleCallback | undefined;
 
-  constructor(bot: Bot, exchange: IExchange, symbol: string, timeframe: string) {
+  constructor(
+    bot: Bot,
+    exchange: IExchange,
+    symbol: string,
+    timeframe: string,
+    afterCandle?: AfterCandleCallback
+  ) {
     this.bot = bot;
     this.exchange = exchange;
     this.symbol = symbol;
     this.timeframe = timeframe;
+    this.afterCandle = afterCandle;
   }
 
   async start(): Promise<void> {
@@ -79,6 +89,9 @@ export class BotRunner {
       for (const candle of completedCandles) {
         await this.bot.processCandle(candle);
         this.lastCandleTime = candle.time;
+        if (this.afterCandle) {
+          await this.afterCandle();
+        }
       }
     } catch {
       // Will retry on next interval

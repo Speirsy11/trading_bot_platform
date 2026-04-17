@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { mapExchangeError } from "../../utils/errors";
+import { checkNotionalCap } from "../../utils/notionalCap";
 import { createTrpcRouter, publicProcedure } from "../trpc";
 
 export const tradingRouter = createTrpcRouter({
@@ -28,11 +29,12 @@ export const tradingRouter = createTrpcRouter({
         });
       }
 
-      const maxNotional = Number(process.env["MAX_NOTIONAL_USD"] ?? 10000);
-      if (type === "limit" && price != null && amount * price > maxNotional) {
+      try {
+        checkNotionalCap(amount, price, type);
+      } catch (e) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Order exceeds max notional",
+          message: e instanceof Error ? e.message : String(e),
         });
       }
 

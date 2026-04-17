@@ -6,7 +6,6 @@ import { useState } from "react";
 import { ConfirmLiveModal } from "./ConfirmLiveModal";
 
 import { trpc } from "@/lib/trpc";
-
 interface BotControlPanelProps {
   botId: string;
   status: string;

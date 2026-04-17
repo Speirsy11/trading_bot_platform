@@ -23,12 +23,14 @@ interface UiState {
   selectedExchange: string;
   defaultExchange: string;
   defaultSymbol: string;
+  dashboardWidgets: string[];
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
   setSelectedSymbol: (symbol: string) => void;
   setSelectedExchange: (exchange: string) => void;
   setDefaultExchange: (exchange: string) => void;
   setDefaultSymbol: (symbol: string) => void;
+  setDashboardWidgets: (widgets: string[]) => void;
 }
 
 export const useUiStore = create<UiState>()(
@@ -39,6 +41,7 @@ export const useUiStore = create<UiState>()(
       selectedExchange: "binance",
       defaultExchange: "binance",
       defaultSymbol: "BTC/USDT",
+      dashboardWidgets: ["portfolio", "bots", "allocation"],
       toggleSidebar: () =>
         set((state) => {
           const sidebarOpen = !state.sidebarOpen;
@@ -53,6 +56,7 @@ export const useUiStore = create<UiState>()(
       setSelectedExchange: (exchange) => set({ selectedExchange: exchange }),
       setDefaultExchange: (exchange) => set({ defaultExchange: exchange }),
       setDefaultSymbol: (symbol) => set({ defaultSymbol: symbol }),
+      setDashboardWidgets: (widgets) => set({ dashboardWidgets: widgets }),
     }),
     {
       name: "tb-ui-store",
@@ -62,6 +66,7 @@ export const useUiStore = create<UiState>()(
         selectedExchange: state.selectedExchange,
         defaultExchange: state.defaultExchange,
         defaultSymbol: state.defaultSymbol,
+        dashboardWidgets: state.dashboardWidgets,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {

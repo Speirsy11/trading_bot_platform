@@ -6,6 +6,12 @@ import {
 import type { Database } from "@tb/db";
 import type IORedis from "ioredis";
 
+import {
+  ohlcvCandlesCollected,
+  ohlcvCollectionDuration,
+  ohlcvCollectionErrors,
+} from "../utils/metrics";
+
 export function createDataPipelineWorkers(options: {
   db: Database;
   redis: IORedis;
@@ -33,6 +39,12 @@ export function createDataPipelineWorkers(options: {
   });
 
   collectionWorker.on("completed", async (job, result) => {
+    const duration = (job.finishedOn ?? Date.now()) - (job.processedOn ?? Date.now());
+    ohlcvCandlesCollected.inc(
+      { exchange: job.data.exchange, symbol: job.data.symbol, timeframe: job.data.timeframe },
+      result.inserted
+    );
+    ohlcvCollectionDuration.observe({ exchange: job.data.exchange }, duration);
     try {
       await options.redis.publish(
         "data:status",
@@ -50,6 +62,13 @@ export function createDataPipelineWorkers(options: {
     }
   });
   collectionWorker.on("failed", async (job, error) => {
+    if (job) {
+      ohlcvCollectionErrors.inc({
+        exchange: job.data.exchange,
+        symbol: job.data.symbol,
+        timeframe: job.data.timeframe,
+      });
+    }
     try {
       await options.redis.publish(
         "worker:error",

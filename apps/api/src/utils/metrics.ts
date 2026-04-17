@@ -252,3 +252,28 @@ export const botTickDuration = new Histogram(
   ["bot_id"],
   [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500]
 );
+
+export const ohlcvCandlesCollected = new Counter(
+  "ohlcv_candles_collected_total",
+  "Total number of OHLCV candles collected",
+  ["exchange", "symbol", "timeframe"]
+);
+
+export const ohlcvCollectionErrors = new Counter(
+  "ohlcv_collection_errors_total",
+  "Total number of OHLCV collection errors",
+  ["exchange", "symbol", "timeframe"]
+);
+
+export const ohlcvCollectionDuration = new Histogram(
+  "ohlcv_collection_duration_ms",
+  "OHLCV collection duration in milliseconds",
+  ["exchange"],
+  [10, 50, 100, 250, 500, 1000, 2500, 5000, 10000]
+);
+
+export const gapsDetectedGauge = new Gauge(
+  "ohlcv_gaps_detected",
+  "Number of gaps detected in OHLCV data",
+  ["exchange", "symbol", "timeframe"]
+);

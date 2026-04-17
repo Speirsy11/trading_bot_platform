@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight, Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useForm, type FieldPath, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 
@@ -387,6 +387,7 @@ function FormField({
   htmlFor?: string;
   children: React.ReactNode;
 }) {
+  const errorId = htmlFor ? `${htmlFor}-error` : undefined;
   return (
     <div className="space-y-1.5">
       <label
@@ -396,9 +397,14 @@ function FormField({
       >
         {label}
       </label>
-      {children}
+      {typeof children === "object" && children !== null
+        ? React.cloneElement(children as React.ReactElement<React.HTMLAttributes<HTMLElement>>, {
+            ...(error !== undefined && { "aria-invalid": !!error }),
+            ...(errorId !== undefined && error !== undefined && { "aria-describedby": errorId }),
+          })
+        : children}
       {error && (
-        <p className="text-xs" style={{ color: "var(--loss)" }}>
+        <p id={errorId} className="text-xs" role="alert" style={{ color: "var(--loss)" }}>
           {error}
         </p>
       )}

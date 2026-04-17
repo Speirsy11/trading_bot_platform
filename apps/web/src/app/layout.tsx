@@ -28,6 +28,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${dmSans.variable} ${playfair.variable} min-h-screen`}>
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:left-4 focus:top-4 focus:rounded focus:px-4 focus:py-2"
+          style={{ background: "var(--accent)", color: "#08080a" }}
+        >
+          Skip to content
+        </a>
         <Providers>
           <Sidebar />
           <div

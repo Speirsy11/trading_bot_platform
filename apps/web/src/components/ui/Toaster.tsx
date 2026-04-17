@@ -159,6 +159,9 @@ export function Toaster() {
   const container = (
     <ToastContext.Provider value={api}>
       <div
+        role="status"
+        aria-live="polite"
+        aria-label="Notifications"
         style={{
           position: "fixed",
           bottom: "24px",

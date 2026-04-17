@@ -71,6 +71,12 @@ textarea {
   --radius: 0.75rem;
 }
 
+/* ─── Focus Ring ──────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* ─── Gold Rule Accent ────────────────────────────────────────────────── */
 .gold-rule {
   height: 1px;

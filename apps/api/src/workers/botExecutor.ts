@@ -17,6 +17,7 @@ import pino from "pino";
 import { API_QUEUE_NAMES, BOT_JOB_NAMES, type BotJobData } from "../queues/types";
 import type { ExchangeManager } from "../services/exchangeManager";
 import { bootstrapStrategies } from "../services/strategyCatalog";
+import { deliverWebhook } from "../services/webhookDelivery";
 import { BalanceDropDetector, getBalanceDropThreshold } from "../utils/balanceDropDetector";
 import { hasExceededDailyLossLimit } from "../utils/dailyLossCheck";
 import { checkNotionalCap } from "../utils/notionalCap";
@@ -331,6 +332,10 @@ async function startBot(
             timestamp: Date.now(),
           })
         );
+        void deliverWebhook(db, "bot.error", {
+          botId,
+          reason: "consecutive_errors",
+        });
       },
     });
     await runner.start();
@@ -358,6 +363,7 @@ async function startBot(
     JSON.stringify({ botId, status: "running", timestamp: Date.now() })
   );
   await logBot(db, botId, "info", "Bot execution started");
+  void deliverWebhook(db, "bot.started", { botId });
 
   return { status: "running" };
 }
@@ -424,6 +430,7 @@ async function stopBot(
     JSON.stringify({ botId, status: "stopped", timestamp: Date.now() })
   );
   await logBot(db, botId, "info", "Bot execution stopped");
+  void deliverWebhook(db, "bot.stopped", { botId });
 
   if (stopError) {
     throw stopError;

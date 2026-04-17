@@ -29,6 +29,7 @@ export {
   type OrderAuditLogRow,
   type OrderAuditLogInsert,
 } from "./schema/orderAuditLog";
+export { webhooks, type WebhookRow, type WebhookInsert } from "./schema/webhooks";
 
 // Queries
 export {

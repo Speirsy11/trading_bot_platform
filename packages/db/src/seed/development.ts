@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { settings } from "../schema/settings";
 
+// USDT pairs — supported on Binance, KuCoin, Bybit
 const DEFAULT_PAIRS = [
   "BTC/USDT",
   "ETH/USDT",
@@ -24,11 +25,19 @@ const DEFAULT_PAIRS = [
   "ARB/USDT",
   "OP/USDT",
   "SUI/USDT",
+  // USD pairs — used by Kraken and Coinbase
+  "BTC/USD",
+  "ETH/USD",
+  "SOL/USD",
+  "LTC/USD",
 ];
 
 const DEFAULT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
-const DEFAULT_EXCHANGES = ["binance"];
+// Exchanges that support USDT pairs (Binance, KuCoin, Bybit) and
+// exchanges that use USD pairs (Kraken, Coinbase). The collection worker
+// handles failures gracefully when a pair isn't available on an exchange.
+const DEFAULT_EXCHANGES = ["binance", "kucoin", "bybit", "kraken", "coinbase"];
 
 export async function seedDevelopment(db: Database) {
   await db

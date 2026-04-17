@@ -10,6 +10,7 @@ export { DataCollector } from "./collection/DataCollector";
 // Backfill
 export { BackfillJob, type BackfillJobConfig } from "./backfill/BackfillJob";
 export { BackfillManager } from "./backfill/BackfillManager";
+export { scheduleBackfill, backfillChunkPriority } from "./backfill/backfillScheduler";
 
 // Streaming
 export { WebSocketManager } from "./streaming/WebSocketManager";

@@ -455,6 +455,25 @@ importers:
         specifier: ^5.7.2
         version: 5.9.3
 
+  packages/tbp-cli:
+    dependencies:
+      '@tb/sdk':
+        specifier: workspace:*
+        version: link:../sdk
+      commander:
+        specifier: ^13.1.0
+        version: 13.1.0
+      tsx:
+        specifier: ^4.21.0
+        version: 4.21.0
+    devDependencies:
+      '@tb/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/trading-core:
     dependencies:
       '@tb/indicators':

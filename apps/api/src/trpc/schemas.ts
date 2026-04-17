@@ -66,4 +66,5 @@ export const dataExportSchema = z.object({
   endTime: z.number().int().positive(),
   format: z.enum(["csv", "parquet", "sqlite"]),
   compress: z.boolean().default(true),
+  compressionFormat: z.enum(["gzip", "zstd"]).default("gzip"),
 });

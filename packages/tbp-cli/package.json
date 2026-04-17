@@ -1,0 +1,23 @@
+{
+  "name": "tbp",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "tbp": "./src/cli.ts"
+  },
+  "scripts": {
+    "dev": "tsx src/cli.ts",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf .turbo"
+  },
+  "dependencies": {
+    "@tb/sdk": "workspace:*",
+    "commander": "^13.1.0",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@tb/tsconfig": "workspace:*",
+    "typescript": "^5.7.2"
+  }
+}

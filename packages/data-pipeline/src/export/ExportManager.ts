@@ -22,6 +22,7 @@ export interface ExportRequest {
   endTime: Date;
   format: "csv" | "parquet" | "sqlite";
   compressed: boolean;
+  compressionFormat: "gzip" | "zstd";
   outputDir: string;
 }
 
@@ -83,8 +84,7 @@ export class ExportManager {
       // Compress if requested
       let finalPath = outputPath;
       if (request.compressed && request.format !== "sqlite") {
-        finalPath = `${outputPath}.gz`;
-        await CompressionHelper.gzipFile(outputPath, finalPath);
+        finalPath = await CompressionHelper.compress(outputPath, request.compressionFormat);
       }
 
       const fileStat = await stat(finalPath);

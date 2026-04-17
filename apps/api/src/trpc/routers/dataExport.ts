@@ -45,6 +45,7 @@ export const dataExportRouter = createTrpcRouter({
         endTime: row.endTime.toISOString(),
         format: row.format,
         compressed: row.compressed ?? true,
+        compressionFormat: input.compressionFormat,
         outputDir: ctx.exportsDir,
       },
       { jobId: `export-${row.id}`, removeOnComplete: false, removeOnFail: false }

@@ -106,6 +106,7 @@ export function createExportWorker(config: WorkerConfig) {
         endTime: new Date(data.endTime),
         format: data.format,
         compressed: data.compressed,
+        compressionFormat: data.compressionFormat,
         outputDir: data.outputDir,
       });
     },

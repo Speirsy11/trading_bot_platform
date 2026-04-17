@@ -7,9 +7,14 @@ import type { AnyTRPCRouter } from "@trpc/server";
  * Pass your `AppRouter` type as the generic parameter:
  *   import type { AppRouter } from "../../apps/api/src/trpc/router";
  *   const client = createClient<AppRouter>("http://localhost:3001");
+ *
+ * Optionally supply a bearer token for protected procedures:
+ *   const client = createClient<AppRouter>("http://localhost:3001", "my-token");
  */
-export function createClient<TRouter extends AnyTRPCRouter>(baseUrl: string) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const link = httpBatchLink({ url: `${baseUrl}/trpc` }) as any;
+export function createClient<TRouter extends AnyTRPCRouter>(baseUrl: string, authToken?: string) {
+  const link = httpBatchLink({
+    url: `${baseUrl}/trpc`,
+    headers: authToken ? { Authorization: `Bearer ${authToken}` } : undefined,
+  }) as any;
   return createTRPCClient<TRouter>({ links: [link] });
 }

@@ -27,6 +27,7 @@ export interface ExportJobData {
   endTime: string;
   format: "csv" | "parquet" | "sqlite";
   compressed: boolean;
+  compressionFormat: "gzip" | "zstd";
   outputDir: string;
 }
 

@@ -7,6 +7,12 @@ import type { Bot } from "./Bot";
 
 export type AfterCandleCallback = () => Promise<void>;
 
+export interface BotRunnerOptions {
+  afterCandle?: AfterCandleCallback;
+  onError?: (err: unknown) => void;
+  onTooManyErrors?: () => void;
+}
+
 /**
  * Execution loop for live/paper bots.
  * Polls the exchange for new candles and feeds them to the bot.
@@ -20,19 +26,30 @@ export class BotRunner {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private lastCandleTime = 0;
   private afterCandle: AfterCandleCallback | undefined;
+  private onError: ((err: unknown) => void) | undefined;
+  private onTooManyErrors: (() => void) | undefined;
+  private consecutiveErrors = 0;
+  private static readonly MAX_CONSECUTIVE_ERRORS = 5;
 
   constructor(
     bot: Bot,
     exchange: IExchange,
     symbol: string,
     timeframe: string,
-    afterCandle?: AfterCandleCallback
+    afterCandleOrOptions?: AfterCandleCallback | BotRunnerOptions
   ) {
     this.bot = bot;
     this.exchange = exchange;
     this.symbol = symbol;
     this.timeframe = timeframe;
-    this.afterCandle = afterCandle;
+
+    if (typeof afterCandleOrOptions === "function") {
+      this.afterCandle = afterCandleOrOptions;
+    } else if (afterCandleOrOptions) {
+      this.afterCandle = afterCandleOrOptions.afterCandle;
+      this.onError = afterCandleOrOptions.onError;
+      this.onTooManyErrors = afterCandleOrOptions.onTooManyErrors;
+    }
   }
 
   async start(): Promise<void> {
@@ -93,8 +110,16 @@ export class BotRunner {
           await this.afterCandle();
         }
       }
-    } catch {
-      // Will retry on next interval
+
+      this.consecutiveErrors = 0;
+    } catch (err) {
+      this.onError?.(err);
+      this.consecutiveErrors++;
+
+      if (this.consecutiveErrors >= BotRunner.MAX_CONSECUTIVE_ERRORS) {
+        await this.stop();
+        this.onTooManyErrors?.();
+      }
     }
   }
 

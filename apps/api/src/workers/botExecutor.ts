@@ -10,7 +10,7 @@ import {
   StrategyRegistry,
 } from "@tb/trading-core";
 import { Worker } from "bullmq";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import type IORedis from "ioredis";
 import pino from "pino";
 
@@ -81,7 +81,7 @@ export function createBotExecutorWorker(options: {
   bootstrapStrategies();
   const runtimes = new Map<string, BotRuntime>();
 
-  return new Worker<BotJobData>(
+  const worker = new Worker<BotJobData>(
     API_QUEUE_NAMES.BOT_EXECUTION,
     async (job) => {
       switch (job.name) {
@@ -108,6 +108,46 @@ export function createBotExecutorWorker(options: {
       removeOnFail: { count: 50 },
     }
   );
+
+  // After worker creation, recover bots stuck in "running" or "starting" state.
+  // These are bots that were alive before the worker crashed/restarted.
+  // Reset them to "idle" so they can be restarted by the user.
+  void (async () => {
+    try {
+      const stuckBots = await options.db
+        .select({ id: bots.id, name: bots.name, status: bots.status })
+        .from(bots)
+        .where(and(isNull(bots.deletedAt), inArray(bots.status, ["running", "starting"])));
+
+      if (stuckBots.length === 0) return;
+
+      logger.warn(
+        { count: stuckBots.length },
+        "Resetting bots stuck in running/starting state after worker restart"
+      );
+
+      for (const bot of stuckBots) {
+        await options.db
+          .update(bots)
+          .set({ status: "idle", updatedAt: new Date() })
+          .where(and(eq(bots.id, bot.id), inArray(bots.status, ["running", "starting"])));
+
+        await options.redis.publish(
+          "bot:status",
+          JSON.stringify({
+            botId: bot.id,
+            status: "idle",
+            reason: "worker_restart",
+            timestamp: Date.now(),
+          })
+        );
+      }
+    } catch (err) {
+      logger.error({ err }, "Failed to reconcile stuck bots on startup");
+    }
+  })();
+
+  return worker;
 }
 
 async function startBot(
@@ -269,13 +309,30 @@ async function startBot(
       }
     };
 
-    runner = new BotRunner(
-      tradingBot,
-      runtimeExchange,
-      botRow.symbol,
-      botRow.timeframe,
-      afterCandle
-    );
+    runner = new BotRunner(tradingBot, runtimeExchange, botRow.symbol, botRow.timeframe, {
+      afterCandle,
+      onError: (err) => {
+        logger.warn({ botId, err }, "BotRunner poll error (will retry)");
+      },
+      onTooManyErrors: async () => {
+        logger.error({ botId }, "BotRunner too many consecutive errors — auto-pausing bot");
+        await logBot(db, botId, "error", "Bot paused after 5 consecutive exchange errors");
+        await db
+          .update(bots)
+          .set({ status: "paused", updatedAt: new Date() })
+          .where(eq(bots.id, botId));
+        runtimes.delete(botId);
+        await redis.publish(
+          "bot:status",
+          JSON.stringify({
+            botId,
+            status: "paused",
+            reason: "consecutive_errors",
+            timestamp: Date.now(),
+          })
+        );
+      },
+    });
     await runner.start();
   } catch (error) {
     await tradingBot.stop().catch(() => undefined);

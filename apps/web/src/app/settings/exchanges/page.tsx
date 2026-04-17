@@ -3,6 +3,7 @@
 import { Key } from "lucide-react";
 import { useState } from "react";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toaster";
 import { formatDateShort } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
@@ -25,6 +26,7 @@ export default function ExchangesPage() {
   const [newApiKey, setNewApiKey] = useState("");
   const [newSecret, setNewSecret] = useState("");
   const [testingExchangeId, setTestingExchangeId] = useState<string | null>(null);
+  const [removeConfirmId, setRemoveConfirmId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -217,11 +219,7 @@ export default function ExchangesPage() {
                 {testingExchangeId === k.id ? "Testing…" : "Test"}
               </button>
               <button
-                onClick={() => {
-                  if (confirm("Remove this exchange?")) {
-                    removeMutation.mutate({ exchangeId: k.id });
-                  }
-                }}
+                onClick={() => setRemoveConfirmId(k.id)}
                 className="rounded-lg px-3 py-1.5 text-xs transition-colors"
                 style={{ color: "var(--loss)" }}
               >
@@ -243,6 +241,20 @@ export default function ExchangesPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        title="Remove exchange key?"
+        description="This cannot be undone."
+        confirmLabel="Remove"
+        confirmVariant="danger"
+        isOpen={removeConfirmId !== null}
+        onConfirm={() => {
+          if (removeConfirmId) removeMutation.mutate({ exchangeId: removeConfirmId });
+          setRemoveConfirmId(null);
+        }}
+        onCancel={() => setRemoveConfirmId(null)}
+        isPending={removeMutation.isPending}
+      />
     </div>
   );
 }

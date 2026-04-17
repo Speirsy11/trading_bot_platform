@@ -20,7 +20,12 @@ export default function BotsPage() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>([]);
 
-  const { data: bots, isLoading } = trpc.bots.list.useQuery({
+  const {
+    data: bots,
+    isLoading,
+    isError,
+    refetch,
+  } = trpc.bots.list.useQuery({
     status:
       statusFilter === "all"
         ? undefined
@@ -152,6 +157,19 @@ export default function BotsPage() {
             style={{ color: "var(--text-muted)" }}
           >
             Loading bots…
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center py-12 gap-3">
+            <p className="text-sm" style={{ color: "var(--loss)" }}>
+              Failed to load data
+            </p>
+            <button
+              onClick={() => void refetch()}
+              className="text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+            >
+              Retry
+            </button>
           </div>
         ) : (
           <table className="w-full text-sm">

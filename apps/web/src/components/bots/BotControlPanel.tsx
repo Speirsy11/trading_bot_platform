@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { ConfirmLiveModal } from "./ConfirmLiveModal";
 
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { toast } from "@/components/ui/Toaster";
 import { trpc } from "@/lib/trpc";
 interface BotControlPanelProps {
@@ -16,6 +17,7 @@ interface BotControlPanelProps {
 
 export function BotControlPanel({ botId, status, mode, botName = "" }: BotControlPanelProps) {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [isStopConfirmOpen, setIsStopConfirmOpen] = useState(false);
   const utils = trpc.useUtils();
 
   const startBot = trpc.bots.start.useMutation({
@@ -115,7 +117,7 @@ export function BotControlPanel({ botId, status, mode, botName = "" }: BotContro
             <Pause size={12} /> Pause
           </button>
           <button
-            onClick={() => stopBot.mutate({ botId })}
+            onClick={() => setIsStopConfirmOpen(true)}
             disabled={status === "stopped" || status === "idle" || stopBot.isPending}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors disabled:opacity-40"
             style={{
@@ -134,6 +136,20 @@ export function BotControlPanel({ botId, status, mode, botName = "" }: BotContro
         onConfirm={handleGoLiveConfirm}
         onCancel={() => setIsConfirmOpen(false)}
         isPending={goLive.isPending}
+      />
+
+      <ConfirmDialog
+        title="Stop bot?"
+        description="This will stop the bot and close all positions."
+        confirmLabel="Stop"
+        confirmVariant="danger"
+        isOpen={isStopConfirmOpen}
+        onConfirm={() => {
+          stopBot.mutate({ botId });
+          setIsStopConfirmOpen(false);
+        }}
+        onCancel={() => setIsStopConfirmOpen(false)}
+        isPending={stopBot.isPending}
       />
     </>
   );

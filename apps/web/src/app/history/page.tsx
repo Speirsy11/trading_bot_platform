@@ -40,12 +40,17 @@ export default function HistoryPage() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sideFilter, setSideFilter] = useState<"" | "buy" | "sell">("");
 
-  const { data: bots = [] } = trpc.bots.list.useQuery({});
+  const {
+    data: bots = [],
+    isError: isBotsError,
+    refetch: refetchBots,
+  } = trpc.bots.list.useQuery({});
   // Fetch trades from the first few bots (trade history is per-bot in the API)
   const botIds = (bots as { id: string }[]).slice(0, 10).map((b) => b.id);
   const tradeQueries = trpc.useQueries((t) =>
     botIds.map((botId) => t.bots.getTrades({ botId, limit: 50 }))
   );
+  const isTradesError = tradeQueries.some((q) => q.isError);
   const allTrades = tradeQueries.filter((q) => q.data).flatMap((q) => q.data ?? []);
 
   const filtered = useMemo(() => {
@@ -181,6 +186,20 @@ export default function HistoryPage() {
 
       {/* Table */}
       <div className="glass-panel overflow-x-auto">
+        {(isBotsError || isTradesError) && (
+          <div className="flex flex-col items-center py-12 gap-3">
+            <p className="text-sm" style={{ color: "var(--loss)" }}>
+              Failed to load data
+            </p>
+            <button
+              onClick={() => void refetchBots()}
+              className="text-xs px-3 py-1.5 rounded-lg"
+              style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
         <table className="w-full text-sm">
           <thead>
             {table.getHeaderGroups().map((hg) => (

@@ -48,7 +48,11 @@ type BacktestFormData = z.infer<typeof backtestSchema>;
 
 export default function BacktestPage() {
   const router = useRouter();
-  const { data: backtests } = trpc.backtest.list.useQuery({ limit: 20 });
+  const {
+    data: backtests,
+    isError: isBacktestsError,
+    refetch: refetchBacktests,
+  } = trpc.backtest.list.useQuery({ limit: 20 });
 
   const form = useForm<BacktestFormData>({
     resolver: zodResolver(backtestSchema),
@@ -293,7 +297,20 @@ export default function BacktestPage() {
         {/* Past Backtests */}
         <div className="glass-panel p-5">
           <h2 className="text-lg mb-4">Past Backtests</h2>
-          {!backtests || backtests.length === 0 ? (
+          {isBacktestsError ? (
+            <div className="flex flex-col items-center py-12 gap-3">
+              <p className="text-sm" style={{ color: "var(--loss)" }}>
+                Failed to load data
+              </p>
+              <button
+                onClick={() => void refetchBacktests()}
+                className="text-xs px-3 py-1.5 rounded-lg"
+                style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+              >
+                Retry
+              </button>
+            </div>
+          ) : !backtests || backtests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <BarChart2
                 size={48}

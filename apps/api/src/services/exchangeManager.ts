@@ -193,6 +193,24 @@ export class ExchangeManager {
     }
   }
 
+  async fetchOrder(exchangeConfigId: string, orderId: string, symbol: string) {
+    try {
+      const instance = await this.getExchangeById(exchangeConfigId);
+      const order = await instance.fetchOrder(orderId, symbol);
+      return {
+        id: order.id ?? orderId,
+        symbol: order.symbol ?? symbol,
+        status: order.status ?? "open",
+        filled: order.filled ?? 0,
+        remaining: order.remaining ?? 0,
+        cost: order.cost ?? 0,
+        timestamp: order.timestamp ?? Date.now(),
+      };
+    } catch (error) {
+      throw mapExchangeError(error);
+    }
+  }
+
   async getAvailableSymbols(exchangeId: string): Promise<string[]> {
     try {
       const instance = await this.getPublicExchange(exchangeId);

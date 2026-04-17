@@ -10,6 +10,7 @@ import { createExchangeManager } from "./services/exchangeManager";
 import { assertEncryptionSecret, KeyVault } from "./services/keyVault";
 import { bootstrapStrategies } from "./services/strategyCatalog";
 import { createFastifyLoggerOptions } from "./utils/logger";
+import { reconcileOpenOrders } from "./workers/reconcileOrders";
 
 async function start() {
   const databaseUrl = process.env["DATABASE_URL"]?.trim();
@@ -82,6 +83,15 @@ async function start() {
 
     await app.listen({ host, port });
     app.log.info({ host, port }, "api server listening");
+
+    // Reconcile any stuck orders from before this startup, non-blocking
+    reconcileOpenOrders(dbHandle.db, exchangeManager)
+      .then((result) => {
+        app?.log.info(result, "order reconciliation complete");
+      })
+      .catch((err: unknown) => {
+        app?.log.warn({ err }, "order reconciliation failed (non-fatal)");
+      });
   } catch (error) {
     if (app) {
       app.log.error(error, "failed to start api server");

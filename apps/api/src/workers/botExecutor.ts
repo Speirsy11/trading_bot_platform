@@ -17,6 +17,7 @@ import pino from "pino";
 import { API_QUEUE_NAMES, BOT_JOB_NAMES, type BotJobData } from "../queues/types";
 import type { ExchangeManager } from "../services/exchangeManager";
 import { bootstrapStrategies } from "../services/strategyCatalog";
+import { BalanceDropDetector, getBalanceDropThreshold } from "../utils/balanceDropDetector";
 import { hasExceededDailyLossLimit } from "../utils/dailyLossCheck";
 import { checkNotionalCap } from "../utils/notionalCap";
 import { parseJsonValue, toNumber } from "../utils/serialization";
@@ -153,38 +154,117 @@ async function startBot(
 
   await tradingBot.start();
 
+  // Fetch starting balance for catastrophic-drop detection.
+  // Extract quote currency from the symbol (e.g. "BTC/USDT" → "USDT").
+  // If the balance for that currency is unavailable, sum all total values.
+  const quoteCurrency = botRow.symbol.includes("/") ? botRow.symbol.split("/")[1]! : "USDT";
+  let startingBalance = 0;
+  try {
+    const startBalance = await runtimeExchange.fetchBalance();
+    const quoted = startBalance.total[quoteCurrency];
+    startingBalance =
+      typeof quoted === "number" && quoted >= 0
+        ? quoted
+        : Object.values(startBalance.total).reduce((s, v) => s + (v ?? 0), 0);
+  } catch {
+    // Non-fatal: if we can't fetch the balance we skip catastrophic-drop detection.
+    logger.warn(
+      { botId },
+      "Could not fetch starting balance — catastrophic-drop detection disabled"
+    );
+  }
+  const riskConfig = parseJsonValue<Record<string, unknown>>(botRow.riskConfig, {});
+  const dropThreshold = getBalanceDropThreshold(riskConfig);
+  const balanceDropDetector =
+    startingBalance > 0 ? new BalanceDropDetector(startingBalance, dropThreshold) : null;
+
   let runner: BotRunner | undefined;
   try {
     const afterCandle = async () => {
+      // ── Daily loss limit check (LT-3) ───────────────────────────────────
       const exceeded = await hasExceededDailyLossLimit(db, botId).catch(() => false);
-      if (!exceeded) return;
+      if (exceeded) {
+        logger.warn({ botId }, "Daily loss limit exceeded — bot auto-paused");
+        await logBot(db, botId, "warn", "Daily loss limit exceeded — bot auto-paused");
 
-      logger.warn({ botId }, "Daily loss limit exceeded — bot auto-paused");
-      await logBot(db, botId, "warn", "Daily loss limit exceeded — bot auto-paused");
-
-      // Pause the in-process bot runner and update DB/Redis.
-      // Fire-and-forget errors so we don't crash the interval loop.
-      const runtime = runtimes.get(botId);
-      if (runtime) {
-        await runtime.bot.pause().catch(() => undefined);
-        runtimes.delete(botId);
+        // Pause the in-process bot runner and update DB/Redis.
+        // Fire-and-forget errors so we don't crash the interval loop.
+        const runtime = runtimes.get(botId);
+        if (runtime) {
+          await runtime.bot.pause().catch(() => undefined);
+          runtimes.delete(botId);
+        }
+        await db
+          .update(bots)
+          .set({ status: "paused", updatedAt: new Date() })
+          .where(eq(bots.id, botId))
+          .catch(() => undefined);
+        await redis
+          .publish(
+            "bot:status",
+            JSON.stringify({
+              botId,
+              status: "paused",
+              reason: "daily_loss_limit_exceeded",
+              timestamp: Date.now(),
+            })
+          )
+          .catch(() => undefined);
+        return;
       }
-      await db
-        .update(bots)
-        .set({ status: "paused", updatedAt: new Date() })
-        .where(eq(bots.id, botId))
-        .catch(() => undefined);
-      await redis
-        .publish(
-          "bot:status",
-          JSON.stringify({
-            botId,
-            status: "paused",
-            reason: "daily_loss_limit_exceeded",
-            timestamp: Date.now(),
-          })
-        )
-        .catch(() => undefined);
+
+      // ── Catastrophic balance-drop check (LT-5) ──────────────────────────
+      if (balanceDropDetector) {
+        try {
+          const currentBalanceSnapshot = await runtimeExchange.fetchBalance();
+          const quoted = currentBalanceSnapshot.total[quoteCurrency];
+          const currentBalance =
+            typeof quoted === "number" && quoted >= 0
+              ? quoted
+              : Object.values(currentBalanceSnapshot.total).reduce((s, v) => s + (v ?? 0), 0);
+
+          if (balanceDropDetector.check(currentBalance)) {
+            const dropPercent = parseFloat(
+              balanceDropDetector.dropPercent(currentBalance).toFixed(2)
+            );
+            logger.warn(
+              { botId, dropPercent },
+              "Catastrophic balance drop detected — bot auto-paused"
+            );
+            await logBot(
+              db,
+              botId,
+              "warn",
+              `Catastrophic balance drop detected (${dropPercent}%) — bot auto-paused`
+            );
+
+            const runtime = runtimes.get(botId);
+            if (runtime) {
+              await runtime.bot.pause().catch(() => undefined);
+              runtimes.delete(botId);
+            }
+            await db
+              .update(bots)
+              .set({ status: "paused", updatedAt: new Date() })
+              .where(eq(bots.id, botId))
+              .catch(() => undefined);
+            await redis
+              .publish(
+                "bot:status",
+                JSON.stringify({
+                  botId,
+                  status: "paused",
+                  reason: "catastrophic_balance_drop",
+                  dropPercent,
+                  timestamp: Date.now(),
+                })
+              )
+              .catch(() => undefined);
+          }
+        } catch {
+          // Non-fatal: balance fetch failed, skip check this interval.
+        }
+      }
     };
 
     runner = new BotRunner(

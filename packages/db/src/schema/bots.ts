@@ -25,6 +25,7 @@ export const bots = pgTable("bots", {
   stoppedAt: timestamp("stopped_at", { withTimezone: true, mode: "date" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type BotRow = typeof bots.$inferSelect;

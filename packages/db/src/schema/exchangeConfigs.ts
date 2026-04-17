@@ -11,6 +11,7 @@ export const exchangeConfigs = pgTable("exchange_configs", {
   metadata: text("metadata"), // JSON string for extra config
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).defaultNow(),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type ExchangeConfigRow = typeof exchangeConfigs.$inferSelect;

@@ -90,8 +90,13 @@ export async function createApp(options: CreateAppOptions) {
       : null;
 
   let rateLimitOptions: Record<string, unknown> = {
-    max: 300,
-    timeWindow: "1 minute",
+    max: Number(process.env["RATE_LIMIT_MAX"] ?? 300),
+    timeWindow: 60_000,
+    keyGenerator: (req: { ip: string }) => req.ip,
+    errorResponseBuilder: () => ({
+      error: "RATE_LIMITED",
+      message: "Too many requests",
+    }),
   };
 
   if (rateLimitRedis) {

@@ -1,6 +1,6 @@
 import { botLogs, botTrades, bots, type Database } from "@tb/db";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { BOT_JOB_NAMES } from "../../queues/types";
@@ -17,7 +17,7 @@ const botStatusFilterSchema = z.object({
 
 export const botsRouter = createTrpcRouter({
   list: publicProcedure.input(botStatusFilterSchema.default({})).query(async ({ ctx, input }) => {
-    const conditions = [];
+    const conditions = [isNull(bots.deletedAt)];
 
     if (input.status && input.status !== "all") {
       conditions.push(eq(bots.status, input.status));
@@ -30,7 +30,7 @@ export const botsRouter = createTrpcRouter({
     const rows = await ctx.db
       .select()
       .from(bots)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(and(...conditions))
       .orderBy(desc(bots.createdAt));
 
     return rows.map(serializeBot);
@@ -223,7 +223,7 @@ export const botsRouter = createTrpcRouter({
     .mutation(async ({ ctx, input }) => {
       const row = await findBot(ctx.db, input.botId);
       ensureEditable(row.status);
-      await ctx.db.delete(bots).where(eq(bots.id, input.botId));
+      await ctx.db.update(bots).set({ deletedAt: new Date() }).where(eq(bots.id, input.botId));
       return { success: true };
     }),
 
@@ -331,7 +331,11 @@ export const botsRouter = createTrpcRouter({
 });
 
 async function findBot(db: Database, botId: string) {
-  const rows = await db.select().from(bots).where(eq(bots.id, botId)).limit(1);
+  const rows = await db
+    .select()
+    .from(bots)
+    .where(and(eq(bots.id, botId), isNull(bots.deletedAt)))
+    .limit(1);
   const row = rows[0];
 
   if (!row) {

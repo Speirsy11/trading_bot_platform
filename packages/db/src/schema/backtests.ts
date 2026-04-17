@@ -27,6 +27,7 @@ export const backtests = pgTable("backtests", {
   riskConfig: jsonb("risk_config").default({}),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow(),
   completedAt: timestamp("completed_at", { withTimezone: true, mode: "date" }),
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
 export type BacktestRow = typeof backtests.$inferSelect;

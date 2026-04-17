@@ -1,3 +1,22 @@
+// ─── Error Codes ─────────────────────────────────────────────────────────────
+
+/** Mirror of the server-side AppErrorCode enum for typed frontend error handling. */
+export type AppErrorCode =
+  | "EXCHANGE_CONNECTION_FAILED"
+  | "EXCHANGE_RATE_LIMITED"
+  | "EXCHANGE_INSUFFICIENT_FUNDS"
+  | "EXCHANGE_INVALID_ORDER"
+  | "EXCHANGE_ORDER_NOT_FOUND"
+  | "EXCHANGE_NETWORK_ERROR"
+  | "EXCHANGE_AUTH_FAILED"
+  | "EXCHANGE_MAINTENANCE"
+  | "EXCHANGE_UNKNOWN"
+  | "BOT_ALREADY_RUNNING"
+  | "BOT_NOT_FOUND"
+  | "INVALID_STRATEGY"
+  | "BACKTEST_DATA_UNAVAILABLE"
+  | "ENCRYPTION_ERROR";
+
 // ─── Core Market Data ────────────────────────────────────────────────────────
 
 export interface Candle {

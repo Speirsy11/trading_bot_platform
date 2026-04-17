@@ -1,5 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
+import { getTokenRateLimiter } from "../utils/tokenRateLimiter";
+
 import type { TrpcContext } from "./context";
 
 const trpc = initTRPC.context<TrpcContext>().create({
@@ -25,9 +27,27 @@ const loggingMiddleware = trpc.middleware(async ({ ctx, path, type, next }) => {
   return result;
 });
 
+const rateLimitMiddleware = trpc.middleware(({ ctx, next }) => {
+  const authorization = ctx.req?.headers?.["authorization"];
+  const token =
+    typeof authorization === "string" && authorization.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length).trim()
+      : "anonymous";
+
+  const allowed = getTokenRateLimiter().check(token);
+  if (!allowed) {
+    throw new TRPCError({
+      code: "TOO_MANY_REQUESTS",
+      message: "Per-token rate limit exceeded",
+    });
+  }
+
+  return next();
+});
+
 export const createTrpcRouter = trpc.router;
 export const loggedProcedure = trpc.procedure.use(loggingMiddleware);
-export const publicProcedure = loggedProcedure;
+export const publicProcedure = loggedProcedure.use(rateLimitMiddleware);
 export const protectedProcedure = loggedProcedure.use(({ ctx, next }) => {
   const expectedToken = process.env["API_AUTH_TOKEN"]?.trim();
   const expectedTenantId = process.env["API_TENANT_ID"]?.trim();

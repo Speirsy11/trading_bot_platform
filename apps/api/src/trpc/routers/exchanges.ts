@@ -1,6 +1,6 @@
 import { exchangeConfigs } from "@tb/db";
 import { TRPCError } from "@trpc/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { parseJsonValue, stringifyJsonValue } from "../../utils/serialization";
@@ -12,6 +12,7 @@ export const exchangesRouter = createTrpcRouter({
     const rows = await ctx.db
       .select()
       .from(exchangeConfigs)
+      .where(isNull(exchangeConfigs.deletedAt))
       .orderBy(desc(exchangeConfigs.createdAt));
     return rows.map((row) => serializeExchange(row));
   }),
@@ -60,7 +61,10 @@ export const exchangesRouter = createTrpcRouter({
   remove: publicProcedure
     .input(z.object({ exchangeId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.delete(exchangeConfigs).where(eq(exchangeConfigs.id, input.exchangeId));
+      await ctx.db
+        .update(exchangeConfigs)
+        .set({ deletedAt: new Date() })
+        .where(eq(exchangeConfigs.id, input.exchangeId));
       ctx.exchangeManager.clearCache(input.exchangeId);
       return { success: true };
     }),
@@ -71,7 +75,7 @@ export const exchangesRouter = createTrpcRouter({
       const existing = await ctx.db
         .select()
         .from(exchangeConfigs)
-        .where(eq(exchangeConfigs.id, input.exchangeId))
+        .where(and(eq(exchangeConfigs.id, input.exchangeId), isNull(exchangeConfigs.deletedAt)))
         .limit(1);
       const row = existing[0];
       if (!row) {

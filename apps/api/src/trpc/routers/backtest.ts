@@ -1,6 +1,6 @@
 import { backtestTrades, backtests, type Database } from "@tb/db";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { BACKTEST_JOB_NAMES } from "../../queues/types";
@@ -131,7 +131,7 @@ export const backtestRouter = createTrpcRouter({
         .default({ limit: 20 })
     )
     .query(async ({ ctx, input }) => {
-      const conditions = [];
+      const conditions = [isNull(backtests.deletedAt)];
       if (input.strategy) {
         conditions.push(eq(backtests.strategy, input.strategy));
       }
@@ -142,7 +142,7 @@ export const backtestRouter = createTrpcRouter({
       const rows = await ctx.db
         .select()
         .from(backtests)
-        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .where(and(...conditions))
         .orderBy(desc(backtests.createdAt))
         .limit(input.limit);
 
@@ -157,13 +157,20 @@ export const backtestRouter = createTrpcRouter({
       await job?.remove().catch((error) => {
         ctx.req?.log.warn({ error, backtestId: input.backtestId }, "failed to remove backtest job");
       });
-      await ctx.db.delete(backtests).where(eq(backtests.id, input.backtestId));
+      await ctx.db
+        .update(backtests)
+        .set({ deletedAt: new Date() })
+        .where(eq(backtests.id, input.backtestId));
       return { success: true };
     }),
 });
 
 async function findBacktest(db: Database, backtestId: string) {
-  const rows = await db.select().from(backtests).where(eq(backtests.id, backtestId)).limit(1);
+  const rows = await db
+    .select()
+    .from(backtests)
+    .where(and(eq(backtests.id, backtestId), isNull(backtests.deletedAt)))
+    .limit(1);
   const row = rows[0];
   if (!row) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Backtest not found" });

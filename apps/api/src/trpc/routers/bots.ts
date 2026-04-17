@@ -1,6 +1,6 @@
 import { botLogs, botTrades, bots, type Database } from "@tb/db";
 import { TRPCError } from "@trpc/server";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, lt } from "drizzle-orm";
 import { z } from "zod";
 
 import { BOT_JOB_NAMES } from "../../queues/types";
@@ -313,20 +313,35 @@ export const botsRouter = createTrpcRouter({
     }),
 
   getLogs: publicProcedure
-    .input(z.object({ botId: uuidSchema, limit: z.number().min(1).max(200).default(50) }))
+    .input(
+      z.object({
+        botId: uuidSchema,
+        limit: z.number().min(1).max(200).default(50),
+        cursor: z.string().optional(),
+      })
+    )
     .query(async ({ ctx, input }) => {
       await findBot(ctx.db, input.botId);
+      const conditions = [eq(botLogs.botId, input.botId)];
+      if (input.cursor) {
+        conditions.push(lt(botLogs.createdAt, new Date(input.cursor)));
+      }
       const rows = await ctx.db
         .select()
         .from(botLogs)
-        .where(eq(botLogs.botId, input.botId))
+        .where(and(...conditions))
         .orderBy(desc(botLogs.createdAt))
         .limit(input.limit);
 
-      return rows.map((row) => ({
+      const items = rows.map((row) => ({
         ...row,
         createdAt: row.createdAt?.toISOString() ?? null,
       }));
+
+      const nextCursor =
+        items.length === input.limit ? (items[items.length - 1]?.createdAt ?? null) : null;
+
+      return { items, nextCursor };
     }),
 });
 

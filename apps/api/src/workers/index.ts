@@ -12,6 +12,7 @@ import { assertEncryptionSecret, KeyVault } from "../services/keyVault";
 import { createBacktestWorker } from "./backtestRunner";
 import { createBotExecutorWorker } from "./botExecutor";
 import { createDataPipelineWorkers } from "./dataPipelineWorkers";
+import { createDataRetentionWorker, scheduleDataRetentionJob } from "./dataRetentionWorker";
 
 const processLogger = console;
 
@@ -93,9 +94,13 @@ async function startWorkers() {
   // Schedule repeatable data collection jobs from DB config
   await scheduleDataCollection(db, redisConnection);
 
+  // Schedule the daily data-retention job (purges old bot_logs and ohlcv rows)
+  await scheduleDataRetentionJob(redis);
+
   const botWorker = createBotExecutorWorker({ db, redis, exchangeManager });
   const backtestWorker = createBacktestWorker({ db, redis });
   const pipelineWorkers = createDataPipelineWorkers({ db, redis, exportsDir });
+  const retentionWorker = createDataRetentionWorker({ db, redis });
 
   const shutdown = async (signal: string) => {
     console.warn(`workers shutting down: ${signal}`);
@@ -105,6 +110,7 @@ async function startWorkers() {
       pipelineWorkers.collectionWorker.close(),
       pipelineWorkers.backfillWorker.close(),
       pipelineWorkers.exportWorker.close(),
+      retentionWorker.close(),
       redis.quit(),
       client.end(),
     ]);

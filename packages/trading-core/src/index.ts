@@ -18,6 +18,7 @@ export { StrategyContext, type StrategyConfig, type Logger } from "./strategy/St
 export { StrategyRegistry } from "./strategy/StrategyRegistry";
 export { SMACrossover } from "./strategy/strategies/SMACrossover";
 export { RSIMeanReversion } from "./strategy/strategies/RSIMeanReversion";
+export { BollingerBounce } from "./strategy/strategies/BollingerBounce";
 
 // Backtest
 export { BacktestEngine } from "./backtest/BacktestEngine";

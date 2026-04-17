@@ -1,4 +1,10 @@
-import { type IStrategy, RSIMeanReversion, SMACrossover, StrategyRegistry } from "@tb/trading-core";
+import {
+  BollingerBounce,
+  type IStrategy,
+  RSIMeanReversion,
+  SMACrossover,
+  StrategyRegistry,
+} from "@tb/trading-core";
 import { z } from "zod";
 
 type StrategyFactory = () => IStrategy;
@@ -6,6 +12,7 @@ type StrategyFactory = () => IStrategy;
 const STRATEGIES: Record<string, StrategyFactory> = {
   "sma-crossover": () => new SMACrossover(),
   "rsi-mean-reversion": () => new RSIMeanReversion(),
+  "bollinger-bounce": () => new BollingerBounce(),
 };
 
 export function bootstrapStrategies() {

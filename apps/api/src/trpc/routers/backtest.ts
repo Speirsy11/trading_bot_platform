@@ -149,6 +149,43 @@ export const backtestRouter = createTrpcRouter({
       return rows.map(serializeBacktest);
     }),
 
+  compare: publicProcedure
+    .input(z.object({ backtestIds: z.array(uuidSchema).min(2).max(10) }))
+    .query(async ({ ctx, input }) => {
+      const results = await Promise.all(
+        input.backtestIds.map(async (backtestId) => {
+          const row = await findBacktest(ctx.db, backtestId);
+          const trades = await ctx.db
+            .select()
+            .from(backtestTrades)
+            .where(eq(backtestTrades.backtestId, backtestId))
+            .orderBy(backtestTrades.executedAt);
+
+          const initialBalance = toNumber(row.initialBalance);
+          const equityCurve: { t: string; balance: number }[] = [
+            { t: row.startTime.toISOString(), balance: initialBalance },
+            ...trades.map((trade) => ({
+              t: trade.executedAt.toISOString(),
+              balance: toNumber(trade.balance),
+            })),
+          ];
+
+          return {
+            backtestId: row.id,
+            name: row.name,
+            strategy: row.strategy,
+            symbol: row.symbol,
+            initialBalance,
+            finalBalance: toNumber(row.finalBalance),
+            totalPnl: toNumber(row.totalPnl),
+            equityCurve,
+          };
+        })
+      );
+
+      return results;
+    }),
+
   delete: publicProcedure
     .input(z.object({ backtestId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {

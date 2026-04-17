@@ -1,11 +1,16 @@
 import { pgTable, text, uuid, timestamp, numeric, jsonb } from "drizzle-orm/pg-core";
 
+import { exchangeConfigs } from "./exchangeConfigs";
+
 export const bots = pgTable("bots", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull(),
   strategy: text("strategy").notNull(),
   strategyParams: jsonb("strategy_params").default({}),
   exchange: text("exchange").notNull(),
+  exchangeConfigId: uuid("exchange_config_id").references(() => exchangeConfigs.id, {
+    onDelete: "set null",
+  }),
   symbol: text("symbol").notNull(),
   timeframe: text("timeframe").notNull(),
   mode: text("mode").notNull().default("backtest"), // backtest, paper, live

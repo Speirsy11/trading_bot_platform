@@ -17,9 +17,18 @@ const trpc = initTRPC.context<TrpcContext>().create({
   },
 });
 
+const loggingMiddleware = trpc.middleware(async ({ ctx, path, type, next }) => {
+  const start = Date.now();
+  const result = await next();
+  const durationMs = Date.now() - start;
+  ctx.logger.info({ requestId: ctx.requestId, path, type, durationMs, ok: result.ok }, "trpc");
+  return result;
+});
+
 export const createTrpcRouter = trpc.router;
-export const publicProcedure = trpc.procedure;
-export const protectedProcedure = trpc.procedure.use(({ ctx, next }) => {
+export const loggedProcedure = trpc.procedure.use(loggingMiddleware);
+export const publicProcedure = loggedProcedure;
+export const protectedProcedure = loggedProcedure.use(({ ctx, next }) => {
   const expectedToken = process.env["API_AUTH_TOKEN"]?.trim();
   const expectedTenantId = process.env["API_TENANT_ID"]?.trim();
   const authorization = ctx.req?.headers.authorization;

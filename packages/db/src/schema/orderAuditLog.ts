@@ -1,5 +1,7 @@
 import { pgTable, text, uuid, timestamp, numeric } from "drizzle-orm/pg-core";
 
+import { bots } from "./bots";
+
 export const orderAuditLog = pgTable("order_audit_log", {
   id: uuid("id").primaryKey().defaultRandom(),
   exchangeId: text("exchange_id").notNull(),
@@ -11,7 +13,7 @@ export const orderAuditLog = pgTable("order_audit_log", {
   price: numeric("price", { precision: 20, scale: 8 }), // null for market orders
   status: text("status").notNull(), // "placed" | "cancelled" | "failed"
   source: text("source").notNull(), // "manual" | "bot"
-  botId: uuid("bot_id"), // null for manual orders
+  botId: uuid("bot_id").references(() => bots.id, { onDelete: "set null" }), // null for manual orders
   requestedAt: timestamp("requested_at", { withTimezone: true, mode: "date" }).notNull(),
   settledAt: timestamp("settled_at", { withTimezone: true, mode: "date" }),
   errorMessage: text("error_message"),

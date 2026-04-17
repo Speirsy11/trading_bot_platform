@@ -1,5 +1,5 @@
 import type { Database } from "@tb/db";
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyBaseLogger, FastifyReply, FastifyRequest } from "fastify";
 import type IORedis from "ioredis";
 
 import type { QueueSet } from "../queues/index";
@@ -21,6 +21,8 @@ export interface TrpcContext extends AppContextOptions {
   auth?: {
     tenantId: string | null;
   };
+  requestId: string;
+  logger: FastifyBaseLogger;
 }
 
 export function createTrpcContext(
@@ -36,5 +38,7 @@ export function createTrpcContext(
       tenantId:
         typeof request?.headers["x-tenant-id"] === "string" ? request.headers["x-tenant-id"] : null,
     },
+    requestId: typeof request?.id === "string" ? request.id : String(request?.id ?? ""),
+    logger: request?.log ?? reply?.server?.log ?? (console as unknown as FastifyBaseLogger),
   };
 }

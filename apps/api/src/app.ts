@@ -1,4 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,6 +48,7 @@ import type { ExchangeManager } from "./services/exchangeManager";
 import type { KeyVault } from "./services/keyVault";
 import { createTrpcContext } from "./trpc/context";
 import { appRouter } from "./trpc/router";
+import { parseAllowedOrigins } from "./utils/cors";
 import { setupSocketHub } from "./websocket/index";
 
 interface CreateAppOptions {
@@ -67,10 +68,15 @@ interface CreateAppOptions {
 }
 
 export async function createApp(options: CreateAppOptions) {
-  const app = Fastify({ logger: options.loggerOptions ?? true });
+  const app = Fastify({
+    logger: options.loggerOptions ?? true,
+    genReqId: () => randomUUID(),
+  });
+
+  const allowedOrigins = parseAllowedOrigins(process.env["CORS_ORIGINS"], process.env["NODE_ENV"]);
 
   await app.register(fastifyCors, {
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
   });
 
@@ -114,7 +120,7 @@ export async function createApp(options: CreateAppOptions) {
 
   const io = new Server(app.server, {
     cors: {
-      origin: true,
+      origin: allowedOrigins,
       credentials: true,
     },
   });

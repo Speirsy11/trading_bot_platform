@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
+import { toast } from "@/components/ui/Toaster";
 import { useMarketData } from "@/hooks/useMarketData";
 import { useOrderBook } from "@/hooks/useOrderBook";
 import { useTicker } from "@/hooks/useTicker";
@@ -21,19 +22,14 @@ export default function TradingPage() {
   const [orderType, setOrderType] = useState<"market" | "limit">("market");
   const [orderPrice, setOrderPrice] = useState("");
   const [orderAmount, setOrderAmount] = useState("");
-  const [orderError, setOrderError] = useState<string | null>(null);
-  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
-
   const placeOrder = trpc.trading.placeOrder.useMutation({
     onSuccess(data) {
-      setLastOrderId(data.id);
-      setOrderError(null);
+      toast.success(`Order placed — ID: ${data.id}`);
       setOrderAmount("");
       setOrderPrice("");
     },
     onError(error) {
-      setOrderError(error.message);
-      setLastOrderId(null);
+      toast.error(error.message);
       console.error("[placeOrder]", error);
     },
   });
@@ -247,34 +243,19 @@ export default function TradingPage() {
               />
             </div>
 
-            {orderError && (
-              <p className="text-xs" style={{ color: "var(--loss)" }}>
-                {orderError}
-              </p>
-            )}
-
-            {lastOrderId && !orderError && (
-              <p className="text-xs" style={{ color: "var(--profit)" }}>
-                Order placed — ID: {lastOrderId}
-              </p>
-            )}
-
             <button
               disabled={placeOrder.isPending || !selectedExchange || !selectedSymbol}
               onClick={() => {
-                setOrderError(null);
-                setLastOrderId(null);
-
                 const parsedAmount = parseFloat(orderAmount);
                 if (!parsedAmount || parsedAmount <= 0) {
-                  setOrderError("Amount must be greater than 0");
+                  toast.error("Amount must be greater than 0");
                   return;
                 }
 
                 if (orderType === "limit") {
                   const parsedPrice = parseFloat(orderPrice);
                   if (!parsedPrice || parsedPrice <= 0) {
-                    setOrderError("Price is required for limit orders");
+                    toast.error("Price is required for limit orders");
                     return;
                   }
                   placeOrder.mutate({

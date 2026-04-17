@@ -4,7 +4,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { BACKTEST_JOB_NAMES } from "../../queues/types";
-import { toNumber } from "../../utils/serialization";
+import { parseJsonValue, toNumber } from "../../utils/serialization";
 import { backtestConfigSchema, uuidSchema } from "../schemas";
 import { createTrpcRouter, publicProcedure } from "../trpc";
 
@@ -155,20 +155,22 @@ export const backtestRouter = createTrpcRouter({
       const results = await Promise.all(
         input.backtestIds.map(async (backtestId) => {
           const row = await findBacktest(ctx.db, backtestId);
-          const trades = await ctx.db
-            .select()
-            .from(backtestTrades)
-            .where(eq(backtestTrades.backtestId, backtestId))
-            .orderBy(backtestTrades.executedAt);
-
           const initialBalance = toNumber(row.initialBalance);
-          const equityCurve: { t: string; balance: number }[] = [
-            { t: row.startTime.toISOString(), balance: initialBalance },
-            ...trades.map((trade) => ({
-              t: trade.executedAt.toISOString(),
-              balance: toNumber(trade.balance),
-            })),
-          ];
+
+          // Equity curve is stored in metrics.result.equityCurve by the backtest runner.
+          // Each point is { time: number (ms), equity: number }.
+          const stored = parseJsonValue<{
+            result?: { equityCurve?: { time: number; equity: number }[] };
+          }>(row.metrics, {});
+
+          const storedCurve = stored.result?.equityCurve ?? [];
+          const equityCurve: { t: string; balance: number }[] =
+            storedCurve.length > 0
+              ? storedCurve.map((pt) => ({
+                  t: new Date(pt.time).toISOString(),
+                  balance: pt.equity,
+                }))
+              : [{ t: row.startTime.toISOString(), balance: initialBalance }];
 
           return {
             backtestId: row.id,
@@ -184,6 +186,21 @@ export const backtestRouter = createTrpcRouter({
       );
 
       return results;
+    }),
+
+  failures: publicProcedure
+    .input(z.object({ limit: z.number().min(1).max(100).default(20) }))
+    .query(async ({ ctx, input }) => {
+      const failed = await ctx.queues.backtestQueue.getFailed(0, input.limit - 1);
+      return failed.map((job) => ({
+        id: job.id,
+        name: job.name,
+        data: job.data,
+        failedReason: job.failedReason,
+        attemptsMade: job.attemptsMade,
+        timestamp: job.timestamp,
+        processedOn: job.processedOn,
+      }));
     }),
 
   delete: publicProcedure

@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { ConfirmLiveModal } from "./ConfirmLiveModal";
 
+import { toast } from "@/components/ui/Toaster";
 import { trpc } from "@/lib/trpc";
 interface BotControlPanelProps {
   botId: string;
@@ -28,8 +29,9 @@ export function BotControlPanel({ botId, status, mode, botName = "" }: BotContro
 
       return { previousBot };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       utils.bots.getById.setData({ botId }, context?.previousBot);
+      toast.error(`Failed to start bot: ${error.message}`);
     },
     onSettled: () => {
       void utils.bots.getById.invalidate({ botId });
@@ -38,6 +40,7 @@ export function BotControlPanel({ botId, status, mode, botName = "" }: BotContro
   });
 
   const pauseBot = trpc.bots.pause.useMutation({
+    onError: (error) => toast.error(`Failed to pause bot: ${error.message}`),
     onSettled: () => {
       void utils.bots.getById.invalidate({ botId });
       void utils.bots.list.invalidate();
@@ -45,6 +48,7 @@ export function BotControlPanel({ botId, status, mode, botName = "" }: BotContro
   });
 
   const stopBot = trpc.bots.stop.useMutation({
+    onError: (error) => toast.error(`Failed to stop bot: ${error.message}`),
     onSettled: () => {
       void utils.bots.getById.invalidate({ botId });
       void utils.bots.list.invalidate();
@@ -52,6 +56,7 @@ export function BotControlPanel({ botId, status, mode, botName = "" }: BotContro
   });
 
   const goLive = trpc.bots.update.useMutation({
+    onError: (error) => toast.error(`Failed to go live: ${error.message}`),
     onSettled: () => {
       void utils.bots.getById.invalidate({ botId });
       void utils.bots.list.invalidate();

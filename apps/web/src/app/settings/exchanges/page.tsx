@@ -1,7 +1,9 @@
 "use client";
 
+import { Key } from "lucide-react";
 import { useState } from "react";
 
+import { toast } from "@/components/ui/Toaster";
 import { formatDateShort } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
 
@@ -22,9 +24,6 @@ export default function ExchangesPage() {
   const [newLabel, setNewLabel] = useState("");
   const [newApiKey, setNewApiKey] = useState("");
   const [newSecret, setNewSecret] = useState("");
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(
-    null
-  );
   const [testingExchangeId, setTestingExchangeId] = useState<string | null>(null);
 
   const utils = trpc.useUtils();
@@ -32,38 +31,33 @@ export default function ExchangesPage() {
   const { data: keys = [] } = trpc.exchanges.list.useQuery();
 
   const addMutation = trpc.exchanges.add.useMutation({
-    onMutate: () => setFeedback(null),
     onSuccess: () => {
       void utils.exchanges.list.invalidate();
       setShowAdd(false);
       setNewLabel("");
       setNewApiKey("");
       setNewSecret("");
-      setFeedback({ type: "success", message: "Exchange credentials saved." });
+      toast.success("Exchange credentials saved.");
     },
-    onError: (error) => setFeedback({ type: "error", message: error.message }),
+    onError: (error) => toast.error(error.message),
   });
 
   const removeMutation = trpc.exchanges.remove.useMutation({
     onSuccess: () => {
       void utils.exchanges.list.invalidate();
-      setFeedback({ type: "success", message: "Exchange connection removed." });
+      toast.success("Exchange connection removed.");
     },
-    onError: (error) => setFeedback({ type: "error", message: error.message }),
+    onError: (error) => toast.error(error.message),
   });
 
   const testMutation = trpc.exchanges.testConnection.useMutation({
     onMutate: ({ exchangeId }) => {
       setTestingExchangeId(exchangeId);
-      setFeedback(null);
     },
     onSuccess: (result) => {
-      setFeedback({
-        type: "success",
-        message: `Connection verified. ${result.balance.totalAssets} asset balances available.`,
-      });
+      toast.success(`Connection verified. ${result.balance.totalAssets} asset balances available.`);
     },
-    onError: (error) => setFeedback({ type: "error", message: error.message }),
+    onError: (error) => toast.error(error.message),
     onSettled: () => setTestingExchangeId(null),
   });
 
@@ -81,19 +75,6 @@ export default function ExchangesPage() {
           {showAdd ? "Cancel" : "Add Exchange"}
         </button>
       </div>
-
-      {feedback && (
-        <div
-          className="rounded-lg px-4 py-3 text-sm"
-          style={{
-            background:
-              feedback.type === "success" ? "rgba(74, 222, 128, 0.1)" : "rgba(248, 113, 113, 0.1)",
-            color: feedback.type === "success" ? "var(--profit)" : "var(--loss)",
-          }}
-        >
-          {feedback.message}
-        </div>
-      )}
 
       {/* Add Form */}
       {showAdd && (
@@ -251,11 +232,14 @@ export default function ExchangesPage() {
         ))}
 
         {(keys as ExchangeKey[]).length === 0 && (
-          <div
-            className="glass-panel p-12 text-center text-sm"
-            style={{ color: "var(--text-muted)" }}
-          >
-            No exchange connections configured
+          <div className="glass-panel flex flex-col items-center justify-center py-20 text-center">
+            <Key size={48} style={{ color: "var(--text-muted)", opacity: 0.4 }} className="mb-4" />
+            <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+              No exchange keys configured
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
+              Add your API keys above to connect an exchange
+            </p>
           </div>
         )}
       </div>

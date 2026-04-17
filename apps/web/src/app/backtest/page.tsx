@@ -1,12 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FlaskConical } from "lucide-react";
+import { BarChart2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { toast } from "@/components/ui/Toaster";
 import { trpc } from "@/lib/trpc";
 
 const backtestSchema = z
@@ -77,6 +78,7 @@ export default function BacktestPage() {
 
   const runBacktest = trpc.backtest.run.useMutation({
     onSuccess: (data) => router.push(`/backtest/${data.backtestId}`),
+    onError: (error) => toast.error(`Failed to run backtest: ${error.message}`),
   });
 
   const onSubmit = (data: BacktestFormData) => runBacktest.mutate(data);
@@ -286,24 +288,24 @@ export default function BacktestPage() {
           >
             {runBacktest.isPending ? "Running…" : "Run Backtest"}
           </button>
-
-          {runBacktest.isError && (
-            <p className="text-xs" style={{ color: "var(--loss)" }}>
-              Failed to run backtest: {runBacktest.error.message}
-            </p>
-          )}
         </form>
 
         {/* Past Backtests */}
         <div className="glass-panel p-5">
           <h2 className="text-lg mb-4">Past Backtests</h2>
           {!backtests || backtests.length === 0 ? (
-            <div
-              className="flex flex-col items-center justify-center gap-2 py-12"
-              style={{ color: "var(--text-muted)" }}
-            >
-              <FlaskConical size={24} />
-              <p className="text-xs">No backtests yet</p>
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <BarChart2
+                size={48}
+                style={{ color: "var(--text-muted)", opacity: 0.4 }}
+                className="mb-4"
+              />
+              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+                No backtests yet
+              </p>
+              <p className="text-xs mt-1" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
+                Run your first backtest using the form
+              </p>
             </div>
           ) : (
             <div className="space-y-2">

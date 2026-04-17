@@ -104,6 +104,8 @@ export function createBotExecutorWorker(options: {
     {
       connection: options.redis.duplicate({ maxRetriesPerRequest: null }),
       concurrency: 10,
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 50 },
     }
   );
 }

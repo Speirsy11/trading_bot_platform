@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { toast } from "@/components/ui/Toaster";
 import { trpc } from "@/lib/trpc";
 
 export default function ExportPage() {
@@ -11,27 +12,26 @@ export default function ExportPage() {
   const [format, setFormat] = useState<"csv" | "parquet" | "sqlite">("csv");
   const [compress, setCompress] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [validationError, setValidationError] = useState<string | null>(null);
 
   const exportMutation = trpc.dataExport.create.useMutation({
     onMutate: () => setExporting(true),
     onSettled: () => setExporting(false),
-    onSuccess: () => setValidationError(null),
+    onSuccess: () => toast.success("Export complete. Check your downloads."),
+    onError: (error) => toast.error(`Export failed: ${error.message}`),
   });
 
   const handleExport = () => {
     const normalizedSymbol = symbol.trim().toUpperCase();
     if (!normalizedSymbol) {
-      setValidationError("Symbol is required.");
+      toast.error("Symbol is required.");
       return;
     }
 
     if (!normalizedSymbol.includes("/")) {
-      setValidationError("Symbol must use BASE/QUOTE format.");
+      toast.error("Symbol must use BASE/QUOTE format.");
       return;
     }
 
-    setValidationError(null);
     setSymbol(normalizedSymbol);
     exportMutation.mutate({
       exchange,
@@ -170,23 +170,6 @@ export default function ExportPage() {
         >
           {exporting ? "Exporting…" : "Export"}
         </button>
-
-        {validationError && (
-          <p className="text-sm" style={{ color: "var(--loss)" }}>
-            {validationError}
-          </p>
-        )}
-
-        {exportMutation.isSuccess && (
-          <p className="text-sm" style={{ color: "var(--profit)" }}>
-            Export complete. Check your downloads.
-          </p>
-        )}
-        {exportMutation.isError && (
-          <p className="text-sm" style={{ color: "var(--loss)" }}>
-            Export failed: {exportMutation.error.message}
-          </p>
-        )}
       </div>
     </div>
   );

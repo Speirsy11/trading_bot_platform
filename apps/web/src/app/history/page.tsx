@@ -10,6 +10,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
+import { Activity } from "lucide-react";
 import { useState, useMemo } from "react";
 
 import { formatCurrency, formatDateShort, pnlColor } from "@/lib/format";
@@ -223,9 +224,19 @@ export default function HistoryPage() {
         </table>
 
         {table.getRowModel().rows.length === 0 && (
-          <p className="text-center py-12 text-sm" style={{ color: "var(--text-muted)" }}>
-            No trades recorded yet
-          </p>
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Activity
+              size={48}
+              style={{ color: "var(--text-muted)", opacity: 0.4 }}
+              className="mb-4"
+            />
+            <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+              No trades recorded yet
+            </p>
+            <p className="text-xs mt-1" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
+              Trades will appear here once your bots execute orders
+            </p>
+          </div>
         )}
       </div>
 

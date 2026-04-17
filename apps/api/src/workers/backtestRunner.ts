@@ -166,6 +166,8 @@ export function createBacktestWorker(options: { db: Database; redis: IORedis }) 
     {
       connection: options.redis.duplicate({ maxRetriesPerRequest: null }),
       concurrency: 2,
+      removeOnComplete: { count: 100 },
+      removeOnFail: { count: 50 },
     }
   );
 }

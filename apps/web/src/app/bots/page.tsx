@@ -9,7 +9,7 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { Plus, Search } from "lucide-react";
+import { Bot, Plus, Search } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -175,12 +175,23 @@ export default function BotsPage() {
             <tbody>
               {table.getRowModel().rows.length === 0 ? (
                 <tr>
-                  <td
-                    colSpan={columns.length}
-                    className="px-4 py-12 text-center text-xs"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    No bots found. Create one to get started.
+                  <td colSpan={columns.length}>
+                    <div className="flex flex-col items-center justify-center py-20 text-center">
+                      <Bot
+                        size={48}
+                        style={{ color: "var(--text-muted)", opacity: 0.4 }}
+                        className="mb-4"
+                      />
+                      <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+                        No bots yet
+                      </p>
+                      <p
+                        className="text-xs mt-1"
+                        style={{ color: "var(--text-muted)", opacity: 0.7 }}
+                      >
+                        Create your first bot to get started
+                      </p>
+                    </div>
                   </td>
                 </tr>
               ) : (

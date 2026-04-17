@@ -14,8 +14,18 @@ export interface QueueSet {
 
 export function createQueueSet(redis: IORedis): QueueSet {
   const connection = redis.duplicate({ maxRetriesPerRequest: null });
-  const botExecutionQueue = new Queue<BotJobData>(API_QUEUE_NAMES.BOT_EXECUTION, { connection });
-  const backtestQueue = new Queue<BacktestJobData>(API_QUEUE_NAMES.BACKTEST, { connection });
+  const retryDefaults = {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 5000 },
+  } as const;
+  const botExecutionQueue = new Queue<BotJobData>(API_QUEUE_NAMES.BOT_EXECUTION, {
+    connection,
+    defaultJobOptions: retryDefaults,
+  });
+  const backtestQueue = new Queue<BacktestJobData>(API_QUEUE_NAMES.BACKTEST, {
+    connection,
+    defaultJobOptions: retryDefaults,
+  });
   const dataCollectionQueue = new Queue(API_QUEUE_NAMES.DATA_COLLECTION, { connection });
   const dataBackfillQueue = new Queue(API_QUEUE_NAMES.DATA_BACKFILL, { connection });
   const dataExportQueue = new Queue(API_QUEUE_NAMES.DATA_EXPORT, { connection });

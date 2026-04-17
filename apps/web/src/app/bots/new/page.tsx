@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useForm, type FieldPath, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 
+import { toast } from "@/components/ui/Toaster";
 import { trpc } from "@/lib/trpc";
 
 const botFormSchema = z.object({
@@ -68,7 +69,6 @@ const STEP_FIELDS: Record<number, FieldPath<BotFormData>[]> = {
 
 export default function CreateBotPage() {
   const [step, setStep] = useState(0);
-  const [submitError, setSubmitError] = useState<string | null>(null);
   const router = useRouter();
   const strategiesQuery = trpc.market.getStrategies.useQuery();
   const exchangesQuery = trpc.exchanges.list.useQuery();
@@ -116,9 +116,8 @@ export default function CreateBotPage() {
   );
 
   const createBot = trpc.bots.create.useMutation({
-    onMutate: () => setSubmitError(null),
     onSuccess: () => router.push("/bots"),
-    onError: (error) => setSubmitError(error.message),
+    onError: (error) => toast.error(`Failed to create bot: ${error.message}`),
   });
 
   const onSubmit = (data: BotFormData) => {
@@ -193,12 +192,6 @@ export default function CreateBotPage() {
         {step === 3 && <StepRisk form={form} />}
         {step === 4 && <StepMode form={form} />}
         {step === 5 && <StepReview form={form} />}
-
-        {submitError && (
-          <p className="text-sm" style={{ color: "var(--loss)" }}>
-            Failed to create bot: {submitError}
-          </p>
-        )}
 
         <div className="flex justify-between pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <button

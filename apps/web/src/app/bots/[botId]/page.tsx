@@ -24,7 +24,8 @@ export default function BotDetailPage({ params }: { params: Promise<{ botId: str
     limit: 500,
     offset: 0,
   });
-  const { data: logs } = trpc.bots.getLogs.useQuery({ botId, limit: 50 });
+  const { data: logsData } = trpc.bots.getLogs.useQuery({ botId, limit: 50 });
+  const logs = logsData?.items;
 
   // Fetch candles using the bot's exchange / symbol / timeframe
   const { data: candleData, isLoading: candlesLoading } = trpc.market.getCandles.useQuery(

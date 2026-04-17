@@ -117,7 +117,7 @@ export default function BotDetailPage({ params }: { params: Promise<{ botId: str
       </div>
 
       <ErrorBoundary>
-        <BotControlPanel botId={botId} status={bot.status} />
+        <BotControlPanel botId={botId} status={bot.status} mode={bot.mode} botName={bot.name} />
       </ErrorBoundary>
 
       {metrics && (

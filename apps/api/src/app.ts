@@ -9,9 +9,9 @@ import { FastifyAdapter } from "@bull-board/fastify";
 import fastifyCors from "@fastify/cors";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
-import type { Database } from "@tb/db";
+import { bots, exchangeConfigs, type Database } from "@tb/db";
 import { fastifyTRPCPlugin } from "@trpc/server/adapters/fastify";
-import { sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import Fastify, {
   type FastifyReply,
   type FastifyRequest,
@@ -177,6 +177,93 @@ export async function createApp(options: CreateAppOptions) {
       uptime: process.uptime(),
       version: API_VERSION,
     };
+  });
+
+  app.post("/emergency-stop", async (request, reply) => {
+    // Require bearer token — same token used by tRPC protectedProcedure
+    const expectedToken = process.env["API_AUTH_TOKEN"]?.trim();
+    const authorization = request.headers.authorization;
+    const bearerToken = authorization?.startsWith("Bearer ")
+      ? authorization.slice("Bearer ".length).trim()
+      : undefined;
+    const headerToken =
+      typeof request.headers["x-api-token"] === "string"
+        ? (request.headers["x-api-token"] as string).trim()
+        : undefined;
+    const providedToken = bearerToken ?? headerToken;
+
+    if (!expectedToken || !providedToken || providedToken !== expectedToken) {
+      return reply.code(401).send({ error: "Unauthorized" });
+    }
+
+    // 1. Find all running live bots
+    const liveBots = await options.db
+      .select()
+      .from(bots)
+      .where(and(eq(bots.status, "running"), eq(bots.mode, "live")));
+
+    const errors: string[] = [];
+    let cancelledOrders = 0;
+
+    if (liveBots.length === 0) {
+      return { stoppedBots: 0, cancelledOrders: 0, errors: [] };
+    }
+
+    // 2. Batch-update all running live bots to "stopped"
+    const botIds = liveBots.map((b) => b.id);
+    await options.db
+      .update(bots)
+      .set({ status: "stopped", stoppedAt: new Date(), updatedAt: new Date() })
+      .where(inArray(bots.id, botIds));
+
+    // 3. Cancel open orders and publish status events for each bot
+    for (const bot of liveBots) {
+      // Publish bot:status so the socket hub broadcasts the change
+      await options.redis
+        .publish(
+          "bot:status",
+          JSON.stringify({ botId: bot.id, status: "stopped", timestamp: Date.now() })
+        )
+        .catch((err: unknown) => {
+          errors.push(
+            `redis publish for bot ${bot.id}: ${err instanceof Error ? err.message : String(err)}`
+          );
+        });
+
+      // Only cancel orders for live-mode bots — fetch the exchange config first
+      try {
+        const configRows = await options.db
+          .select()
+          .from(exchangeConfigs)
+          .where(eq(exchangeConfigs.exchange, bot.exchange))
+          .limit(1);
+        const configRow = configRows[0];
+
+        if (!configRow) {
+          errors.push(`No exchange config found for bot ${bot.id} (exchange: ${bot.exchange})`);
+          continue;
+        }
+
+        const openOrders = await options.exchangeManager.fetchOpenOrders(configRow.id, bot.symbol);
+
+        for (const order of openOrders) {
+          try {
+            await options.exchangeManager.cancelOrder(configRow.id, order.symbol, order.id);
+            cancelledOrders++;
+          } catch (err) {
+            errors.push(
+              `cancel order ${order.id} for bot ${bot.id}: ${err instanceof Error ? err.message : String(err)}`
+            );
+          }
+        }
+      } catch (err) {
+        errors.push(
+          `fetch open orders for bot ${bot.id}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+    }
+
+    return { stoppedBots: liveBots.length, cancelledOrders, errors };
   });
 
   await app.register(fastifyTRPCPlugin, {

@@ -1,4 +1,6 @@
+import { orderAuditLog } from "@tb/db";
 import { TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { mapExchangeError } from "../../utils/errors";
@@ -34,9 +36,50 @@ export const tradingRouter = createTrpcRouter({
         });
       }
 
+      const [auditRecord] = await ctx.db
+        .insert(orderAuditLog)
+        .values({
+          exchangeId: exchange,
+          symbol,
+          side,
+          type,
+          amount: amount.toString(),
+          price: price != null ? price.toString() : null,
+          status: "placed",
+          source: "manual",
+          requestedAt: new Date(),
+        })
+        .returning();
+
       try {
-        return await ctx.exchangeManager.createOrder(exchange, symbol, type, side, amount, price);
+        const result = await ctx.exchangeManager.createOrder(
+          exchange,
+          symbol,
+          type,
+          side,
+          amount,
+          price
+        );
+
+        if (auditRecord) {
+          await ctx.db
+            .update(orderAuditLog)
+            .set({ orderId: result.id, settledAt: new Date() })
+            .where(eq(orderAuditLog.id, auditRecord.id));
+        }
+
+        return result;
       } catch (error) {
+        if (auditRecord) {
+          await ctx.db
+            .update(orderAuditLog)
+            .set({
+              status: "failed",
+              errorMessage: error instanceof Error ? error.message : String(error),
+            })
+            .where(eq(orderAuditLog.id, auditRecord.id));
+        }
+
         throw mapExchangeError(error);
       }
     }),
@@ -51,6 +94,15 @@ export const tradingRouter = createTrpcRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { exchange, symbol, orderId } = input;
+
+      await ctx.db.insert(orderAuditLog).values({
+        exchangeId: exchange,
+        symbol,
+        orderId,
+        status: "cancelled",
+        source: "manual",
+        requestedAt: new Date(),
+      });
 
       try {
         return await ctx.exchangeManager.cancelOrder(exchange, symbol, orderId);

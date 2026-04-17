@@ -24,6 +24,11 @@ export {
   type BacktestTradeInsert,
 } from "./schema/backtestTrades";
 export { settings, type SettingRow, type SettingInsert } from "./schema/settings";
+export {
+  orderAuditLog,
+  type OrderAuditLogRow,
+  type OrderAuditLogInsert,
+} from "./schema/orderAuditLog";
 
 // Queries
 export {

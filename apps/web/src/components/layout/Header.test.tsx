@@ -12,6 +12,10 @@ vi.mock("@/providers/SocketProvider", () => ({
   useSocket: () => ({ isConnected: true }),
 }));
 
+vi.mock("@/components/layout/PnLTicker", () => ({
+  PnLTicker: () => null,
+}));
+
 import { Header } from "@/components/layout/Header";
 
 describe("Header", () => {

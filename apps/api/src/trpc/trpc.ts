@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 
+import { trpcErrorCounter, trpcRequestCounter } from "../utils/metrics";
 import { getTokenRateLimiter } from "../utils/tokenRateLimiter";
 
 import type { TrpcContext } from "./context";
@@ -24,6 +25,10 @@ const loggingMiddleware = trpc.middleware(async ({ ctx, path, type, next }) => {
   const result = await next();
   const durationMs = Date.now() - start;
   ctx.logger.info({ requestId: ctx.requestId, path, type, durationMs, ok: result.ok }, "trpc");
+  trpcRequestCounter.inc({ path, type });
+  if (!result.ok) {
+    trpcErrorCounter.inc({ path, type });
+  }
   return result;
 });
 

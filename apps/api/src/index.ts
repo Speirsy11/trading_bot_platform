@@ -9,6 +9,7 @@ import { createQueueSet } from "./queues/index";
 import { createExchangeManager } from "./services/exchangeManager";
 import { assertEncryptionSecret, KeyVault } from "./services/keyVault";
 import { bootstrapStrategies } from "./services/strategyCatalog";
+import { validateAndPrintEnv } from "./utils/envValidation";
 import { createFastifyLoggerOptions } from "./utils/logger";
 import { reconcileOpenOrders } from "./workers/reconcileOrders";
 
@@ -27,6 +28,8 @@ async function start() {
   let queues: ReturnType<typeof createQueueSet> | undefined;
 
   try {
+    validateAndPrintEnv();
+
     if (!databaseUrl) {
       throw new Error("DATABASE_URL must be set to a non-empty value before startup");
     }

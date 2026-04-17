@@ -49,6 +49,7 @@ import type { KeyVault } from "./services/keyVault";
 import { createTrpcContext } from "./trpc/context";
 import { appRouter } from "./trpc/router";
 import { parseAllowedOrigins } from "./utils/cors";
+import { metricsRegistry } from "./utils/metrics";
 import { setupSocketHub } from "./websocket/index";
 
 interface CreateAppOptions {
@@ -188,6 +189,11 @@ export async function createApp(options: CreateAppOptions) {
       uptime: process.uptime(),
       version: API_VERSION,
     };
+  });
+
+  app.get("/metrics", async (_request, reply) => {
+    reply.header("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
+    return metricsRegistry.metrics();
   });
 
   app.post("/emergency-stop", async (request, reply) => {

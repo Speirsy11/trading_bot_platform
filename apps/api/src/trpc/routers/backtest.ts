@@ -4,6 +4,7 @@ import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { BACKTEST_JOB_NAMES } from "../../queues/types";
+import { jobEnqueuedCounter } from "../../utils/metrics";
 import { parseJsonValue, toNumber } from "../../utils/serialization";
 import { backtestConfigSchema, uuidSchema } from "../schemas";
 import { createTrpcRouter, publicProcedure } from "../trpc";
@@ -44,6 +45,7 @@ export const backtestRouter = createTrpcRouter({
         { backtestId: backtest.id },
         { jobId, removeOnComplete: false, removeOnFail: false }
       );
+      jobEnqueuedCounter.inc({ queue: "backtest" });
       await ctx.redis.publish(
         "backtest:progress",
         JSON.stringify({ backtestId: backtest.id, progress: 0, currentDate: input.startTime })

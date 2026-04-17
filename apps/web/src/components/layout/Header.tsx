@@ -2,6 +2,7 @@
 
 import { Bell, Wifi, WifiOff } from "lucide-react";
 
+import { PnLTicker } from "@/components/layout/PnLTicker";
 import { useSocket } from "@/providers/SocketProvider";
 import { useUiStore } from "@/stores/ui";
 
@@ -22,6 +23,8 @@ export function Header() {
       </h1>
 
       <div className="flex items-center gap-4">
+        <PnLTicker />
+
         <div
           className="h-7 px-3 flex items-center rounded text-xs tabular-nums"
           style={{ background: "var(--accent-dim)", color: "var(--accent)" }}

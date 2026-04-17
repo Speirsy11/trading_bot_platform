@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import type IORedis from "ioredis";
 import type { Server, Socket } from "socket.io";
 
+import { wsConnectionGauge } from "../utils/metrics";
+
 const CHANNELS = [
   "market:ticker",
   "market:candle",
@@ -23,6 +25,7 @@ export async function setupSocketHub(app: FastifyInstance, subscriber: IORedis) 
   const io = app.io as Server;
 
   io.on("connection", (socket: Socket) => {
+    wsConnectionGauge.inc();
     socket.emit("system:connected", { connectedAt: Date.now() });
     socket.on("subscribe", (payload: Record<string, unknown>) =>
       handleSubscription(socket, payload, "join")
@@ -30,6 +33,9 @@ export async function setupSocketHub(app: FastifyInstance, subscriber: IORedis) 
     socket.on("unsubscribe", (payload: Record<string, unknown>) =>
       handleSubscription(socket, payload, "leave")
     );
+    socket.on("disconnect", () => {
+      wsConnectionGauge.dec();
+    });
   });
 
   await subscriber.subscribe(...CHANNELS);

@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { BotStatusCards } from "@/components/dashboard/BotStatusCards";
 import { MarketOverview } from "@/components/dashboard/MarketOverview";
+import { PortfolioAllocation } from "@/components/dashboard/PortfolioAllocation";
 import { PortfolioSummary } from "@/components/dashboard/PortfolioSummary";
 import { RecentTrades } from "@/components/dashboard/RecentTrades";
 
@@ -47,10 +48,16 @@ export default function DashboardPage() {
           </ErrorBoundary>
         </div>
 
-        <div>
+        <div className="space-y-6">
           <ErrorBoundary>
             <Suspense fallback={<LoadingPanel />}>
               <RecentTrades />
+            </Suspense>
+          </ErrorBoundary>
+
+          <ErrorBoundary>
+            <Suspense fallback={<LoadingPanel />}>
+              <PortfolioAllocation />
             </Suspense>
           </ErrorBoundary>
         </div>

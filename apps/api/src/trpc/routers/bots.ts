@@ -6,6 +6,7 @@ import { z } from "zod";
 import { BOT_JOB_NAMES } from "../../queues/types";
 import { getStrategyCatalog } from "../../services/strategyCatalog";
 import { AppErrorCode } from "../../utils/errors";
+import { jobEnqueuedCounter } from "../../utils/metrics";
 import { parseJsonValue, toNumber } from "../../utils/serialization";
 import { botConfigSchema, riskConfigSchema, uuidSchema } from "../schemas";
 import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc";
@@ -141,6 +142,7 @@ export const botsRouter = createTrpcRouter({
             removeOnComplete: false,
           }
         );
+        jobEnqueuedCounter.inc({ queue: "botExecution" });
 
         await ctx.redis.publish(
           "bot:status",
@@ -182,6 +184,7 @@ export const botsRouter = createTrpcRouter({
         { botId: input.botId },
         { jobId: `bot-${input.botId}-pause-${Date.now()}` }
       );
+      jobEnqueuedCounter.inc({ queue: "botExecution" });
       await ctx.redis.publish(
         "bot:status",
         JSON.stringify({ botId: input.botId, status: "paused", timestamp: Date.now() })
@@ -210,6 +213,7 @@ export const botsRouter = createTrpcRouter({
         { botId: input.botId },
         { jobId: `bot-${input.botId}-stop-${Date.now()}` }
       );
+      jobEnqueuedCounter.inc({ queue: "botExecution" });
       await ctx.redis.publish(
         "bot:status",
         JSON.stringify({ botId: input.botId, status: "stopped", timestamp: Date.now() })

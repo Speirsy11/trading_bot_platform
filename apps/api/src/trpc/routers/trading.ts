@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { mapExchangeError } from "../../utils/errors";
+import { orderPlacedCounter } from "../../utils/metrics";
 import { checkNotionalCap } from "../../utils/notionalCap";
 import { createTrpcRouter, publicProcedure } from "../trpc";
 
@@ -62,6 +63,7 @@ export const tradingRouter = createTrpcRouter({
           amount,
           price
         );
+        orderPlacedCounter.inc({ exchange, side, type });
 
         if (auditRecord) {
           await ctx.db

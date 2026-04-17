@@ -7,6 +7,7 @@ import { use } from "react";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DrawdownChart } from "@/components/charts/DrawdownChart";
 import { EquityCurve } from "@/components/charts/EquityCurve";
+import { MetricTooltip } from "@/components/ui/MetricTooltip";
 import { formatCurrency, formatPercent, pnlColor, formatDate } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
 
@@ -101,13 +102,23 @@ export default function BacktestResultsPage({
       value: formatCurrency(Number(results.totalPnl) || 0),
       color: pnlColor(Number(results.totalPnl) || 0),
     },
-    { label: "Sharpe Ratio", value: (Number(results.sharpeRatio) || 0).toFixed(2) },
+    {
+      label: "Sharpe Ratio",
+      value: (Number(results.sharpeRatio) || 0).toFixed(2),
+      tooltip:
+        "Risk-adjusted return (return divided by volatility). Above 1.0 is acceptable, above 2.0 is good.",
+    },
     {
       label: "Max Drawdown",
       value: formatPercent(-(Number(results.maxDrawdown) || 0)),
       color: "var(--loss)",
+      tooltip: "Largest peak-to-trough decline. A measure of downside risk.",
     },
-    { label: "Win Rate", value: formatPercent((Number(results.winRate) || 0) * 100) },
+    {
+      label: "Win Rate",
+      value: formatPercent((Number(results.winRate) || 0) * 100),
+      tooltip: "Percentage of trades that were profitable.",
+    },
     { label: "Total Trades", value: String(results.totalTrades ?? 0) },
   ];
 
@@ -136,8 +147,11 @@ export default function BacktestResultsPage({
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
         {metricsCards.map((m) => (
           <div key={m.label} className="glass-panel-sm p-4">
-            <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+            <div className="text-xs mb-1 flex items-center" style={{ color: "var(--text-muted)" }}>
               {m.label}
+              {"tooltip" in m && m.tooltip && (
+                <MetricTooltip term={m.label} definition={m.tooltip} />
+              )}
             </div>
             <div
               className="text-lg tabular-nums font-light"

@@ -1,5 +1,6 @@
 "use client";
 
+import { MetricTooltip } from "@/components/ui/MetricTooltip";
 import { formatCurrency, formatPercent } from "@/lib/format";
 
 interface BotMetricsProps {
@@ -29,6 +30,7 @@ export function BotMetrics({ metrics }: BotMetricsProps) {
       label: "Win Rate",
       value: formatPercent(metrics.winRate * 100),
       color: metrics.winRate >= 0.5 ? "var(--profit)" : "var(--loss)",
+      tooltip: "Percentage of trades that were profitable.",
     },
     { label: "Total Trades", value: String(metrics.totalTrades) },
     { label: "Wins / Losses", value: `${metrics.wins} / ${metrics.losses}` },
@@ -43,8 +45,11 @@ export function BotMetrics({ metrics }: BotMetricsProps) {
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
       {items.map((item) => (
         <div key={item.label} className="glass-panel-sm p-4">
-          <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>
+          <div className="text-xs mb-1 flex items-center" style={{ color: "var(--text-muted)" }}>
             {item.label}
+            {"tooltip" in item && item.tooltip && (
+              <MetricTooltip term={item.label} definition={item.tooltip} />
+            )}
           </div>
           <div
             className="text-lg tabular-nums font-light"

@@ -140,6 +140,7 @@ export default function BotDetailPage({ params }: { params: Promise<{ botId: str
               data={candleData ?? []}
               height={300}
               markers={tradeMarkers.length > 0 ? tradeMarkers : undefined}
+              showIndicatorControls
             />
           )}
         </div>

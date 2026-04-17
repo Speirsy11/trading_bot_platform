@@ -1,10 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { ArrowLeft, ArrowRight, Check } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, type FieldPath, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 
@@ -67,6 +67,59 @@ const STEP_FIELDS: Record<number, FieldPath<BotFormData>[]> = {
   4: ["mode", "currentBalance"],
 };
 
+const TEMPLATES: Array<{ label: string; values: Partial<BotFormData> }> = [
+  {
+    label: "Conservative SMA Crossover",
+    values: {
+      strategy: "SMA Crossover",
+      timeframe: "4h",
+      riskConfig: {
+        maxPositionSizePercent: 5,
+        maxDrawdownPercent: 10,
+        riskPerTradePercent: 1,
+        maxConcurrentPositions: 3,
+        maxDailyLossPercent: 5,
+        trailingStopEnabled: true,
+        trailingStopPercent: 3,
+      },
+    },
+  },
+  {
+    label: "Aggressive RSI Mean Reversion",
+    values: {
+      strategy: "RSI Mean Reversion",
+      timeframe: "1h",
+      riskConfig: {
+        maxPositionSizePercent: 15,
+        maxDrawdownPercent: 20,
+        riskPerTradePercent: 3,
+        maxConcurrentPositions: 5,
+        maxDailyLossPercent: 10,
+        trailingStopEnabled: false,
+        trailingStopPercent: 5,
+      },
+    },
+  },
+  {
+    label: "Bollinger Bounce (default params)",
+    values: {
+      strategy: "BollingerBounce",
+      timeframe: "1h",
+      riskConfig: {
+        maxPositionSizePercent: 10,
+        maxDrawdownPercent: 15,
+        riskPerTradePercent: 2,
+        maxConcurrentPositions: 3,
+        maxDailyLossPercent: 7,
+        trailingStopEnabled: true,
+        trailingStopPercent: 4,
+      },
+    },
+  },
+];
+
+const draftKey = "bot-wizard-draft";
+
 export default function CreateBotPage() {
   const [step, setStep] = useState(0);
   const router = useRouter();
@@ -95,6 +148,54 @@ export default function CreateBotPage() {
     },
   });
 
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const templateRef = useRef<HTMLDivElement>(null);
+
+  // Load draft on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const draft = JSON.parse(raw) as Partial<BotFormData>;
+        Object.entries(draft).forEach(([key, value]) => {
+          form.setValue(key as keyof BotFormData, value as never);
+        });
+        toast.info("Draft restored");
+      }
+    } catch {
+      // ignore corrupt draft
+    }
+  }, []); // mount-only: intentionally reads localStorage once on load
+
+  // Save draft on every change
+  useEffect(() => {
+    const subscription = form.watch((values) => {
+      localStorage.setItem(draftKey, JSON.stringify(values));
+    });
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // Close template dropdown on outside click
+  useEffect(() => {
+    if (!templateOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (templateRef.current && !templateRef.current.contains(e.target as Node)) {
+        setTemplateOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [templateOpen]);
+
+  const loadTemplate = (tpl: (typeof TEMPLATES)[number]) => {
+    Object.entries(tpl.values).forEach(([key, value]) => {
+      form.setValue(key as keyof BotFormData, value as never);
+    });
+    setTemplateOpen(false);
+    setStep(0);
+    toast.info("Template loaded");
+  };
+
   const strategyOptions = Array.from(
     new Map(
       [...FALLBACK_STRATEGIES, ...((strategiesQuery.data ?? []) as StrategyOption[])].map(
@@ -120,8 +221,9 @@ export default function CreateBotPage() {
     onError: (error) => toast.error(`Failed to create bot: ${error.message}`),
   });
 
-  const onSubmit = (data: BotFormData) => {
-    createBot.mutate(data);
+  const onSubmit = async (data: BotFormData) => {
+    await createBot.mutateAsync(data);
+    localStorage.removeItem(draftKey);
   };
 
   const prev = () => setStep((s) => Math.max(0, s - 1));
@@ -157,35 +259,79 @@ export default function CreateBotPage() {
         </h1>
       </div>
 
-      {/* Step Indicator */}
-      <div className="flex items-center gap-1">
-        {STEPS.map((s, i) => (
-          <div key={s} className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => {
-                void goToStep(i);
-              }}
-              className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-colors"
+      {/* Step Indicator + Templates */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 flex-1 flex-wrap">
+          {STEPS.map((s, i) => (
+            <div key={s} className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  void goToStep(i);
+                }}
+                className="flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs transition-colors"
+                style={{
+                  background: i === step ? "var(--accent-dim)" : "transparent",
+                  color:
+                    i === step ? "var(--accent)" : i < step ? "var(--profit)" : "var(--text-muted)",
+                }}
+              >
+                {i < step ? <Check size={10} /> : <span>{i + 1}</span>}
+                <span className="hidden sm:inline">{s}</span>
+              </button>
+              {i < STEPS.length - 1 && (
+                <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                  ›
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Templates dropdown */}
+        <div className="relative shrink-0" ref={templateRef}>
+          <button
+            type="button"
+            onClick={() => setTemplateOpen((o) => !o)}
+            className="flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs transition-colors"
+            style={{
+              background: "var(--bg-input)",
+              color: "var(--text-secondary)",
+              border: "1px solid var(--border)",
+            }}
+          >
+            Templates <ChevronDown size={12} />
+          </button>
+          {templateOpen && (
+            <div
+              className="absolute right-0 z-50 mt-1 w-56 rounded-lg py-1 shadow-lg"
               style={{
-                background: i === step ? "var(--accent-dim)" : "transparent",
-                color:
-                  i === step ? "var(--accent)" : i < step ? "var(--profit)" : "var(--text-muted)",
+                background: "var(--bg-panel)",
+                border: "1px solid var(--border)",
               }}
             >
-              {i < step ? <Check size={10} /> : <span>{i + 1}</span>}
-              <span className="hidden sm:inline">{s}</span>
-            </button>
-            {i < STEPS.length - 1 && (
-              <span className="text-xs" style={{ color: "var(--text-muted)" }}>
-                ›
-              </span>
-            )}
-          </div>
-        ))}
+              {TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.label}
+                  type="button"
+                  onClick={() => loadTemplate(tpl)}
+                  className="w-full px-3 py-2 text-left text-xs transition-colors hover:bg-[var(--accent-dim)]"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {tpl.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="glass-panel p-6 space-y-5">
+      <form
+        onSubmit={(e) => {
+          void form.handleSubmit(onSubmit)(e);
+        }}
+        className="glass-panel p-6 space-y-5"
+      >
         {step === 0 && <StepStrategy form={form} strategies={strategyOptions} />}
         {step === 1 && <StepParameters form={form} />}
         {step === 2 && <StepExchange form={form} exchanges={exchangeOptions} />}

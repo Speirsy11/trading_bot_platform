@@ -35,8 +35,11 @@ export {
   insertOHLCV,
   upsertOHLCV,
   queryOHLCVByRange,
+  queryOHLCVCursor,
   getLatestTimestamp,
   countCandles,
+  type OHLCVCursorParams,
+  type OHLCVCursorResult,
 } from "./queries/ohlcv";
 
 // Seed

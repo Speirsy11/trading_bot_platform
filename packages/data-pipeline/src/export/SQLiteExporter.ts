@@ -1,8 +1,13 @@
 import type { OHLCVRow } from "@tb/db";
 import Database from "better-sqlite3";
+import type { Database as BetterSQLite3Database } from "better-sqlite3";
 
 export class SQLiteExporter {
-  async export(rows: OHLCVRow[], outputPath: string): Promise<{ rowCount: number }> {
+  private db: BetterSQLite3Database | null = null;
+  private insertMany: ((data: OHLCVRow[]) => void) | null = null;
+  private rowCount = 0;
+
+  open(outputPath: string): void {
     const db = new Database(outputPath);
 
     db.pragma("journal_mode = WAL");
@@ -35,7 +40,7 @@ export class SQLiteExporter {
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const insertMany = db.transaction((data: OHLCVRow[]) => {
+    this.insertMany = db.transaction((data: OHLCVRow[]) => {
       for (const row of data) {
         insert.run(
           row.time instanceof Date ? row.time.toISOString() : row.time,
@@ -52,10 +57,27 @@ export class SQLiteExporter {
       }
     });
 
-    insertMany(rows);
-    const count = rows.length;
-    db.close();
+    this.db = db;
+    this.rowCount = 0;
+  }
 
-    return { rowCount: count };
+  appendBatch(rows: OHLCVRow[]): void {
+    if (!this.insertMany) throw new Error("SQLiteExporter: call open() before appendBatch()");
+    this.insertMany(rows);
+    this.rowCount += rows.length;
+  }
+
+  close(): { rowCount: number } {
+    this.db?.close();
+    const result = { rowCount: this.rowCount };
+    this.db = null;
+    this.insertMany = null;
+    return result;
+  }
+
+  async export(rows: OHLCVRow[], outputPath: string): Promise<{ rowCount: number }> {
+    this.open(outputPath);
+    this.appendBatch(rows);
+    return Promise.resolve(this.close());
   }
 }

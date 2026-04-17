@@ -124,6 +124,40 @@ export const dataCollectionRouter = createTrpcRouter({
       return { queued: true };
     }),
 
+  /** Get data quality metrics per exchange/symbol/timeframe */
+  getQualityMetrics: publicProcedure
+    .input(
+      z.object({
+        exchange: z.string().optional(),
+        symbol: z.string().optional(),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const conditions = [];
+      if (input.exchange) conditions.push(eq(dataCollectionStatus.exchange, input.exchange));
+      if (input.symbol) conditions.push(eq(dataCollectionStatus.symbol, input.symbol));
+
+      const rows = await ctx.db
+        .select()
+        .from(dataCollectionStatus)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(
+          dataCollectionStatus.exchange,
+          dataCollectionStatus.symbol,
+          dataCollectionStatus.timeframe
+        );
+
+      return rows.map((r) => ({
+        exchange: r.exchange,
+        symbol: r.symbol,
+        timeframe: r.timeframe,
+        totalCandles: r.totalCandles ?? 0,
+        gapCount: r.gapCount ?? 0,
+        lastUpdated: r.lastCollectedAt?.toISOString() ?? null,
+        status: r.status ?? "idle",
+      }));
+    }),
+
   /** Get queue job counts for monitoring */
   queueStats: publicProcedure.query(async ({ ctx }) => {
     const [collection, backfill, exportQ] = await Promise.all([

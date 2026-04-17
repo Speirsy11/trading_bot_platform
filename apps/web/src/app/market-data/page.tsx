@@ -16,6 +16,8 @@ export default function MarketDataPage() {
 
   const { data: symbols } = trpc.market.getSymbols.useQuery({ exchange }, { enabled: !!exchange });
 
+  const { data: qualityMetrics } = trpc.dataCollection.getQualityMetrics.useQuery({});
+
   const { data: candles } = trpc.market.getCandles.useQuery(
     { exchange, symbol: previewSymbol, timeframe },
     { enabled: !!previewSymbol }
@@ -163,6 +165,88 @@ export default function MarketDataPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Data Quality */}
+      <div className="glass-panel p-4">
+        <h2 className="text-sm font-medium mb-3" style={{ color: "var(--text-primary)" }}>
+          Data Quality
+        </h2>
+        {qualityMetrics && qualityMetrics.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr style={{ color: "var(--text-muted)", borderBottom: "1px solid var(--border)" }}>
+                  <th className="text-left py-2 pr-4">Exchange</th>
+                  <th className="text-left py-2 pr-4">Symbol</th>
+                  <th className="text-left py-2 pr-4">Timeframe</th>
+                  <th className="text-right py-2 pr-4">Candles</th>
+                  <th className="text-right py-2 pr-4">Gaps</th>
+                  <th className="text-left py-2 pr-4">Last Updated</th>
+                  <th className="text-left py-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {qualityMetrics.map((row) => (
+                  <tr
+                    key={`${row.exchange}-${row.symbol}-${row.timeframe}`}
+                    style={{ borderBottom: "1px solid var(--border)" }}
+                  >
+                    <td className="py-2 pr-4" style={{ color: "var(--text-primary)" }}>
+                      {row.exchange}
+                    </td>
+                    <td className="py-2 pr-4" style={{ color: "var(--text-primary)" }}>
+                      {row.symbol}
+                    </td>
+                    <td className="py-2 pr-4" style={{ color: "var(--text-muted)" }}>
+                      {row.timeframe}
+                    </td>
+                    <td
+                      className="py-2 pr-4 text-right tabular-nums"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {row.totalCandles.toLocaleString()}
+                    </td>
+                    <td
+                      className="py-2 pr-4 text-right tabular-nums"
+                      style={{ color: row.gapCount > 0 ? "var(--danger)" : "var(--text-muted)" }}
+                    >
+                      {row.gapCount}
+                    </td>
+                    <td className="py-2 pr-4" style={{ color: "var(--text-muted)" }}>
+                      {row.lastUpdated ? new Date(row.lastUpdated).toLocaleString() : "—"}
+                    </td>
+                    <td className="py-2">
+                      <span
+                        className="px-2 py-0.5 rounded text-xs"
+                        style={{
+                          background:
+                            row.status === "collecting"
+                              ? "var(--accent-dim)"
+                              : row.status === "error"
+                                ? "rgba(var(--danger-rgb),0.15)"
+                                : "var(--bg-input)",
+                          color:
+                            row.status === "collecting"
+                              ? "var(--accent)"
+                              : row.status === "error"
+                                ? "var(--danger)"
+                                : "var(--text-muted)",
+                        }}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm py-4 text-center" style={{ color: "var(--text-muted)" }}>
+            No collection data available
+          </p>
+        )}
       </div>
     </div>
   );

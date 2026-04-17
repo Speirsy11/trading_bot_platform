@@ -1,7 +1,7 @@
-import { and, eq, gte, lte, sql, count } from "drizzle-orm";
+import { and, eq, gt, gte, lte, sql, count } from "drizzle-orm";
 
 import type { Database } from "../client";
-import { ohlcv, type OHLCVInsert } from "../schema/ohlcv";
+import { ohlcv, type OHLCVInsert, type OHLCVRow } from "../schema/ohlcv";
 
 export async function insertOHLCV(db: Database, rows: OHLCVInsert[]) {
   if (rows.length === 0) return [];
@@ -48,6 +48,69 @@ export async function queryOHLCVByRange(
       )
     )
     .orderBy(ohlcv.time);
+}
+
+export interface OHLCVCursorParams {
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  startTime: Date;
+  endTime: Date;
+}
+
+export interface OHLCVCursorResult {
+  rows: OHLCVRow[];
+  nextCursor: string | null;
+}
+
+/**
+ * Fetch a batch of OHLCV rows after the given cursor position.
+ *
+ * Rows are ordered by `time`. Within a single (exchange, symbol, timeframe)
+ * partition `time` is unique (enforced by the DB constraint), so it is
+ * sufficient as a cursor key.
+ *
+ * @param cursor - ISO-8601 string of the last seen `time`; omit for the first page.
+ * @param batchSize - Maximum rows to return per call (default 10 000).
+ */
+export async function queryOHLCVCursor(
+  db: Database,
+  params: OHLCVCursorParams,
+  cursor?: string,
+  batchSize = 10_000
+): Promise<OHLCVCursorResult> {
+  const { exchange, symbol, timeframe, startTime, endTime } = params;
+
+  const afterCursor = cursor ? gt(ohlcv.time, new Date(cursor)) : undefined;
+
+  const conditions = [
+    eq(ohlcv.exchange, exchange),
+    eq(ohlcv.symbol, symbol),
+    eq(ohlcv.timeframe, timeframe),
+    gte(ohlcv.time, startTime),
+    lte(ohlcv.time, endTime),
+  ];
+
+  if (afterCursor) {
+    conditions.push(afterCursor);
+  }
+
+  const rows = await db
+    .select()
+    .from(ohlcv)
+    .where(and(...conditions))
+    .orderBy(ohlcv.time)
+    .limit(batchSize);
+
+  const lastRow = rows[rows.length - 1];
+  const nextCursor =
+    rows.length === batchSize && lastRow
+      ? lastRow.time instanceof Date
+        ? lastRow.time.toISOString()
+        : String(lastRow.time)
+      : null;
+
+  return { rows, nextCursor };
 }
 
 export async function getLatestTimestamp(

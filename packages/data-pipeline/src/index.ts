@@ -55,5 +55,15 @@ export {
 } from "./jobs/scheduler";
 export { createCollectionWorker, createBackfillWorker, createExportWorker } from "./jobs/workers";
 
+// Metadata
+export { CoinGeckoClient, SYMBOL_TO_COINGECKO_ID } from "./metadata/CoinGeckoClient";
+export type { CoinMarketData } from "./metadata/CoinGeckoClient";
+export {
+  createCoinMetadataWorker,
+  COIN_METADATA_QUEUE,
+  COIN_METADATA_REPEAT_PATTERN,
+  COIN_METADATA_CHANNEL,
+} from "./metadata/coinMetadataWorker";
+
 // Types
 export type { PipelineConfig, CollectionResult } from "./types";

@@ -2,8 +2,8 @@ import { mkdir, stat } from "fs/promises";
 import { join } from "path";
 
 import { createLogger } from "@tb/config";
-import type { Database } from "@tb/db";
-import { dataExports, queryOHLCVByRange } from "@tb/db";
+import type { Database, OHLCVCursorParams, OHLCVRow } from "@tb/db";
+import { dataExports, queryOHLCVCursor } from "@tb/db";
 import { eq } from "drizzle-orm";
 
 import { CSVExporter } from "./CSVExporter";
@@ -40,25 +40,6 @@ export class ExportManager {
     try {
       await mkdir(request.outputDir, { recursive: true });
 
-      const allRows: Awaited<ReturnType<typeof queryOHLCVByRange>> = [];
-
-      // Fetch data per symbol
-      for (let i = 0; i < request.symbols.length; i++) {
-        const symbol = request.symbols[i]!;
-        const rows = await queryOHLCVByRange(
-          this.db,
-          request.exchange,
-          symbol,
-          request.timeframe,
-          request.startTime,
-          request.endTime
-        );
-        allRows.push(...rows);
-
-        const progress = ((i + 1) / request.symbols.length) * 50;
-        await this.updateExportStatus(request.id, "processing", progress);
-      }
-
       // Generate output file
       const extension = this.getExtension(request.format);
       const baseName = `${request.id}.${extension}`;
@@ -69,24 +50,34 @@ export class ExportManager {
       switch (request.format) {
         case "csv": {
           const exporter = new CSVExporter();
-          const result = await exporter.export(allRows, outputPath);
-          rowCount = result.rowCount;
+          exporter.open(outputPath);
+          await this.streamSymbols(request, async (cursorParams, cursor) => {
+            const { rows, nextCursor } = await queryOHLCVCursor(this.db, cursorParams, cursor);
+            exporter.appendBatch(rows);
+            return nextCursor;
+          });
+          rowCount = (await exporter.close()).rowCount;
           break;
         }
         case "parquet": {
           const exporter = new ParquetExporter();
-          const result = await exporter.export(allRows, outputPath);
-          rowCount = result.rowCount;
+          rowCount = (await exporter.export(this.buildAsyncIterable(request), outputPath)).rowCount;
           break;
         }
         case "sqlite": {
           const exporter = new SQLiteExporter();
-          const result = await exporter.export(allRows, outputPath);
-          rowCount = result.rowCount;
+          exporter.open(outputPath);
+          await this.streamSymbols(request, async (cursorParams, cursor) => {
+            const { rows, nextCursor } = await queryOHLCVCursor(this.db, cursorParams, cursor);
+            exporter.appendBatch(rows);
+            return nextCursor;
+          });
+          rowCount = exporter.close().rowCount;
           break;
         }
       }
 
+      // Update progress after streaming per-symbol batches
       await this.updateExportStatus(request.id, "processing", 80);
 
       // Compress if requested
@@ -114,6 +105,64 @@ export class ExportManager {
       const message = error instanceof Error ? error.message : String(error);
       await this.updateExportStatus(request.id, "failed", 0, { error: message });
       throw error;
+    }
+  }
+
+  /**
+   * Iterate all symbols in the request, paging through each with cursor
+   * batches. Calls `onBatch` for every fetched page.
+   *
+   * Progress is updated between symbols (0–50 % of the export run).
+   */
+  private async streamSymbols(
+    request: ExportRequest,
+    onBatch: (params: OHLCVCursorParams, cursor: string | undefined) => Promise<string | null>
+  ): Promise<void> {
+    for (let i = 0; i < request.symbols.length; i++) {
+      const symbol = request.symbols[i]!;
+      const cursorParams: OHLCVCursorParams = {
+        exchange: request.exchange,
+        symbol,
+        timeframe: request.timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+      };
+
+      let cursor: string | undefined = undefined;
+      do {
+        const nextCursor = await onBatch(cursorParams, cursor);
+        cursor = nextCursor ?? undefined;
+      } while (cursor !== undefined);
+
+      const progress = ((i + 1) / request.symbols.length) * 50;
+      await this.updateExportStatus(request.id, "processing", progress);
+    }
+  }
+
+  /**
+   * Build an async iterable that pages through all symbols using cursor
+   * batches. Used by the Parquet exporter which accepts an `AsyncIterable`.
+   */
+  private async *buildAsyncIterable(request: ExportRequest): AsyncGenerator<OHLCVRow> {
+    for (let i = 0; i < request.symbols.length; i++) {
+      const symbol = request.symbols[i]!;
+      const cursorParams: OHLCVCursorParams = {
+        exchange: request.exchange,
+        symbol,
+        timeframe: request.timeframe,
+        startTime: request.startTime,
+        endTime: request.endTime,
+      };
+
+      let cursor: string | undefined = undefined;
+      do {
+        const { rows, nextCursor } = await queryOHLCVCursor(this.db, cursorParams, cursor);
+        yield* rows;
+        cursor = nextCursor ?? undefined;
+      } while (cursor !== undefined);
+
+      const progress = ((i + 1) / request.symbols.length) * 50;
+      await this.updateExportStatus(request.id, "processing", progress);
     }
   }
 

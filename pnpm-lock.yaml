@@ -433,6 +433,28 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@20.19.37)(jsdom@25.0.1)(lightningcss@1.32.0)
 
+  packages/sdk:
+    dependencies:
+      '@trpc/client':
+        specifier: ^11.16.0
+        version: 11.16.0(@trpc/server@11.16.0(typescript@5.9.3))(typescript@5.9.3)
+      '@trpc/server':
+        specifier: ^11.7.1
+        version: 11.16.0(typescript@5.9.3)
+    devDependencies:
+      '@tb/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint-config
+      '@tb/tsconfig':
+        specifier: workspace:*
+        version: link:../tsconfig
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(jiti@2.6.1)(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)(yaml@2.8.3)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   packages/trading-core:
     dependencies:
       '@tb/indicators':

@@ -24,7 +24,8 @@ CREATE TABLE "backtests" (
 	"error" text,
 	"risk_config" jsonb DEFAULT '{}'::jsonb,
 	"created_at" timestamp with time zone DEFAULT now(),
-	"completed_at" timestamp with time zone
+	"completed_at" timestamp with time zone,
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "backtest_trades" (
@@ -60,6 +61,7 @@ CREATE TABLE "bots" (
 	"strategy" text NOT NULL,
 	"strategy_params" jsonb DEFAULT '{}'::jsonb,
 	"exchange" text NOT NULL,
+	"exchange_config_id" uuid,
 	"symbol" text NOT NULL,
 	"timeframe" text NOT NULL,
 	"mode" text DEFAULT 'backtest' NOT NULL,
@@ -73,7 +75,8 @@ CREATE TABLE "bots" (
 	"started_at" timestamp with time zone,
 	"stopped_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now(),
-	"updated_at" timestamp with time zone DEFAULT now()
+	"updated_at" timestamp with time zone DEFAULT now(),
+	"deleted_at" timestamp with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "bot_trades" (
@@ -142,6 +145,7 @@ CREATE TABLE "exchange_configs" (
 	"metadata" text,
 	"created_at" timestamp with time zone DEFAULT now(),
 	"updated_at" timestamp with time zone DEFAULT now(),
+	"deleted_at" timestamp with time zone,
 	CONSTRAINT "exchange_configs_exchange_unique" UNIQUE("exchange")
 );
 --> statement-breakpoint
@@ -160,6 +164,23 @@ CREATE TABLE "ohlcv" (
 	CONSTRAINT "ohlcv_unique" UNIQUE("exchange","symbol","timeframe","time")
 );
 --> statement-breakpoint
+CREATE TABLE "order_audit_log" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"exchange_id" text NOT NULL,
+	"symbol" text NOT NULL,
+	"order_id" text,
+	"side" text,
+	"type" text,
+	"amount" numeric(20, 8),
+	"price" numeric(20, 8),
+	"status" text NOT NULL,
+	"source" text NOT NULL,
+	"bot_id" uuid,
+	"requested_at" timestamp with time zone NOT NULL,
+	"settled_at" timestamp with time zone,
+	"error_message" text
+);
+--> statement-breakpoint
 CREATE TABLE "settings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"key" text NOT NULL,
@@ -170,7 +191,18 @@ CREATE TABLE "settings" (
 	CONSTRAINT "settings_key_unique" UNIQUE("key")
 );
 --> statement-breakpoint
+CREATE TABLE "webhooks" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"url" text NOT NULL,
+	"events" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"secret" text,
+	"active" boolean DEFAULT true NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now()
+);
+--> statement-breakpoint
 ALTER TABLE "backtest_trades" ADD CONSTRAINT "backtest_trades_backtest_id_backtests_id_fk" FOREIGN KEY ("backtest_id") REFERENCES "public"."backtests"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bot_logs" ADD CONSTRAINT "bot_logs_bot_id_bots_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "bots" ADD CONSTRAINT "bots_exchange_config_id_exchange_configs_id_fk" FOREIGN KEY ("exchange_config_id") REFERENCES "public"."exchange_configs"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "bot_trades" ADD CONSTRAINT "bot_trades_bot_id_bots_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "order_audit_log" ADD CONSTRAINT "order_audit_log_bot_id_bots_id_fk" FOREIGN KEY ("bot_id") REFERENCES "public"."bots"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_ohlcv_lookup" ON "ohlcv" USING btree ("exchange","symbol","timeframe","time");

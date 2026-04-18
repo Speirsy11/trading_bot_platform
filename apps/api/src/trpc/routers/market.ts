@@ -1,4 +1,4 @@
-import { queryOHLCVByRange, dataCollectionStatus, ohlcv } from "@tb/db";
+import { queryOHLCVByRange, dataCollectionStatus, ohlcv, DEFAULT_PAIRS } from "@tb/db";
 import { timeframeToMs } from "@tb/trading-core";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
@@ -99,10 +99,11 @@ export const marketRouter = createTrpcRouter({
     }),
 
   getSymbols: publicProcedure
-    .input(z.object({ exchange: z.string() }))
+    .input(z.object({ exchange: z.string(), collectedOnly: z.boolean().optional() }))
     .query(async ({ ctx, input }) => {
       try {
-        return await ctx.exchangeManager.getAvailableSymbols(input.exchange);
+        const symbols = await ctx.exchangeManager.getAvailableSymbols(input.exchange);
+        return input.collectedOnly ? symbols.filter((s) => DEFAULT_PAIRS.includes(s)) : symbols;
       } catch {
         const rows = await ctx.db
           .select({ symbol: ohlcv.symbol })
@@ -111,7 +112,8 @@ export const marketRouter = createTrpcRouter({
           .groupBy(ohlcv.symbol)
           .orderBy(asc(ohlcv.symbol));
 
-        return rows.map((row) => row.symbol);
+        const symbols = rows.map((row) => row.symbol);
+        return input.collectedOnly ? symbols.filter((s) => DEFAULT_PAIRS.includes(s)) : symbols;
       }
     }),
 

@@ -8,6 +8,7 @@ import IORedis from "ioredis";
 
 import { createExchangeManager } from "../services/exchangeManager";
 import { assertEncryptionSecret, KeyVault } from "../services/keyVault";
+import { assertDatabaseSchemaReady } from "../utils/databaseSchema";
 
 import { createBacktestWorker } from "./backtestRunner";
 import { createBotExecutorWorker } from "./botExecutor";
@@ -82,6 +83,7 @@ async function startWorkers() {
   await mkdir(exportsDir, { recursive: true });
 
   const { db, client } = createDb(databaseUrl);
+  await assertDatabaseSchemaReady(client);
   const redis = new IORedis(redisUrl, { maxRetriesPerRequest: null });
   const keyVault = new KeyVault(encryptionKey);
   const exchangeManager = createExchangeManager({ db, keyVault });

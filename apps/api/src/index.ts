@@ -9,6 +9,7 @@ import { createQueueSet } from "./queues/index";
 import { createExchangeManager } from "./services/exchangeManager";
 import { assertEncryptionSecret, KeyVault } from "./services/keyVault";
 import { bootstrapStrategies } from "./services/strategyCatalog";
+import { assertDatabaseSchemaReady } from "./utils/databaseSchema";
 import { validateAndPrintEnv } from "./utils/envValidation";
 import { createFastifyLoggerOptions } from "./utils/logger";
 import { reconcileOpenOrders } from "./workers/reconcileOrders";
@@ -46,6 +47,7 @@ async function start() {
 
     const dbHandle = createDb(databaseUrl);
     client = dbHandle.client;
+    await assertDatabaseSchemaReady(client);
     const db = dbHandle.db;
     redis = new IORedis(redisUrl, { maxRetriesPerRequest: null });
     subscriber = redis.duplicate();

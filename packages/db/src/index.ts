@@ -44,4 +44,9 @@ export {
 } from "./queries/ohlcv";
 
 // Seed
-export { seedDevelopment } from "./seed/development";
+export {
+  seedDevelopment,
+  DEFAULT_PAIRS,
+  DEFAULT_TIMEFRAMES,
+  DEFAULT_EXCHANGES,
+} from "./seed/development";

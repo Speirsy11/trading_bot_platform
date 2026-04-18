@@ -4,7 +4,7 @@ import type { Database } from "../client";
 import { settings } from "../schema/settings";
 
 // USDT pairs — supported on Binance, KuCoin, Bybit
-const DEFAULT_PAIRS = [
+export const DEFAULT_PAIRS = [
   "BTC/USDT",
   "ETH/USDT",
   "BNB/USDT",
@@ -32,12 +32,12 @@ const DEFAULT_PAIRS = [
   "LTC/USD",
 ];
 
-const DEFAULT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
+export const DEFAULT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
 // Exchanges that support USDT pairs (Binance, KuCoin, Bybit) and
 // exchanges that use USD pairs (Kraken, Coinbase). The collection worker
 // handles failures gracefully when a pair isn't available on an exchange.
-const DEFAULT_EXCHANGES = ["binance", "kucoin", "bybit", "kraken", "coinbase"];
+export const DEFAULT_EXCHANGES = ["binance", "kucoin", "bybit", "kraken", "coinbase"];
 
 export async function seedDevelopment(db: Database) {
   await db

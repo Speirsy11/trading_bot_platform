@@ -10,7 +10,9 @@ import * as dataCollectionSchema from "./schema/dataCollection";
 import * as dataExportsSchema from "./schema/dataExports";
 import * as exchangeConfigsSchema from "./schema/exchangeConfigs";
 import * as ohlcvSchema from "./schema/ohlcv";
+import * as orderAuditLogSchema from "./schema/orderAuditLog";
 import * as settingsSchema from "./schema/settings";
+import * as webhooksSchema from "./schema/webhooks";
 
 const schema = {
   ...ohlcvSchema,
@@ -20,9 +22,11 @@ const schema = {
   ...botsSchema,
   ...botTradesSchema,
   ...botLogsSchema,
+  ...orderAuditLogSchema,
   ...backtestsSchema,
   ...backtestTradesSchema,
   ...settingsSchema,
+  ...webhooksSchema,
 };
 
 export function createDb(connectionString?: string) {

@@ -14,7 +14,10 @@ export default function MarketDataPage() {
   const [timeframe, setTimeframe] = useState("1h");
   const [previewSymbol, setPreviewSymbol] = useState("");
 
-  const { data: symbols } = trpc.market.getSymbols.useQuery({ exchange }, { enabled: !!exchange });
+  const { data: symbols } = trpc.market.getSymbols.useQuery(
+    { exchange, collectedOnly: true },
+    { enabled: !!exchange }
+  );
 
   const { data: qualityMetrics } = trpc.dataCollection.getQualityMetrics.useQuery({});
 

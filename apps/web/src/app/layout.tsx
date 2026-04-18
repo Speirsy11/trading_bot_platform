@@ -5,6 +5,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 import { Header } from "@/components/layout/Header";
+import { MainContent } from "@/components/layout/MainContent";
 import { Sidebar } from "@/components/layout/Sidebar";
 
 export const metadata: Metadata = {
@@ -37,29 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </a>
         <Providers>
           <Sidebar />
-          <div
-            className="flex min-h-screen flex-col transition-[margin-left] duration-200"
-            id="main-content"
-          >
+          <MainContent>
             <Header />
             <main className="flex-1 p-4 md:p-8">{children}</main>
-          </div>
+          </MainContent>
         </Providers>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              try {
-                if (window.innerWidth >= 768) {
-                  const stored = JSON.parse(localStorage.getItem('tb-ui-store') || '{}');
-                  const sidebar = stored?.state?.sidebarOpen;
-                  const ml = sidebar === false ? '64px' : '240px';
-                  const mainContent = document.getElementById('main-content');
-                  if (mainContent) mainContent.style.marginLeft = ml;
-                }
-              } catch(e) {}
-            `,
-          }}
-        />
       </body>
     </html>
   );

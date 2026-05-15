@@ -7,10 +7,10 @@ import { BACKTEST_JOB_NAMES } from "../../queues/types";
 import { jobEnqueuedCounter } from "../../utils/metrics";
 import { parseJsonValue, toNumber } from "../../utils/serialization";
 import { backtestConfigSchema, uuidSchema } from "../schemas";
-import { createTrpcRouter, publicProcedure } from "../trpc";
+import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc";
 
 export const backtestRouter = createTrpcRouter({
-  run: publicProcedure.input(backtestConfigSchema).mutation(async ({ ctx, input }) => {
+  run: protectedProcedure.input(backtestConfigSchema).mutation(async ({ ctx, input }) => {
     const inserted = await ctx.db
       .insert(backtests)
       .values({
@@ -205,7 +205,7 @@ export const backtestRouter = createTrpcRouter({
       }));
     }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(z.object({ backtestId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
       await findBacktest(ctx.db, input.backtestId);

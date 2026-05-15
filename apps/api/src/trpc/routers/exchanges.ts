@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import { parseJsonValue, stringifyJsonValue } from "../../utils/serialization";
 import { exchangeCreateSchema, uuidSchema } from "../schemas";
-import { createTrpcRouter, publicProcedure } from "../trpc";
+import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc";
 
 export const exchangesRouter = createTrpcRouter({
   list: publicProcedure.query(async ({ ctx }) => {
@@ -17,7 +17,7 @@ export const exchangesRouter = createTrpcRouter({
     return rows.map((row) => serializeExchange(row));
   }),
 
-  add: publicProcedure.input(exchangeCreateSchema).mutation(async ({ ctx, input }) => {
+  add: protectedProcedure.input(exchangeCreateSchema).mutation(async ({ ctx, input }) => {
     try {
       const inserted = await ctx.db
         .insert(exchangeConfigs)
@@ -52,13 +52,13 @@ export const exchangesRouter = createTrpcRouter({
     }
   }),
 
-  testConnection: publicProcedure
+  testConnection: protectedProcedure
     .input(z.object({ exchangeId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
       return ctx.exchangeManager.testConnection(input.exchangeId);
     }),
 
-  remove: publicProcedure
+  remove: protectedProcedure
     .input(z.object({ exchangeId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db
@@ -69,7 +69,7 @@ export const exchangesRouter = createTrpcRouter({
       return { success: true };
     }),
 
-  update: publicProcedure
+  update: protectedProcedure
     .input(z.object({ exchangeId: uuidSchema, name: z.string().min(1).optional() }))
     .mutation(async ({ ctx, input }) => {
       const existing = await ctx.db

@@ -2,7 +2,7 @@ import { dataCollectionStatus, settings } from "@tb/db";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { createTrpcRouter, publicProcedure } from "../trpc";
+import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc";
 
 export const dataCollectionRouter = createTrpcRouter({
   /** Get collection status for all pairs or a specific exchange/pair */
@@ -67,7 +67,7 @@ export const dataCollectionRouter = createTrpcRouter({
   }),
 
   /** Trigger a historical backfill job */
-  backfill: publicProcedure
+  backfill: protectedProcedure
     .input(
       z.object({
         exchange: z.string().min(1),
@@ -98,7 +98,7 @@ export const dataCollectionRouter = createTrpcRouter({
     }),
 
   /** Trigger gap detection for a specific pair */
-  detectGaps: publicProcedure
+  detectGaps: protectedProcedure
     .input(
       z.object({
         exchange: z.string().min(1),

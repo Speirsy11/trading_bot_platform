@@ -6,10 +6,10 @@ import { z } from "zod";
 import { mapExchangeError } from "../../utils/errors";
 import { orderPlacedCounter } from "../../utils/metrics";
 import { checkNotionalCap } from "../../utils/notionalCap";
-import { createTrpcRouter, publicProcedure } from "../trpc";
+import { createTrpcRouter, protectedProcedure } from "../trpc";
 
 export const tradingRouter = createTrpcRouter({
-  placeOrder: publicProcedure
+  placeOrder: protectedProcedure
     .input(
       z.object({
         exchange: z.string(),
@@ -88,7 +88,7 @@ export const tradingRouter = createTrpcRouter({
       }
     }),
 
-  cancelOrder: publicProcedure
+  cancelOrder: protectedProcedure
     .input(
       z.object({
         exchange: z.string(),

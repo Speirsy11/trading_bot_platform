@@ -4,10 +4,15 @@ services:
       context: ..
       dockerfile: docker/Dockerfile.api
     container_name: tb-api
+    env_file:
+      - path: ../.env
+        required: false
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - API_AUTH_TOKEN=${API_AUTH_TOKEN:?API_AUTH_TOKEN is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
     ports:
       - "3001:3001"
     depends_on:
@@ -24,17 +29,21 @@ services:
     container_name: tb-workers
     command: ["node", "--import", "tsx/esm", "src/workers/index.ts"]
     env_file:
-      - ../.env
+      - path: ../.env
+        required: false
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
-      - REDIS_URL=redis://redis:6379/0
+      - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
+      - API_AUTH_TOKEN=${API_AUTH_TOKEN:?API_AUTH_TOKEN is required}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      - LIVE_MARKET_DATA_ENABLED=${LIVE_MARKET_DATA_ENABLED:-1}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: on-failure:5
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"]
       interval: 30s
@@ -59,9 +68,9 @@ services:
     image: timescale/timescaledb:latest-pg16
     container_name: tb-postgres
     environment:
-      POSTGRES_USER: trading_bot
-      POSTGRES_PASSWORD: changeme
-      POSTGRES_DB: trading_bot_dev
+      POSTGRES_USER: ${POSTGRES_USER:-trading_bot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-trading_bot_dev}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db:/docker-entrypoint-initdb.d

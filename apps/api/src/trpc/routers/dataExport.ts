@@ -7,10 +7,10 @@ import { desc, eq, lt } from "drizzle-orm";
 import { z } from "zod";
 
 import { dataExportSchema, uuidSchema } from "../schemas";
-import { createTrpcRouter, publicProcedure } from "../trpc";
+import { createTrpcRouter, protectedProcedure, publicProcedure } from "../trpc";
 
 export const dataExportRouter = createTrpcRouter({
-  create: publicProcedure.input(dataExportSchema).mutation(async ({ ctx, input }) => {
+  create: protectedProcedure.input(dataExportSchema).mutation(async ({ ctx, input }) => {
     const inserted = await ctx.db
       .insert(dataExports)
       .values({
@@ -99,7 +99,7 @@ export const dataExportRouter = createTrpcRouter({
       };
     }),
 
-  delete: publicProcedure
+  delete: protectedProcedure
     .input(z.object({ exportId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
       const row = await findExport(ctx.db, input.exportId);

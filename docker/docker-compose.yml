@@ -76,7 +76,11 @@ services:
         condition: service_completed_successfully
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://localhost:3002/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
       interval: 30s
       timeout: 5s
       retries: 3

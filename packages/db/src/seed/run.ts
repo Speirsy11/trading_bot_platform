@@ -11,7 +11,7 @@ async function run() {
   const { db, client } = createDb(url);
   try {
     await seedDevelopment(db);
-    process.stdout.write("Seeded default collection config (20 pairs, 6 timeframes, binance)\n");
+    process.stdout.write("Seeded default collection config (3 pairs, 6 timeframes, binance)\n");
   } finally {
     await client.end();
   }

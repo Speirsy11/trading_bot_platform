@@ -18,6 +18,8 @@ describe("setupRepeatableJobs", () => {
       ) => {
         jobs.push({ name, data, opts });
       },
+      getRepeatableJobs: async () => [],
+      removeRepeatableByKey: async () => undefined,
     };
 
     await setupRepeatableJobs(

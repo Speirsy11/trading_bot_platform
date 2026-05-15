@@ -3,41 +3,15 @@ import { sql } from "drizzle-orm";
 import type { Database } from "../client";
 import { settings } from "../schema/settings";
 
-// USDT pairs — supported on Binance, KuCoin, Bybit
-export const DEFAULT_PAIRS = [
-  "BTC/USDT",
-  "ETH/USDT",
-  "BNB/USDT",
-  "SOL/USDT",
-  "XRP/USDT",
-  "ADA/USDT",
-  "DOGE/USDT",
-  "AVAX/USDT",
-  "DOT/USDT",
-  "MATIC/USDT",
-  "LINK/USDT",
-  "UNI/USDT",
-  "ATOM/USDT",
-  "LTC/USDT",
-  "FIL/USDT",
-  "NEAR/USDT",
-  "APT/USDT",
-  "ARB/USDT",
-  "OP/USDT",
-  "SUI/USDT",
-  // USD pairs — used by Kraken and Coinbase
-  "BTC/USD",
-  "ETH/USD",
-  "SOL/USD",
-  "LTC/USD",
-];
+// A conservative live-ingestion default for the Mac mini collector.
+// Keep this exchange/pair set small and internally compatible: the current
+// settings schema applies every pair to every exchange, so mixing USD/USDT
+// pairs or many venues creates predictable BadSymbol/WebSocket failures.
+export const DEFAULT_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
 
 export const DEFAULT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
-// Exchanges that support USDT pairs (Binance, KuCoin, Bybit) and
-// exchanges that use USD pairs (Kraken, Coinbase). The collection worker
-// handles failures gracefully when a pair isn't available on an exchange.
-export const DEFAULT_EXCHANGES = ["binance", "kucoin", "bybit", "kraken", "coinbase"];
+export const DEFAULT_EXCHANGES = ["binance"];
 
 export async function seedDevelopment(db: Database) {
   await db

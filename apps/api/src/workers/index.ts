@@ -12,7 +12,7 @@ import { assertDatabaseSchemaReady } from "../utils/databaseSchema";
 
 import { createBacktestWorker } from "./backtestRunner";
 import { createBotExecutorWorker } from "./botExecutor";
-import { createDataPipelineWorkers } from "./dataPipelineWorkers";
+import { createDataPipelineWorkers, startLiveMarketDataCollector } from "./dataPipelineWorkers";
 import { createDataRetentionWorker, scheduleDataRetentionJob } from "./dataRetentionWorker";
 import { startHealthServer } from "./healthServer";
 
@@ -103,6 +103,11 @@ async function startWorkers() {
   const botWorker = createBotExecutorWorker({ db, redis, exchangeManager });
   const backtestWorker = createBacktestWorker({ db, redis });
   const pipelineWorkers = createDataPipelineWorkers({ db, redis, exportsDir });
+  const collectionConfig = await loadCollectionConfig(db);
+  const liveMarketDataCollector =
+    process.env["LIVE_MARKET_DATA_ENABLED"] === "1"
+      ? await startLiveMarketDataCollector({ db, redis, config: collectionConfig })
+      : null;
   const retentionWorker = createDataRetentionWorker({ db, redis });
 
   startHealthServer();
@@ -115,6 +120,7 @@ async function startWorkers() {
       pipelineWorkers.collectionWorker.close(),
       pipelineWorkers.backfillWorker.close(),
       pipelineWorkers.exportWorker.close(),
+      liveMarketDataCollector?.close(),
       retentionWorker.close(),
       redis.quit(),
       client.end(),

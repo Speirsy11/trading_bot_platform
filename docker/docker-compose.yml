@@ -64,6 +64,7 @@ services:
     environment:
       DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
       REDIS_URL: redis://redis:6379/0
+      LIVE_MARKET_DATA_ENABLED: ${LIVE_MARKET_DATA_ENABLED:-1}
     depends_on:
       postgres:
         condition: service_healthy

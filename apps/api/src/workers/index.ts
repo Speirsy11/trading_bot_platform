@@ -54,7 +54,7 @@ async function scheduleDataCollection(
 
   const { collectionQueue } = createQueues({ redisConnection });
 
-  await setupRepeatableJobs(collectionQueue, config.pairs, config.exchanges);
+  await setupRepeatableJobs(collectionQueue, config.pairs, config.exchanges, config.timeframes);
 
   // Also schedule gap detection for each pair/exchange/timeframe
   for (const exchange of config.exchanges) {

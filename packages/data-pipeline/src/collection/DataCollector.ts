@@ -1,6 +1,12 @@
 import { createLogger } from "@tb/config";
 import type { Database } from "@tb/db";
-import { getLatestTimestamp, upsertOHLCV, dataCollectionStatus, type OHLCVInsert } from "@tb/db";
+import {
+  getLatestTimestamp,
+  upsertOHLCV,
+  dataCollectionStatus,
+  ohlcv,
+  type OHLCVInsert,
+} from "@tb/db";
 import { sql } from "drizzle-orm";
 
 import type { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
@@ -43,6 +49,7 @@ export class DataCollector {
 
       if (valid.length === 0) {
         await this.updateStatus(exchange, symbol, timeframe, "idle");
+        await this.refreshStats(exchange, symbol, timeframe);
         return { inserted: 0, invalid: invalid.length };
       }
 
@@ -63,8 +70,9 @@ export class DataCollector {
       // UPSERT
       await upsertOHLCV(this.db, rows);
 
-      // Update status
+      // Update status and coverage metrics
       await this.updateStatus(exchange, symbol, timeframe, "idle");
+      await this.refreshStats(exchange, symbol, timeframe);
 
       logger.info({ exchange, symbol, timeframe, inserted: valid.length }, "OHLCV data collected");
 
@@ -108,6 +116,20 @@ export class DataCollector {
           updatedAt: sql`NOW()`,
         },
       });
+  }
+
+  private async refreshStats(exchange: string, symbol: string, timeframe: string) {
+    await this.db
+      .update(dataCollectionStatus)
+      .set({
+        earliest: sql`(SELECT MIN(${ohlcv.time}) FROM ${ohlcv} WHERE ${ohlcv.exchange} = ${exchange} AND ${ohlcv.symbol} = ${symbol} AND ${ohlcv.timeframe} = ${timeframe})`,
+        latest: sql`(SELECT MAX(${ohlcv.time}) FROM ${ohlcv} WHERE ${ohlcv.exchange} = ${exchange} AND ${ohlcv.symbol} = ${symbol} AND ${ohlcv.timeframe} = ${timeframe})`,
+        totalCandles: sql`(SELECT COUNT(*) FROM ${ohlcv} WHERE ${ohlcv.exchange} = ${exchange} AND ${ohlcv.symbol} = ${symbol} AND ${ohlcv.timeframe} = ${timeframe})`,
+        updatedAt: sql`NOW()`,
+      })
+      .where(
+        sql`${dataCollectionStatus.exchange} = ${exchange} AND ${dataCollectionStatus.symbol} = ${symbol} AND ${dataCollectionStatus.timeframe} = ${timeframe}`
+      );
   }
 
   async close() {

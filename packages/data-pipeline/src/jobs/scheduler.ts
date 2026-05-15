@@ -16,6 +16,21 @@ export interface SchedulerConfig {
   redisConnection: { host: string; port: number };
 }
 
+const TIMEFRAME_MS: Record<string, number> = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "4h": 4 * 60 * 60_000,
+  "1d": 24 * 60 * 60_000,
+};
+
+function collectJobNameForTimeframe(timeframe: string) {
+  if (timeframe === "1m") return JOB_NAMES.COLLECT_OHLCV_1M;
+  if (timeframe === "1d") return JOB_NAMES.COLLECT_OHLCV_DAILY;
+  return JOB_NAMES.COLLECT_OHLCV_1H;
+}
+
 export function createQueues(config: SchedulerConfig) {
   const queueOpts: QueueOptions = {
     connection: config.redisConnection,
@@ -45,36 +60,23 @@ export async function setupGapDetectionJob(gapDetectionQueue: Queue) {
 export async function setupRepeatableJobs(
   collectionQueue: Queue<CollectOHLCVJobData>,
   pairs: string[],
-  exchanges: string[]
+  exchanges: string[],
+  timeframes: string[] = ["1m", "1h", "4h", "1d"]
 ) {
-  // collect-ohlcv-1m: every 1 minute for each exchange/pair
+  // Register exactly the configured timeframes. This avoids the previous mismatch where
+  // 5m/15m were seeded in settings but never scheduled for collection.
   for (const exchange of exchanges) {
     for (const symbol of pairs) {
-      await collectionQueue.add(
-        JOB_NAMES.COLLECT_OHLCV_1M,
-        { exchange, symbol, timeframe: "1m" },
-        {
-          ...DEFAULT_JOB_OPTIONS,
-          repeat: { every: 60_000 },
-          jobId: `collect-1m-${exchange}-${symbol.replace("/", "-")}`,
-          priority: 1,
-        }
-      );
-    }
-  }
-
-  // collect-ohlcv-1h: every 1 hour
-  for (const exchange of exchanges) {
-    for (const symbol of pairs) {
-      for (const tf of ["1h", "4h", "1d"] as const) {
+      for (const timeframe of timeframes) {
+        const intervalMs = TIMEFRAME_MS[timeframe] ?? 60_000;
         await collectionQueue.add(
-          JOB_NAMES.COLLECT_OHLCV_1H,
-          { exchange, symbol, timeframe: tf },
+          collectJobNameForTimeframe(timeframe),
+          { exchange, symbol, timeframe },
           {
             ...DEFAULT_JOB_OPTIONS,
-            repeat: { every: 3_600_000 },
-            jobId: `collect-${tf}-${exchange}-${symbol.replace("/", "-")}`,
-            priority: 2,
+            repeat: { every: intervalMs },
+            jobId: `collect-${timeframe}-${exchange}-${symbol.replace("/", "-")}`,
+            priority: timeframe === "1m" ? 1 : 2,
           }
         );
       }

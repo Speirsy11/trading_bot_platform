@@ -58,11 +58,16 @@ export class GapDetector {
 
     const existingTimestamps = new Set(rows.map((r) => r.time!.getTime()));
 
-    // Generate expected timestamps
+    // Generate expected timestamps aligned to the candle boundary. BullMQ jobs and
+    // manual gap checks often pass arbitrary wall-clock timestamps; comparing those
+    // directly against candle-open timestamps creates false gaps for every candle.
+    const alignedStart = Math.ceil(startTime.getTime() / intervalMs) * intervalMs;
+    const alignedEnd = Math.floor(endTime.getTime() / intervalMs) * intervalMs;
+
     let currentGapStart: Date | null = null;
     let gapMissing = 0;
 
-    for (let ts = startTime.getTime(); ts <= endTime.getTime(); ts += intervalMs) {
+    for (let ts = alignedStart; ts <= alignedEnd; ts += intervalMs) {
       if (!existingTimestamps.has(ts)) {
         if (!currentGapStart) {
           currentGapStart = new Date(ts);

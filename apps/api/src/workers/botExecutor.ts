@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 
-import { botLogs, bots, exchangeConfigs, type Database } from "@tb/db";
+import {
+  botLogs,
+  bots,
+  exchangeConfigs,
+  getLatestTimestamp,
+  queryOHLCVByRange,
+  type Database,
+} from "@tb/db";
 import {
   Bot as TradingBot,
   BotRunner,
@@ -8,6 +15,7 @@ import {
   LiveExchange,
   PaperExchange,
   StrategyRegistry,
+  timeframeToMs,
 } from "@tb/trading-core";
 import { Worker } from "bullmq";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -310,8 +318,11 @@ async function startBot(
       }
     };
 
+    await assertMarketDataReady(db, botRow.exchange, botRow.symbol, botRow.timeframe);
+
     runner = new BotRunner(tradingBot, runtimeExchange, botRow.symbol, botRow.timeframe, {
       afterCandle,
+      candleSource: createDbCandleSource(db, botRow.exchange, botRow.symbol, botRow.timeframe),
       onError: (err) => {
         logger.warn({ botId, err }, "BotRunner poll error (will retry)");
       },
@@ -437,6 +448,52 @@ async function stopBot(
   }
 
   return { status: "stopped" };
+}
+
+function createDbCandleSource(db: Database, exchange: string, symbol: string, timeframe: string) {
+  return async (since: number | undefined, limit: number) => {
+    const timeframeMs = timeframeToMs(timeframe);
+    const endTime = new Date(Date.now());
+    const lookbackCandles = Math.max(limit + 5, 20);
+    const startTime = since
+      ? new Date(since)
+      : new Date(endTime.getTime() - lookbackCandles * timeframeMs);
+
+    const rows = await queryOHLCVByRange(db, exchange, symbol, timeframe, startTime, endTime);
+
+    return rows.slice(-limit).map((row) => ({
+      time: row.time.getTime(),
+      open: toNumber(row.open),
+      high: toNumber(row.high),
+      low: toNumber(row.low),
+      close: toNumber(row.close),
+      volume: toNumber(row.volume),
+    }));
+  };
+}
+
+async function assertMarketDataReady(
+  db: Database,
+  exchange: string,
+  symbol: string,
+  timeframe: string
+) {
+  const latest = await getLatestTimestamp(db, exchange, symbol, timeframe);
+  if (!latest) {
+    throw new Error(
+      `No canonical market data available for ${exchange} ${symbol} ${timeframe}; start ingestion before running this bot`
+    );
+  }
+
+  const timeframeMs = timeframeToMs(timeframe);
+  const maxAgeMs = Number(process.env["BOT_MAX_MARKET_DATA_STALENESS_MS"] ?? timeframeMs * 3);
+  const ageMs = Date.now() - latest.getTime();
+
+  if (ageMs > maxAgeMs) {
+    throw new Error(
+      `Canonical market data is stale for ${exchange} ${symbol} ${timeframe}; latest candle is ${latest.toISOString()}`
+    );
+  }
 }
 
 async function createRuntimeExchange(

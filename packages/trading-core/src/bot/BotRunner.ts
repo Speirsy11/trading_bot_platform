@@ -6,11 +6,13 @@ import { timeframeToMs } from "../utils/timeframe";
 import type { Bot } from "./Bot";
 
 export type AfterCandleCallback = () => Promise<void>;
+export type CandleSource = (since: number | undefined, limit: number) => Promise<Candle[]>;
 
 export interface BotRunnerOptions {
   afterCandle?: AfterCandleCallback;
   onError?: (err: unknown) => void;
   onTooManyErrors?: () => void;
+  candleSource?: CandleSource;
 }
 
 /**
@@ -28,6 +30,7 @@ export class BotRunner {
   private afterCandle: AfterCandleCallback | undefined;
   private onError: ((err: unknown) => void) | undefined;
   private onTooManyErrors: (() => void) | undefined;
+  private candleSource: CandleSource | undefined;
   private consecutiveErrors = 0;
   private static readonly MAX_CONSECUTIVE_ERRORS = 5;
 
@@ -49,6 +52,7 @@ export class BotRunner {
       this.afterCandle = afterCandleOrOptions.afterCandle;
       this.onError = afterCandleOrOptions.onError;
       this.onTooManyErrors = afterCandleOrOptions.onTooManyErrors;
+      this.candleSource = afterCandleOrOptions.candleSource;
     }
   }
 
@@ -57,12 +61,7 @@ export class BotRunner {
     const intervalMs = timeframeToMs(this.timeframe);
 
     // Initial fetch to set lastCandleTime
-    const initialCandles = await this.exchange.fetchOHLCV(
-      this.symbol,
-      this.timeframe,
-      undefined,
-      2
-    );
+    const initialCandles = await this.fetchCandles(undefined, 2);
     if (initialCandles.length > 1) {
       // Use second-to-last candle to avoid treating an in-progress candle as completed
       this.lastCandleTime = initialCandles[initialCandles.length - 2]!.time;
@@ -90,12 +89,7 @@ export class BotRunner {
     if (!this.running) return;
 
     try {
-      const candles = await this.exchange.fetchOHLCV(
-        this.symbol,
-        this.timeframe,
-        this.lastCandleTime + 1,
-        10
-      );
+      const candles = await this.fetchCandles(this.lastCandleTime + 1, 10);
 
       // Process only completed candles (skip the latest incomplete one)
       const candleMs = timeframeToMs(this.timeframe);
@@ -121,6 +115,14 @@ export class BotRunner {
         this.onTooManyErrors?.();
       }
     }
+  }
+
+  private async fetchCandles(since: number | undefined, limit: number): Promise<Candle[]> {
+    if (this.candleSource) {
+      return this.candleSource(since, limit);
+    }
+
+    return this.exchange.fetchOHLCV(this.symbol, this.timeframe, since, limit);
   }
 
   /**

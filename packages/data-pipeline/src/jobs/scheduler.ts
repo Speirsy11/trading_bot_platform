@@ -63,7 +63,7 @@ export async function setupRepeatableJobs(
   exchanges: string[],
   timeframes: string[] = ["1m", "1h", "4h", "1d"]
 ) {
-  const desiredJobIds = new Set<string>();
+  await removeRepeatableCollectionJobs(collectionQueue);
 
   // Register exactly the configured timeframes. This avoids the previous mismatch where
   // 5m/15m were seeded in settings but never scheduled for collection.
@@ -72,7 +72,6 @@ export async function setupRepeatableJobs(
       for (const timeframe of timeframes) {
         const intervalMs = TIMEFRAME_MS[timeframe] ?? 60_000;
         const jobId = `collect-${timeframe}-${exchange}-${symbol.replace("/", "-")}`;
-        desiredJobIds.add(jobId);
 
         await collectionQueue.add(
           collectJobNameForTimeframe(timeframe),
@@ -87,18 +86,13 @@ export async function setupRepeatableJobs(
       }
     }
   }
-
-  await removeUnconfiguredRepeatableCollectionJobs(collectionQueue, desiredJobIds);
 }
 
-async function removeUnconfiguredRepeatableCollectionJobs(
-  collectionQueue: Queue<CollectOHLCVJobData>,
-  desiredJobIds: Set<string>
-) {
+async function removeRepeatableCollectionJobs(collectionQueue: Queue<CollectOHLCVJobData>) {
   const repeatableJobs = await collectionQueue.getRepeatableJobs();
 
   for (const job of repeatableJobs) {
-    if (!job.id?.startsWith("collect-") || desiredJobIds.has(job.id)) continue;
+    if (!job.name.startsWith("collect-ohlcv")) continue;
     await collectionQueue.removeRepeatableByKey(job.key);
   }
 }

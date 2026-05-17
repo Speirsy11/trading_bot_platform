@@ -96,9 +96,43 @@ services:
       - worker_api_node_modules:/app/apps/api/node_modules
       - worker_exports:/app/apps/api/exports
 
+  db-ui:
+    profiles: ["ingest"]
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+      target: deps
+    container_name: tb-db-ui
+    working_dir: /app
+    command: ["sh", "-lc", "corepack enable && pnpm --filter db-ui exec tsx src/index.ts"]
+    environment:
+      DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
+      PORT: 3003
+    ports:
+      - "3003:3003"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          'node -e "fetch(''http://localhost:3003/health'').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"',
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    volumes:
+      - ../:/app
+      - worker_node_modules:/app/node_modules
+      - db_ui_node_modules:/app/apps/db-ui/node_modules
+
 volumes:
   postgres_data:
   redis_data:
   worker_node_modules:
   worker_api_node_modules:
+  db_ui_node_modules:
   worker_exports:

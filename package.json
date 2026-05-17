@@ -20,9 +20,10 @@
     "docker:up": "docker compose -f docker/docker-compose.yml up -d",
     "docker:down": "docker compose -f docker/docker-compose.yml down",
     "docker:logs": "docker compose -f docker/docker-compose.yml logs -f",
-    "docker:ingest:up": "docker compose -f docker/docker-compose.yml --profile ingest up -d --build bootstrap workers",
-    "docker:ingest:logs": "docker compose -f docker/docker-compose.yml --profile ingest logs -f bootstrap workers",
-    "docker:ingest:down": "docker compose -f docker/docker-compose.yml --profile ingest stop workers",
+    "docker:ingest:up": "docker compose -f docker/docker-compose.yml --profile ingest up -d --build bootstrap workers db-ui",
+    "docker:ingest:logs": "docker compose -f docker/docker-compose.yml --profile ingest logs -f bootstrap workers db-ui",
+    "docker:ingest:down": "docker compose -f docker/docker-compose.yml --profile ingest stop workers db-ui",
+    "docker:db-ui:up": "docker compose -f docker/docker-compose.yml --profile ingest up -d --build db-ui",
     "docker:reset": "docker compose -f docker/docker-compose.yml down -v && docker compose -f docker/docker-compose.yml up -d",
     "prepare": "husky"
   },

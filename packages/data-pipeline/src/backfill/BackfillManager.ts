@@ -21,6 +21,16 @@ const MAX_CANDLES_PER_REQUEST: Record<string, number> = {
   coinbase: 300,
 };
 
+const BACKFILL_REQUEST_SPACING_MS: Record<string, number> = {
+  // Keep deep history deliberately gentle. Binance allows far more than this,
+  // but live collection and recent repairs should always have headroom.
+  binance: 1_000,
+  kraken: 1_000,
+  kucoin: 1_000,
+  bybit: 1_000,
+  coinbase: 500,
+};
+
 export class BackfillManager {
   private db: Database;
   private rateLimiter: ExchangeRateLimiter;
@@ -74,6 +84,7 @@ export class BackfillManager {
       endTime,
       batchSizeMs: tfMs * maxCandles,
       maxCandlesPerRequest: maxCandles,
+      requestSpacingMs: BACKFILL_REQUEST_SPACING_MS[exchange] ?? 1_000,
     };
   }
 

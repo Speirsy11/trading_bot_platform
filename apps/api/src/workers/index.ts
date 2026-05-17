@@ -1,7 +1,12 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { createQueues, setupRepeatableJobs, addDetectGapsJob } from "@tb/data-pipeline";
+import {
+  createQueues,
+  setupRepeatableJobs,
+  addDetectGapsJob,
+  setupHistoricalBackfillJob,
+} from "@tb/data-pipeline";
 import { createDb, settings } from "@tb/db";
 import { eq } from "drizzle-orm";
 import IORedis from "ioredis";
@@ -52,9 +57,15 @@ async function scheduleDataCollection(
     `Scheduling collection: ${config.exchanges.length} exchange(s), ${config.pairs.length} pair(s), ${config.timeframes.length} timeframe(s)`
   );
 
-  const { collectionQueue } = createQueues({ redisConnection });
+  const { collectionQueue, backfillQueue } = createQueues({ redisConnection });
 
   await setupRepeatableJobs(collectionQueue, config.pairs, config.exchanges, config.timeframes);
+  await setupHistoricalBackfillJob(backfillQueue, {
+    exchanges: config.exchanges,
+    symbols: config.pairs,
+    timeframes: config.timeframes,
+    maxChunksPerRun: 3,
+  });
 
   // Also schedule gap detection for each pair/exchange/timeframe
   for (const exchange of config.exchanges) {
@@ -65,7 +76,7 @@ async function scheduleDataCollection(
     }
   }
 
-  await collectionQueue.close();
+  await Promise.all([collectionQueue.close(), backfillQueue.close()]);
   processLogger.info("Repeatable data-collection jobs registered.");
 }
 
@@ -105,7 +116,7 @@ async function startWorkers() {
   const pipelineWorkers = createDataPipelineWorkers({ db, redis, exportsDir });
   const collectionConfig = await loadCollectionConfig(db);
   const liveMarketDataCollector =
-    process.env["LIVE_MARKET_DATA_ENABLED"] === "1"
+    process.env["LIVE_MARKET_DATA_ENABLED"] === "1" && process.env["APP_MODE"] !== "testing"
       ? await startLiveMarketDataCollector({ db, redis, config: collectionConfig })
       : null;
   const retentionWorker = createDataRetentionWorker({ db, redis });

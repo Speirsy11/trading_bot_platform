@@ -1,6 +1,6 @@
 import { resolve } from "node:path";
 
-import { createDb, seedDevelopment, settings } from "@tb/db";
+import { createDb, seedDevelopment, seedTestingMode, settings } from "@tb/db";
 import { eq } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 
@@ -29,6 +29,11 @@ async function bootstrap() {
       await seedDevelopment(db);
     } else {
       process.stdout.write("Collection config already present. Skipping seed.\n");
+    }
+
+    if (process.env["APP_MODE"] === "testing" || process.env["SEED_TESTING_DATA"] === "1") {
+      process.stdout.write("Testing mode enabled. Seeding fake demo dataset.\n");
+      await seedTestingMode(db);
     }
 
     process.stdout.write("Database bootstrap complete.\n");

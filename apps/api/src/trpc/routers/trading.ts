@@ -39,6 +39,13 @@ export const tradingRouter = createTrpcRouter({
         });
       }
 
+      if (process.env["APP_MODE"] !== "testing" && process.env["TRADING_ENABLED"] !== "true") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Live trading is disabled in this environment.",
+        });
+      }
+
       const [auditRecord] = await ctx.db
         .insert(orderAuditLog)
         .values({
@@ -48,11 +55,37 @@ export const tradingRouter = createTrpcRouter({
           type,
           amount: amount.toString(),
           price: price != null ? price.toString() : null,
-          status: "placed",
+          status: process.env["APP_MODE"] === "testing" ? "simulated" : "placed",
           source: "manual",
           requestedAt: new Date(),
         })
         .returning();
+
+      if (process.env["APP_MODE"] === "testing") {
+        const result = {
+          id: `testing-order-${Date.now()}`,
+          symbol,
+          type,
+          side,
+          amount,
+          price: price ?? null,
+          status: "closed",
+          filled: amount,
+          remaining: 0,
+          cost: amount * (price ?? 0),
+          timestamp: Date.now(),
+          simulated: true,
+        };
+
+        if (auditRecord) {
+          await ctx.db
+            .update(orderAuditLog)
+            .set({ orderId: result.id, settledAt: new Date() })
+            .where(eq(orderAuditLog.id, auditRecord.id));
+        }
+
+        return result;
+      }
 
       try {
         const result = await ctx.exchangeManager.createOrder(
@@ -99,6 +132,13 @@ export const tradingRouter = createTrpcRouter({
     .mutation(async ({ ctx, input }) => {
       const { exchange, symbol, orderId } = input;
 
+      if (process.env["APP_MODE"] !== "testing" && process.env["TRADING_ENABLED"] !== "true") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Live trading is disabled in this environment.",
+        });
+      }
+
       await ctx.db.insert(orderAuditLog).values({
         exchangeId: exchange,
         symbol,
@@ -107,6 +147,10 @@ export const tradingRouter = createTrpcRouter({
         source: "manual",
         requestedAt: new Date(),
       });
+
+      if (process.env["APP_MODE"] === "testing") {
+        return { success: true, orderId, symbol, simulated: true };
+      }
 
       try {
         return await ctx.exchangeManager.cancelOrder(exchange, symbol, orderId);

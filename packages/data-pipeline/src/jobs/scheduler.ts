@@ -9,6 +9,8 @@ import {
   type CollectOHLCVJobData,
   type BackfillJobData,
   type DetectGapsJobData,
+  type HistoricalBackfillJobData,
+  type RepairJobData,
   type ExportJobData,
 } from "./types";
 
@@ -36,8 +38,14 @@ export function createQueues(config: SchedulerConfig) {
     connection: config.redisConnection,
   };
 
-  const collectionQueue = new Queue<CollectOHLCVJobData>(QUEUE_NAMES.DATA_COLLECTION, queueOpts);
-  const backfillQueue = new Queue<BackfillJobData>(QUEUE_NAMES.DATA_BACKFILL, queueOpts);
+  const collectionQueue = new Queue<CollectOHLCVJobData | RepairJobData>(
+    QUEUE_NAMES.DATA_COLLECTION,
+    queueOpts
+  );
+  const backfillQueue = new Queue<BackfillJobData | HistoricalBackfillJobData>(
+    QUEUE_NAMES.DATA_BACKFILL,
+    queueOpts
+  );
   const exportQueue = new Queue<ExportJobData>(QUEUE_NAMES.DATA_EXPORT, queueOpts);
   const gapDetectionQueue = new Queue(GAP_DETECTION_QUEUE, queueOpts);
 
@@ -58,7 +66,7 @@ export async function setupGapDetectionJob(gapDetectionQueue: Queue) {
 }
 
 export async function setupRepeatableJobs(
-  collectionQueue: Queue<CollectOHLCVJobData>,
+  collectionQueue: Queue<CollectOHLCVJobData | RepairJobData>,
   pairs: string[],
   exchanges: string[],
   timeframes: string[] = ["1m", "1h", "4h", "1d"]
@@ -83,16 +91,28 @@ export async function setupRepeatableJobs(
             priority: timeframe === "1m" ? 1 : 2,
           }
         );
+
+        await collectionQueue.add(
+          JOB_NAMES.REPAIR_RECENT,
+          { exchange, symbol, timeframe, lookbackMs: Math.max(intervalMs * 6, 60 * 60_000) },
+          {
+            ...DEFAULT_JOB_OPTIONS,
+            repeat: { every: Math.max(intervalMs, 5 * 60_000) },
+            jobId: `repair-${timeframe}-${exchange}-${symbol.replace("/", "-")}`,
+            priority: 2,
+          }
+        );
       }
     }
   }
 }
 
-async function removeRepeatableCollectionJobs(collectionQueue: Queue<CollectOHLCVJobData>) {
+async function removeRepeatableCollectionJobs(
+  collectionQueue: Queue<CollectOHLCVJobData | RepairJobData>
+) {
   const repeatableJobs = await collectionQueue.getRepeatableJobs();
 
   for (const job of repeatableJobs) {
-    if (!job.name.startsWith("collect-ohlcv")) continue;
     await collectionQueue.removeRepeatableByKey(job.key);
   }
 }
@@ -115,10 +135,23 @@ export async function addDetectGapsJob(
   );
 }
 
+export async function setupHistoricalBackfillJob(
+  backfillQueue: Queue<BackfillJobData | HistoricalBackfillJobData>,
+  data: HistoricalBackfillJobData,
+  everyMs = 30 * 60_000
+) {
+  await backfillQueue.add(JOB_NAMES.BACKFILL_HISTORY, data, {
+    ...DEFAULT_JOB_OPTIONS,
+    repeat: { every: everyMs },
+    jobId: "historical-backfill-planner",
+    priority: 4,
+  });
+}
+
 export async function addBackfillJob(backfillQueue: Queue<BackfillJobData>, data: BackfillJobData) {
   await backfillQueue.add(JOB_NAMES.BACKFILL, data, {
     ...DEFAULT_JOB_OPTIONS,
-    priority: 3,
+    priority: data.priority ?? 3,
     jobId: `backfill-${data.exchange}-${data.symbol.replace("/", "-")}-${data.timeframe}-${data.startTime}`,
   });
 }

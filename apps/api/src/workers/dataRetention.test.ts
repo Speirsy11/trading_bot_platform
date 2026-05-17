@@ -47,7 +47,7 @@ describe("runDataRetention", () => {
       [{ time: new Date() }, { time: new Date() }, { time: new Date() }]
     );
 
-    const result = await runDataRetention(db as never);
+    const result = await runDataRetention(db as never, { ohlcvRetentionDays: 365 });
 
     expect(result.botLogsDeleted).toBe(2);
     expect(result.ohlcvDeleted).toBe(3);
@@ -68,7 +68,7 @@ describe("runDataRetention", () => {
     vi.setSystemTime(frozenNow);
 
     const db = buildDbMock();
-    await runDataRetention(db as never, { botLogRetentionDays: 30 });
+    await runDataRetention(db as never, { botLogRetentionDays: 30, ohlcvRetentionDays: 365 });
 
     const expectedCutoff = new Date(frozenNow - 30 * 86_400_000);
 
@@ -109,8 +109,8 @@ describe("runDataRetention", () => {
 
     await runDataRetention(db as never);
 
-    // If env was read correctly, delete should have been called for both tables
-    expect(db.delete).toHaveBeenCalledTimes(2);
+    // If env was read correctly, bot-log deletion should run while OHLCV remains preserved by default.
+    expect(db.delete).toHaveBeenCalledTimes(1);
     expect(db._whereBotLogs).toHaveBeenCalledOnce();
   });
 
@@ -146,7 +146,7 @@ describe("runDataRetention", () => {
     vi.useRealTimers();
   });
 
-  it("uses default 30-day and 365-day cutoffs when env is unset and no options given", async () => {
+  it("uses default 30-day bot-log cutoff and preserves OHLCV when env is unset", async () => {
     const frozenNow = 1_700_000_000_000;
     vi.useFakeTimers();
     vi.setSystemTime(frozenNow);
@@ -156,13 +156,11 @@ describe("runDataRetention", () => {
     const result = await runDataRetention(db as never);
 
     expect(result.botLogsDeleted).toBe(1);
-    expect(result.ohlcvDeleted).toBe(1);
+    expect(result.ohlcvDeleted).toBe(0);
+    expect(db.delete).toHaveBeenCalledTimes(1);
 
-    // Spot-check the expected cutoffs are sane
     const expectedBotLogCutoff = new Date(frozenNow - 30 * 86_400_000);
-    const expectedOhlcvCutoff = new Date(frozenNow - 365 * 86_400_000);
-
-    expect(expectedBotLogCutoff.getTime()).toBeGreaterThan(expectedOhlcvCutoff.getTime());
+    expect(expectedBotLogCutoff.getTime()).toBe(frozenNow - 30 * 86_400_000);
 
     vi.useRealTimers();
   });

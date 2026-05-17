@@ -17,6 +17,7 @@ export interface BackfillJobConfig {
   endTime: Date;
   batchSizeMs: number;
   maxCandlesPerRequest: number;
+  requestSpacingMs: number;
 }
 
 export class BackfillJob {
@@ -57,7 +58,8 @@ export class BackfillJob {
 
         if (candles.length === 0) break;
 
-        const { valid, invalid } = this.validator.validateBatch(candles);
+        const boundedCandles = candles.filter((c) => c.time >= currentSince && c.time <= endMs);
+        const { valid, invalid } = this.validator.validateBatch(boundedCandles);
         totalInvalid += invalid.length;
 
         if (valid.length > 0) {
@@ -78,7 +80,8 @@ export class BackfillJob {
           totalInserted += valid.length;
         }
 
-        // Advance past the last candle we received
+        // Advance past the last candle the exchange returned, even if we filtered
+        // rows beyond this job's end boundary above.
         const lastCandleTime = candles[candles.length - 1]!.time;
         if (lastCandleTime <= currentSince) break; // No progress
         currentSince = lastCandleTime + 1;
@@ -95,6 +98,10 @@ export class BackfillJob {
           },
           "Backfill progress"
         );
+
+        if (config.requestSpacingMs > 0 && currentSince < endMs) {
+          await new Promise((resolve) => setTimeout(resolve, config.requestSpacingMs));
+        }
       }
 
       await this.updateStatus(exchange, symbol, timeframe, "idle");

@@ -43,6 +43,8 @@ services:
     command: ["sh", "-lc", "corepack enable && pnpm --filter api exec tsx src/bootstrap.ts"]
     environment:
       DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
+      APP_MODE: ${APP_MODE:-development}
+      SEED_TESTING_DATA: ${SEED_TESTING_DATA:-0}
     depends_on:
       postgres:
         condition: service_healthy
@@ -66,7 +68,10 @@ services:
     environment:
       DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
       REDIS_URL: redis://redis:6379/0
-      LIVE_MARKET_DATA_ENABLED: ${LIVE_MARKET_DATA_ENABLED:-1}
+      APP_MODE: ${APP_MODE:-development}
+      SEED_TESTING_DATA: ${SEED_TESTING_DATA:-0}
+      TRADING_ENABLED: ${TRADING_ENABLED:-false}
+      LIVE_MARKET_DATA_ENABLED: ${LIVE_MARKET_DATA_ENABLED:-0}
     depends_on:
       postgres:
         condition: service_healthy

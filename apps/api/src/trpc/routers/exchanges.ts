@@ -55,6 +55,9 @@ export const exchangesRouter = createTrpcRouter({
   testConnection: protectedProcedure
     .input(z.object({ exchangeId: uuidSchema }))
     .mutation(async ({ ctx, input }) => {
+      if (process.env["APP_MODE"] === "testing") {
+        return { success: true, exchangeId: input.exchangeId, simulated: true };
+      }
       return ctx.exchangeManager.testConnection(input.exchangeId);
     }),
 

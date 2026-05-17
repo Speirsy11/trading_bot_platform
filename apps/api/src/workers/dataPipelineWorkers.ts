@@ -2,9 +2,20 @@ import {
   createCollectionWorker,
   createBackfillWorker,
   createExportWorker,
+  CandleBuilder,
   WebSocketManager,
 } from "@tb/data-pipeline";
-import { dataCollectionStatus, ohlcv, upsertOHLCV, type Database } from "@tb/db";
+import {
+  dataCollectionStatus,
+  ohlcv,
+  insertMarketTickers,
+  insertOrderBookSnapshots,
+  logIngestionEvent,
+  updateIngestionHealth,
+  upsertMarketTrades,
+  upsertOHLCV,
+  type Database,
+} from "@tb/db";
 import { sql } from "drizzle-orm";
 import type IORedis from "ioredis";
 
@@ -42,10 +53,12 @@ export function createDataPipelineWorkers(options: {
 
   collectionWorker.on("completed", async (job, result) => {
     const duration = (job.finishedOn ?? Date.now()) - (job.processedOn ?? Date.now());
-    ohlcvCandlesCollected.inc(
-      { exchange: job.data.exchange, symbol: job.data.symbol, timeframe: job.data.timeframe },
-      result.inserted
-    );
+    if (typeof result?.inserted === "number") {
+      ohlcvCandlesCollected.inc(
+        { exchange: job.data.exchange, symbol: job.data.symbol, timeframe: job.data.timeframe },
+        result.inserted
+      );
+    }
     ohlcvCollectionDuration.observe({ exchange: job.data.exchange }, duration);
     try {
       await options.redis.publish(
@@ -157,6 +170,53 @@ interface LiveCandleEvent {
   };
 }
 
+interface LiveTradeEvent {
+  exchange: string;
+  symbol: string;
+  trade: {
+    id?: string;
+    side?: string;
+    price: number;
+    amount: number;
+    cost?: number;
+    timestamp: number;
+    raw?: unknown;
+  };
+}
+
+interface LiveTickerEvent {
+  exchange: string;
+  symbol: string;
+  ticker: {
+    bid?: number;
+    ask?: number;
+    last: number;
+    volume?: number;
+    change24h?: number;
+    timestamp: number;
+    raw?: unknown;
+  };
+}
+
+interface LiveOrderBookEvent {
+  exchange: string;
+  symbol: string;
+  orderBook: {
+    bids: [number, number][];
+    asks: [number, number][];
+    timestamp: number;
+    raw?: unknown;
+  };
+}
+
+interface LiveConnectionEvent {
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  status: "connected" | "disconnected";
+  stream: string;
+}
+
 async function refreshLiveStats(db: Database, exchange: string, symbol: string, timeframe: string) {
   await db
     .insert(dataCollectionStatus)
@@ -185,6 +245,125 @@ export async function startLiveMarketDataCollector(options: {
   config: LiveCollectorConfig;
 }) {
   const manager = new WebSocketManager();
+  const candleBuilder = new CandleBuilder(options.db);
+
+  manager.on("connection", (event: LiveConnectionEvent) => {
+    void updateIngestionHealth(options.db, {
+      exchange: event.exchange,
+      symbol: event.symbol,
+      timeframe: event.timeframe,
+      websocketStatus: event.status,
+    }).catch(async (error: unknown) => {
+      await logIngestionEvent(options.db, {
+        exchange: event.exchange,
+        symbol: event.symbol,
+        timeframe: event.timeframe,
+        eventType: "websocket_status",
+        severity: event.status === "connected" ? "info" : "warn",
+        message: `${event.stream} websocket ${event.status}`,
+        metadata: { error: error instanceof Error ? error.message : String(error) },
+      }).catch(() => undefined);
+    });
+  });
+
+  manager.on("trade", (event: LiveTradeEvent) => {
+    void (async () => {
+      await upsertMarketTrades(options.db, [
+        {
+          exchange: event.exchange,
+          symbol: event.symbol,
+          tradeId: event.trade.id ?? null,
+          side: event.trade.side ?? null,
+          price: String(event.trade.price),
+          amount: String(event.trade.amount),
+          cost: event.trade.cost == null ? null : String(event.trade.cost),
+          tradedAt: new Date(event.trade.timestamp),
+          source: "websocket",
+          raw: JSON.stringify(event.trade.raw ?? event.trade),
+        },
+      ]);
+      await candleBuilder.buildFromTrades({
+        exchange: event.exchange,
+        symbol: event.symbol,
+        startTime: new Date(event.trade.timestamp - 5 * 60_000),
+        endTime: new Date(event.trade.timestamp + 60_000),
+      });
+    })().catch(async (error: unknown) => {
+      await updateIngestionHealth(options.db, {
+        exchange: event.exchange,
+        symbol: event.symbol,
+        timeframe: "1m",
+        apiErrorsDelta: 1,
+      });
+      await logIngestionEvent(options.db, {
+        exchange: event.exchange,
+        symbol: event.symbol,
+        timeframe: "1m",
+        eventType: "trade_ingest_failed",
+        severity: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  });
+
+  manager.on("ticker", (event: LiveTickerEvent) => {
+    void (async () => {
+      await insertMarketTickers(options.db, [
+        {
+          exchange: event.exchange,
+          symbol: event.symbol,
+          bid: event.ticker.bid == null ? null : String(event.ticker.bid),
+          ask: event.ticker.ask == null ? null : String(event.ticker.ask),
+          last: String(event.ticker.last),
+          volume: event.ticker.volume == null ? null : String(event.ticker.volume),
+          change24h: event.ticker.change24h == null ? null : String(event.ticker.change24h),
+          tickerAt: new Date(event.ticker.timestamp),
+          source: "websocket",
+          raw: JSON.stringify(event.ticker.raw ?? event.ticker),
+        },
+      ]);
+      for (const timeframe of options.config.timeframes) {
+        await updateIngestionHealth(options.db, {
+          exchange: event.exchange,
+          symbol: event.symbol,
+          timeframe,
+          latestEventAt: new Date(event.ticker.timestamp),
+        });
+      }
+    })().catch(async (error: unknown) => {
+      await logIngestionEvent(options.db, {
+        exchange: event.exchange,
+        symbol: event.symbol,
+        eventType: "ticker_ingest_failed",
+        severity: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  });
+
+  manager.on("orderBook", (event: LiveOrderBookEvent) => {
+    void (async () => {
+      await insertOrderBookSnapshots(options.db, [
+        {
+          exchange: event.exchange,
+          symbol: event.symbol,
+          bids: event.orderBook.bids.slice(0, 100),
+          asks: event.orderBook.asks.slice(0, 100),
+          snapshotAt: new Date(event.orderBook.timestamp),
+          source: "websocket",
+          raw: JSON.stringify(event.orderBook.raw ?? event.orderBook),
+        },
+      ]);
+    })().catch(async (error: unknown) => {
+      await logIngestionEvent(options.db, {
+        exchange: event.exchange,
+        symbol: event.symbol,
+        eventType: "orderbook_ingest_failed",
+        severity: "error",
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
+  });
 
   manager.on("candle", (event: LiveCandleEvent) => {
     void (async () => {
@@ -203,6 +382,13 @@ export async function startLiveMarketDataCollector(options: {
         },
       ]);
       await refreshLiveStats(options.db, exchange, symbol, timeframe);
+      await updateIngestionHealth(options.db, {
+        exchange,
+        symbol,
+        timeframe,
+        latestCandleAt: new Date(candle.time),
+        candlesInsertedDelta: 1,
+      });
       await options.redis.publish(
         "data:status",
         JSON.stringify({

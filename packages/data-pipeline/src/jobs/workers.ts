@@ -1,10 +1,12 @@
 import type { Database } from "@tb/db";
-import { Worker, type Job } from "bullmq";
+import { Queue, Worker, type Job } from "bullmq";
 
 import { BackfillManager } from "../backfill/BackfillManager";
+import { planHistoricalBackfill } from "../backfill/HistoricalBackfillPlanner";
 import { DataCollector } from "../collection/DataCollector";
 import { ExportManager } from "../export/ExportManager";
 import { ExchangeRateLimiter } from "../rateLimit/ExchangeRateLimiter";
+import { RepairManager } from "../repair/RepairManager";
 import { GapDetector } from "../validation/GapDetector";
 
 import {
@@ -13,8 +15,19 @@ import {
   type CollectOHLCVJobData,
   type BackfillJobData,
   type DetectGapsJobData,
+  type HistoricalBackfillJobData,
+  type RepairJobData,
   type ExportJobData,
 } from "./types";
+
+const TIMEFRAME_MS: Record<string, number> = {
+  "1m": 60_000,
+  "5m": 5 * 60_000,
+  "15m": 15 * 60_000,
+  "1h": 60 * 60_000,
+  "4h": 4 * 60 * 60_000,
+  "1d": 24 * 60 * 60_000,
+};
 
 export interface WorkerConfig {
   db: Database;
@@ -26,10 +39,14 @@ export function createCollectionWorker(config: WorkerConfig) {
   const rateLimiter = new ExchangeRateLimiter();
   const collector = new DataCollector(config.db, rateLimiter);
   const gapDetector = new GapDetector(config.db);
+  const repairManager = new RepairManager(config.db);
+  const backfillQueue = new Queue<BackfillJobData>(QUEUE_NAMES.DATA_BACKFILL, {
+    connection: config.redisConnection,
+  });
 
   return new Worker(
     QUEUE_NAMES.DATA_COLLECTION,
-    async (job: Job<CollectOHLCVJobData | DetectGapsJobData>) => {
+    async (job: Job<CollectOHLCVJobData | DetectGapsJobData | RepairJobData>) => {
       if (
         job.name === JOB_NAMES.COLLECT_OHLCV_1M ||
         job.name === JOB_NAMES.COLLECT_OHLCV_1H ||
@@ -37,6 +54,39 @@ export function createCollectionWorker(config: WorkerConfig) {
       ) {
         const data = job.data as CollectOHLCVJobData;
         return collector.collectOHLCV(data.exchange, data.symbol, data.timeframe);
+      }
+
+      if (job.name === JOB_NAMES.REPAIR_RECENT) {
+        const data = job.data as RepairJobData;
+        const result = await repairManager.repairRecent(data);
+        const timeframeMs = TIMEFRAME_MS[data.timeframe] ?? 60_000;
+
+        for (const gap of result.gaps.slice(0, 10)) {
+          const startTime = gap.start.toISOString();
+          const endTime = new Date(gap.end.getTime() + timeframeMs).toISOString();
+          await backfillQueue.add(
+            JOB_NAMES.BACKFILL,
+            {
+              exchange: data.exchange,
+              symbol: data.symbol,
+              timeframe: data.timeframe,
+              startTime,
+              endTime,
+              reason: "gap-repair",
+              priority: 2,
+            },
+            {
+              attempts: 5,
+              backoff: { type: "exponential", delay: 2000 },
+              priority: 2,
+              jobId: `gap-repair-${data.exchange}-${data.symbol.replace("/", "-")}-${data.timeframe}-${startTime}`,
+              removeOnComplete: { age: 86400 },
+              removeOnFail: { age: 604800 },
+            }
+          );
+        }
+
+        return { ...result, queuedGapRepairs: Math.min(result.gaps.length, 10) };
       }
 
       if (job.name === JOB_NAMES.DETECT_GAPS) {
@@ -69,11 +119,19 @@ export function createCollectionWorker(config: WorkerConfig) {
 export function createBackfillWorker(config: WorkerConfig) {
   const rateLimiter = new ExchangeRateLimiter();
   const manager = new BackfillManager(config.db, rateLimiter);
+  const backfillQueue = new Queue<BackfillJobData>(QUEUE_NAMES.DATA_BACKFILL, {
+    connection: config.redisConnection,
+  });
 
-  return new Worker<BackfillJobData>(
+  return new Worker<BackfillJobData | HistoricalBackfillJobData>(
     QUEUE_NAMES.DATA_BACKFILL,
-    async (job: Job<BackfillJobData>) => {
-      const data = job.data;
+    async (job: Job<BackfillJobData | HistoricalBackfillJobData>) => {
+      if (job.name === JOB_NAMES.BACKFILL_HISTORY) {
+        const data = job.data as HistoricalBackfillJobData;
+        return planHistoricalBackfill(config.db, backfillQueue, data);
+      }
+
+      const data = job.data as BackfillJobData;
       const jobConfig = await manager.createBackfillJob(
         data.exchange,
         data.symbol,
@@ -85,7 +143,9 @@ export function createBackfillWorker(config: WorkerConfig) {
     },
     {
       connection: config.redisConnection,
-      concurrency: 2,
+      // One backfill request stream at a time. Live/recent collection runs on its
+      // own queue, and this low concurrency keeps Binance headroom available.
+      concurrency: 1,
     }
   );
 }

@@ -75,6 +75,11 @@ describe.skipIf(!hasDocker)("Data Pipeline Integration Tests", () => {
         close NUMERIC(20, 8) NOT NULL,
         volume NUMERIC(20, 8) NOT NULL,
         trades_count BIGINT,
+        source TEXT NOT NULL DEFAULT 'collector',
+        provisional BOOLEAN NOT NULL DEFAULT false,
+        closed BOOLEAN NOT NULL DEFAULT true,
+        repaired BOOLEAN NOT NULL DEFAULT false,
+        exchange_verified BOOLEAN NOT NULL DEFAULT false,
         created_at TIMESTAMPTZ DEFAULT NOW(),
         UNIQUE (exchange, symbol, timeframe, time)
       );

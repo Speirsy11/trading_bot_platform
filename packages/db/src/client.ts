@@ -9,13 +9,23 @@ import * as botsSchema from "./schema/bots";
 import * as dataCollectionSchema from "./schema/dataCollection";
 import * as dataExportsSchema from "./schema/dataExports";
 import * as exchangeConfigsSchema from "./schema/exchangeConfigs";
+import * as ingestionEventsSchema from "./schema/ingestionEvents";
+import * as ingestionHealthSchema from "./schema/ingestionHealth";
+import * as marketTickersSchema from "./schema/marketTickers";
+import * as marketTradesSchema from "./schema/marketTrades";
 import * as ohlcvSchema from "./schema/ohlcv";
 import * as orderAuditLogSchema from "./schema/orderAuditLog";
+import * as orderBookSnapshotsSchema from "./schema/orderBookSnapshots";
 import * as settingsSchema from "./schema/settings";
 import * as webhooksSchema from "./schema/webhooks";
 
 const schema = {
   ...ohlcvSchema,
+  ...marketTradesSchema,
+  ...marketTickersSchema,
+  ...orderBookSnapshotsSchema,
+  ...ingestionEventsSchema,
+  ...ingestionHealthSchema,
   ...dataCollectionSchema,
   ...dataExportsSchema,
   ...exchangeConfigsSchema,

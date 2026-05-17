@@ -6,10 +6,16 @@ export { GapDetector, type Gap } from "./validation/GapDetector";
 // Collection
 export { OHLCVCollector } from "./collection/OHLCVCollector";
 export { DataCollector } from "./collection/DataCollector";
+export { CandleBuilder } from "./collection/CandleBuilder";
 
 // Backfill
 export { BackfillJob, type BackfillJobConfig } from "./backfill/BackfillJob";
 export { BackfillManager } from "./backfill/BackfillManager";
+export { planHistoricalBackfill } from "./backfill/HistoricalBackfillPlanner";
+export type {
+  HistoricalBackfillPlanInput,
+  HistoricalBackfillPlanResult,
+} from "./backfill/HistoricalBackfillPlanner";
 export { scheduleBackfill, backfillChunkPriority } from "./backfill/backfillScheduler";
 
 // Streaming
@@ -29,6 +35,9 @@ export { ExchangeRateLimiter } from "./rateLimit/ExchangeRateLimiter";
 export { RATE_LIMIT_DEFAULTS, type RateLimitOptions } from "./rateLimit/RateLimitConfig";
 export { AdaptiveRateLimiter } from "./rateLimiter";
 
+// Repair
+export { RepairManager } from "./repair/RepairManager";
+
 // Gap Detection
 export { detectGaps, detectAllGaps, type OhlcvGap } from "./gapDetector";
 export {
@@ -43,6 +52,8 @@ export type {
   CollectOHLCVJobData,
   BackfillJobData,
   DetectGapsJobData,
+  HistoricalBackfillJobData,
+  RepairJobData,
   ExportJobData,
 } from "./jobs/types";
 export {
@@ -50,6 +61,7 @@ export {
   setupRepeatableJobs,
   setupGapDetectionJob,
   addDetectGapsJob,
+  setupHistoricalBackfillJob,
   addBackfillJob,
   addExportJob,
 } from "./jobs/scheduler";

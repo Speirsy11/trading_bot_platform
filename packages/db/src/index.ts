@@ -3,6 +3,27 @@ export { createDb, type Database } from "./client";
 
 // Schemas
 export { ohlcv, type OHLCVRow, type OHLCVInsert } from "./schema/ohlcv";
+export { marketTrades, type MarketTradeRow, type MarketTradeInsert } from "./schema/marketTrades";
+export {
+  marketTickers,
+  type MarketTickerRow,
+  type MarketTickerInsert,
+} from "./schema/marketTickers";
+export {
+  orderBookSnapshots,
+  type OrderBookSnapshotRow,
+  type OrderBookSnapshotInsert,
+} from "./schema/orderBookSnapshots";
+export {
+  ingestionEvents,
+  type IngestionEventRow,
+  type IngestionEventInsert,
+} from "./schema/ingestionEvents";
+export {
+  ingestionHealth,
+  type IngestionHealthRow,
+  type IngestionHealthInsert,
+} from "./schema/ingestionHealth";
 export {
   dataCollectionStatus,
   type DataCollectionStatusRow,
@@ -38,10 +59,22 @@ export {
   queryOHLCVByRange,
   queryOHLCVCursor,
   getLatestTimestamp,
+  getEarliestTimestamp,
   countCandles,
   type OHLCVCursorParams,
   type OHLCVCursorResult,
 } from "./queries/ohlcv";
+export {
+  upsertMarketTrades,
+  insertMarketTickers,
+  insertOrderBookSnapshots,
+  logIngestionEvent,
+  updateIngestionHealth,
+  buildCandlesFromTrades,
+  deriveCandlesFromLowerTimeframe,
+  countExpectedCandles,
+  timeframeToMs as marketDataTimeframeToMs,
+} from "./queries/marketData";
 
 // Seed
 export {
@@ -50,3 +83,4 @@ export {
   DEFAULT_TIMEFRAMES,
   DEFAULT_EXCHANGES,
 } from "./seed/development";
+export { seedTestingMode } from "./seed/testing";

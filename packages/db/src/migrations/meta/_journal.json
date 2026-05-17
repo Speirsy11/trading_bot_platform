@@ -8,6 +8,20 @@
       "when": 1776458128223,
       "tag": "0000_abnormal_the_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778832134944,
+      "tag": "0001_cheerful_firebird",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778832937778,
+      "tag": "0002_sweet_black_tom",
+      "breakpoints": true
     }
   ]
 }

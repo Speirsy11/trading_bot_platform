@@ -1,4 +1,4 @@
-import { dataCollectionStatus, settings } from "@tb/db";
+import { dataCollectionStatus, ingestionEvents, ingestionHealth, settings } from "@tb/db";
 import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 
@@ -147,14 +147,55 @@ export const dataCollectionRouter = createTrpcRouter({
           dataCollectionStatus.timeframe
         );
 
-      return rows.map((r) => ({
-        exchange: r.exchange,
-        symbol: r.symbol,
-        timeframe: r.timeframe,
-        totalCandles: r.totalCandles ?? 0,
-        gapCount: r.gapCount ?? 0,
-        lastUpdated: r.lastCollectedAt?.toISOString() ?? null,
-        status: r.status ?? "idle",
+      const healthConditions = [];
+      if (input.exchange) healthConditions.push(eq(ingestionHealth.exchange, input.exchange));
+      if (input.symbol) healthConditions.push(eq(ingestionHealth.symbol, input.symbol));
+      const healthRows = await ctx.db
+        .select()
+        .from(ingestionHealth)
+        .where(healthConditions.length > 0 ? and(...healthConditions) : undefined);
+      const healthByKey = new Map(
+        healthRows.map((row) => [`${row.exchange}:${row.symbol}:${row.timeframe}`, row])
+      );
+
+      return rows.map((r) => {
+        const health = healthByKey.get(`${r.exchange}:${r.symbol}:${r.timeframe}`);
+        const latest = health?.latestCandleAt ?? r.latest;
+        return {
+          exchange: r.exchange,
+          symbol: r.symbol,
+          timeframe: r.timeframe,
+          totalCandles: r.totalCandles ?? 0,
+          gapCount: r.gapCount ?? 0,
+          latestCandleAgeMs: latest ? Date.now() - latest.getTime() : null,
+          websocketStatus: health?.websocketStatus ?? "unknown",
+          restFallbackCount: health?.restFallbackCount ?? 0,
+          validationFailures: health?.validationFailures ?? 0,
+          apiErrors: health?.apiErrors ?? 0,
+          repairFailures: health?.repairFailures ?? 0,
+          backfillBacklog: health?.backfillBacklog ?? 0,
+          candlesInserted: health?.candlesInserted ?? 0,
+          missingCandles: health?.missingCandles ?? r.gapCount ?? 0,
+          completenessPct: ((health?.completenessBps ?? 10000) / 100).toFixed(2),
+          lastUpdated: r.lastCollectedAt?.toISOString() ?? null,
+          status: r.status ?? "idle",
+        };
+      });
+    }),
+
+  /** Get recent ingestion events for monitoring and alerting */
+  events: publicProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).default(25) }).optional())
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db
+        .select()
+        .from(ingestionEvents)
+        .orderBy(sql`${ingestionEvents.createdAt} DESC`)
+        .limit(input?.limit ?? 25);
+
+      return rows.map((row) => ({
+        ...row,
+        createdAt: row.createdAt?.toISOString() ?? null,
       }));
     }),
 

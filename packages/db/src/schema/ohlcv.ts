@@ -1,4 +1,13 @@
-import { pgTable, text, numeric, timestamp, bigint, unique, index } from "drizzle-orm/pg-core";
+import {
+  pgTable,
+  text,
+  numeric,
+  timestamp,
+  bigint,
+  boolean,
+  unique,
+  index,
+} from "drizzle-orm/pg-core";
 
 export const ohlcv = pgTable(
   "ohlcv",
@@ -13,6 +22,11 @@ export const ohlcv = pgTable(
     close: numeric("close", { precision: 20, scale: 8 }).notNull(),
     volume: numeric("volume", { precision: 20, scale: 8 }).notNull(),
     tradesCount: bigint("trades_count", { mode: "number" }),
+    source: text("source").notNull().default("collector"),
+    provisional: boolean("provisional").notNull().default(false),
+    closed: boolean("closed").notNull().default(true),
+    repaired: boolean("repaired").notNull().default(false),
+    exchangeVerified: boolean("exchange_verified").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).defaultNow(),
   },
   (table) => [

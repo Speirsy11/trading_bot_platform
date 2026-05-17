@@ -132,6 +132,18 @@ export const botsRouter = createTrpcRouter({
         throw new TRPCError({ code: "CONFLICT", message: "Bot state changed before start" });
       }
 
+      if (process.env["APP_MODE"] === "testing") {
+        await ctx.db
+          .update(bots)
+          .set({ status: "running", updatedAt: new Date() })
+          .where(eq(bots.id, input.botId));
+        await ctx.redis.publish(
+          "bot:status",
+          JSON.stringify({ botId: input.botId, status: "running", timestamp: Date.now() })
+        );
+        return { success: true, jobId: "testing-mode" };
+      }
+
       try {
         const job = await ctx.queues.botExecutionQueue.add(
           BOT_JOB_NAMES.START,
@@ -179,12 +191,14 @@ export const botsRouter = createTrpcRouter({
         .update(bots)
         .set({ status: "paused", updatedAt: new Date() })
         .where(eq(bots.id, input.botId));
-      await ctx.queues.botExecutionQueue.add(
-        BOT_JOB_NAMES.PAUSE,
-        { botId: input.botId },
-        { jobId: `bot-${input.botId}-pause-${Date.now()}` }
-      );
-      jobEnqueuedCounter.inc({ queue: "botExecution" });
+      if (process.env["APP_MODE"] !== "testing") {
+        await ctx.queues.botExecutionQueue.add(
+          BOT_JOB_NAMES.PAUSE,
+          { botId: input.botId },
+          { jobId: `bot-${input.botId}-pause-${Date.now()}` }
+        );
+        jobEnqueuedCounter.inc({ queue: "botExecution" });
+      }
       await ctx.redis.publish(
         "bot:status",
         JSON.stringify({ botId: input.botId, status: "paused", timestamp: Date.now() })
@@ -208,12 +222,14 @@ export const botsRouter = createTrpcRouter({
         .update(bots)
         .set({ status: "stopped", stoppedAt: new Date(), updatedAt: new Date() })
         .where(eq(bots.id, input.botId));
-      await ctx.queues.botExecutionQueue.add(
-        BOT_JOB_NAMES.STOP,
-        { botId: input.botId },
-        { jobId: `bot-${input.botId}-stop-${Date.now()}` }
-      );
-      jobEnqueuedCounter.inc({ queue: "botExecution" });
+      if (process.env["APP_MODE"] !== "testing") {
+        await ctx.queues.botExecutionQueue.add(
+          BOT_JOB_NAMES.STOP,
+          { botId: input.botId },
+          { jobId: `bot-${input.botId}-stop-${Date.now()}` }
+        );
+        jobEnqueuedCounter.inc({ queue: "botExecution" });
+      }
       await ctx.redis.publish(
         "bot:status",
         JSON.stringify({ botId: input.botId, status: "stopped", timestamp: Date.now() })

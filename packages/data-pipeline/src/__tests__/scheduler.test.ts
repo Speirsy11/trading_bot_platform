@@ -29,11 +29,22 @@ describe("setupRepeatableJobs", () => {
       ["1m", "5m", "15m", "1h", "4h", "1d"]
     );
 
-    expect(jobs.map((job) => job.data.timeframe)).toEqual(["1m", "5m", "15m", "1h", "4h", "1d"]);
-    expect(jobs.map((job) => job.opts.repeat.every)).toEqual([
+    const collectionJobs = jobs.filter((job) => job.name !== JOB_NAMES.REPAIR_RECENT);
+    const repairJobs = jobs.filter((job) => job.name === JOB_NAMES.REPAIR_RECENT);
+
+    expect(collectionJobs.map((job) => job.data.timeframe)).toEqual([
+      "1m",
+      "5m",
+      "15m",
+      "1h",
+      "4h",
+      "1d",
+    ]);
+    expect(collectionJobs.map((job) => job.opts.repeat.every)).toEqual([
       60_000, 300_000, 900_000, 3_600_000, 14_400_000, 86_400_000,
     ]);
-    expect(jobs[0]?.name).toBe(JOB_NAMES.COLLECT_OHLCV_1M);
-    expect(jobs.at(-1)?.name).toBe(JOB_NAMES.COLLECT_OHLCV_DAILY);
+    expect(repairJobs).toHaveLength(6);
+    expect(collectionJobs[0]?.name).toBe(JOB_NAMES.COLLECT_OHLCV_1M);
+    expect(collectionJobs.at(-1)?.name).toBe(JOB_NAMES.COLLECT_OHLCV_DAILY);
   });
 });

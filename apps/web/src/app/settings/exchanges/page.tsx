@@ -58,7 +58,9 @@ export default function ExchangesPage() {
     },
     onSuccess: (result) => {
       if ("balance" in result) {
-        toast.success(`Connection verified. ${result.balance.totalAssets} asset balances available.`);
+        toast.success(
+          `Connection verified. ${result.balance.totalAssets} asset balances available.`
+        );
         return;
       }
 

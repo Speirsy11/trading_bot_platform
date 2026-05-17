@@ -6,6 +6,7 @@ import { InMemoryStrategyContextProvider } from "../../context/types";
 import { BacktestExchange } from "../../exchange/BacktestExchange";
 import { PositionManager } from "../../orders/PositionManager";
 import { StrategyContext } from "../StrategyContext";
+
 import { SentimentAwareSMACrossover } from "./SentimentAwareSMACrossover";
 
 function candle(index: number, close: number): Candle {

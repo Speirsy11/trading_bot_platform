@@ -1,6 +1,7 @@
 import type { IndicatorCalculator } from "@tb/indicators";
 import type { Balance, Order } from "@tb/types";
 
+import { NullStrategyContextProvider, type StrategyContextProvider } from "../context/types";
 import type { IExchange, Position } from "../exchange/types";
 import type { PositionManager } from "../orders/PositionManager";
 
@@ -26,6 +27,7 @@ export class StrategyContext {
   readonly config: StrategyConfig;
   readonly indicators: IndicatorCalculator;
   readonly logger: Logger;
+  readonly context: StrategyContextProvider;
   private positionManager: PositionManager;
 
   constructor(
@@ -33,13 +35,15 @@ export class StrategyContext {
     config: StrategyConfig,
     indicators: IndicatorCalculator,
     positionManager: PositionManager,
-    logger?: Logger
+    logger?: Logger,
+    contextProvider?: StrategyContextProvider
   ) {
     this.exchange = exchange;
     this.config = config;
     this.indicators = indicators;
     this.positionManager = positionManager;
     this.logger = logger ?? consoleLogger;
+    this.context = contextProvider ?? new NullStrategyContextProvider();
   }
 
   async getBalance(): Promise<Balance> {

@@ -1,6 +1,7 @@
 import { IndicatorCalculator } from "@tb/indicators";
 import type { Candle } from "@tb/types";
 
+import type { StrategyContextProvider } from "../context/types";
 import type { IExchange } from "../exchange/types";
 import { PositionManager } from "../orders/PositionManager";
 import { PositionSizer } from "../risk/PositionSizer";
@@ -18,6 +19,7 @@ export interface BotConfig {
   strategyParams: Record<string, unknown>;
   riskConfig?: RiskConfig;
   closePositionsOnStop?: boolean;
+  contextProvider?: StrategyContextProvider;
 }
 
 /**
@@ -68,7 +70,8 @@ export class Bot {
       },
       this.indicators,
       this.positionManager,
-      this.logger
+      this.logger,
+      this.config.contextProvider
     );
 
     await this.strategy.initialize(ctx);

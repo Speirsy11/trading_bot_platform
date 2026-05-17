@@ -14,6 +14,7 @@ import {
   type IExchange,
   LiveExchange,
   PaperExchange,
+  SignalHarvesterContextProvider,
   StrategyRegistry,
   timeframeToMs,
 } from "@tb/trading-core";
@@ -192,6 +193,9 @@ async function startBot(
       strategyParams: parseJsonValue(botRow.strategyParams, {}),
       riskConfig: parseJsonValue(botRow.riskConfig, undefined),
       closePositionsOnStop: true,
+      contextProvider: process.env["SIGNAL_HARVESTER_URL"]
+        ? new SignalHarvesterContextProvider(process.env["SIGNAL_HARVESTER_URL"])
+        : undefined,
     },
     strategy,
     runtimeExchange,

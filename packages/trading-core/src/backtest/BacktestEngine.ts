@@ -1,6 +1,7 @@
 import { IndicatorCalculator } from "@tb/indicators";
 import type { Candle } from "@tb/types";
 
+import type { StrategyContextProvider } from "../context/types";
 import { BacktestExchange } from "../exchange/BacktestExchange";
 import { MetricsCalculator } from "../metrics/MetricsCalculator";
 import { PerformanceTracker } from "../metrics/PerformanceTracker";
@@ -21,10 +22,12 @@ import type { BacktestConfig } from "./BacktestConfig";
 export class BacktestEngine {
   private config: BacktestConfig;
   private logger: Logger;
+  private contextProvider?: StrategyContextProvider;
 
-  constructor(config: BacktestConfig, logger?: Logger) {
+  constructor(config: BacktestConfig, logger?: Logger, contextProvider?: StrategyContextProvider) {
     this.config = config;
     this.logger = logger ?? silentLogger;
+    this.contextProvider = contextProvider;
   }
 
   /**
@@ -66,7 +69,8 @@ export class BacktestEngine {
       },
       indicators,
       positionManager,
-      this.logger
+      this.logger,
+      this.contextProvider
     );
 
     // 4. Initialize strategy

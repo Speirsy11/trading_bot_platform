@@ -2,6 +2,7 @@ import {
   BollingerBounce,
   type IStrategy,
   RSIMeanReversion,
+  SentimentAwareSMACrossover,
   SMACrossover,
   StrategyRegistry,
 } from "@tb/trading-core";
@@ -11,6 +12,7 @@ type StrategyFactory = () => IStrategy;
 
 const STRATEGIES: Record<string, StrategyFactory> = {
   "sma-crossover": () => new SMACrossover(),
+  "sentiment-aware-sma-crossover": () => new SentimentAwareSMACrossover(),
   "rsi-mean-reversion": () => new RSIMeanReversion(),
   "bollinger-bounce": () => new BollingerBounce(),
 };

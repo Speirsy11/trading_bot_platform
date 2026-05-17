@@ -16,9 +16,21 @@ export { PaperExchange } from "./exchange/PaperExchange";
 export type { IStrategy, Signal, SignalAction } from "./strategy/IStrategy";
 export { StrategyContext, type StrategyConfig, type Logger } from "./strategy/StrategyContext";
 export { StrategyRegistry } from "./strategy/StrategyRegistry";
+export type {
+  ExternalContextEvent,
+  ExternalContextKind,
+  SentimentSummary,
+  StrategyContextProvider,
+} from "./context/types";
+export {
+  InMemoryStrategyContextProvider,
+  NullStrategyContextProvider,
+} from "./context/types";
+export { SignalHarvesterContextProvider } from "./context/SignalHarvesterContextProvider";
 export { SMACrossover } from "./strategy/strategies/SMACrossover";
 export { RSIMeanReversion } from "./strategy/strategies/RSIMeanReversion";
 export { BollingerBounce } from "./strategy/strategies/BollingerBounce";
+export { SentimentAwareSMACrossover } from "./strategy/strategies/SentimentAwareSMACrossover";
 
 // Backtest
 export { BacktestEngine } from "./backtest/BacktestEngine";

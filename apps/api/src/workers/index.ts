@@ -1,12 +1,6 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import {
-  createQueues,
-  setupRepeatableJobs,
-  addDetectGapsJob,
-  setupHistoricalBackfillJob,
-} from "@tb/data-pipeline";
 import { createDb, settings } from "@tb/db";
 import { eq } from "drizzle-orm";
 import IORedis from "ioredis";
@@ -17,8 +11,9 @@ import { assertDatabaseSchemaReady } from "../utils/databaseSchema";
 
 import { createBacktestWorker } from "./backtestRunner";
 import { createBotExecutorWorker } from "./botExecutor";
-import { createDataPipelineWorkers, startLiveMarketDataCollector } from "./dataPipelineWorkers";
+import { createDataPipelineWorkers } from "./dataPipelineWorkers";
 import { createDataRetentionWorker, scheduleDataRetentionJob } from "./dataRetentionWorker";
+import { startHarvesterMarketDataSync } from "./harvesterMarketDataSync";
 import { startHealthServer } from "./healthServer";
 
 const processLogger = console;
@@ -40,46 +35,6 @@ async function loadCollectionConfig(db: ReturnType<typeof createDb>["db"]) {
   };
 }
 
-async function scheduleDataCollection(
-  db: ReturnType<typeof createDb>["db"],
-  redisConnection: { host: string; port: number }
-) {
-  const config = await loadCollectionConfig(db);
-
-  if (config.pairs.length === 0 || config.exchanges.length === 0) {
-    processLogger.warn(
-      "No collection config found in settings table. Run `pnpm db:seed` first. Skipping job scheduling."
-    );
-    return;
-  }
-
-  processLogger.info(
-    `Scheduling collection: ${config.exchanges.length} exchange(s), ${config.pairs.length} pair(s), ${config.timeframes.length} timeframe(s)`
-  );
-
-  const { collectionQueue, backfillQueue } = createQueues({ redisConnection });
-
-  await setupRepeatableJobs(collectionQueue, config.pairs, config.exchanges, config.timeframes);
-  await setupHistoricalBackfillJob(backfillQueue, {
-    exchanges: config.exchanges,
-    symbols: config.pairs,
-    timeframes: config.timeframes,
-    maxChunksPerRun: 3,
-  });
-
-  // Also schedule gap detection for each pair/exchange/timeframe
-  for (const exchange of config.exchanges) {
-    for (const symbol of config.pairs) {
-      for (const timeframe of config.timeframes) {
-        await addDetectGapsJob(collectionQueue, exchange, symbol, timeframe);
-      }
-    }
-  }
-
-  await Promise.all([collectionQueue.close(), backfillQueue.close()]);
-  processLogger.info("Repeatable data-collection jobs registered.");
-}
-
 async function startWorkers() {
   const databaseUrl = process.env["DATABASE_URL"]?.trim();
   const redisUrl = process.env["REDIS_URL"] ?? "redis://127.0.0.1:6379";
@@ -99,15 +54,6 @@ async function startWorkers() {
   const keyVault = new KeyVault(encryptionKey);
   const exchangeManager = createExchangeManager({ db, keyVault });
 
-  // Parse Redis connection for BullMQ
-  const redisConnection = {
-    host: redis.options.host ?? "127.0.0.1",
-    port: redis.options.port ?? 6379,
-  };
-
-  // Schedule repeatable data collection jobs from DB config
-  await scheduleDataCollection(db, redisConnection);
-
   // Schedule the daily data-retention job (purges old bot_logs and ohlcv rows)
   await scheduleDataRetentionJob(redis);
 
@@ -115,9 +61,15 @@ async function startWorkers() {
   const backtestWorker = createBacktestWorker({ db, redis });
   const pipelineWorkers = createDataPipelineWorkers({ db, redis, exportsDir });
   const collectionConfig = await loadCollectionConfig(db);
-  const liveMarketDataCollector =
-    process.env["LIVE_MARKET_DATA_ENABLED"] === "1" && process.env["APP_MODE"] !== "testing"
-      ? await startLiveMarketDataCollector({ db, redis, config: collectionConfig })
+  const harvesterMarketDataSync =
+    process.env["SIGNAL_HARVESTER_URL"] && process.env["APP_MODE"] !== "testing"
+      ? startHarvesterMarketDataSync({
+          db,
+          redis,
+          harvesterUrl: process.env["SIGNAL_HARVESTER_URL"],
+          config: collectionConfig,
+          intervalMs: Number(process.env["HARVESTER_SYNC_INTERVAL_MS"] ?? "60000"),
+        })
       : null;
   const retentionWorker = createDataRetentionWorker({ db, redis });
 
@@ -128,10 +80,8 @@ async function startWorkers() {
     await Promise.allSettled([
       botWorker.close(),
       backtestWorker.close(),
-      pipelineWorkers.collectionWorker.close(),
-      pipelineWorkers.backfillWorker.close(),
       pipelineWorkers.exportWorker.close(),
-      liveMarketDataCollector?.close(),
+      harvesterMarketDataSync?.close(),
       retentionWorker.close(),
       redis.quit(),
       client.end(),

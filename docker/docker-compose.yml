@@ -71,8 +71,8 @@ services:
       APP_MODE: ${APP_MODE:-development}
       SEED_TESTING_DATA: ${SEED_TESTING_DATA:-0}
       TRADING_ENABLED: ${TRADING_ENABLED:-false}
-      LIVE_MARKET_DATA_ENABLED: ${LIVE_MARKET_DATA_ENABLED:-0}
       SIGNAL_HARVESTER_URL: ${SIGNAL_HARVESTER_URL:-http://host.docker.internal:3010}
+      HARVESTER_SYNC_INTERVAL_MS: ${HARVESTER_SYNC_INTERVAL_MS:-60000}
     depends_on:
       postgres:
         condition: service_healthy

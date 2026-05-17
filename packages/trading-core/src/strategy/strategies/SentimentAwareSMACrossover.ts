@@ -18,7 +18,8 @@ const paramsSchema = z
 
 export class SentimentAwareSMACrossover implements IStrategy {
   readonly name = "Sentiment-Aware SMA Crossover";
-  readonly description = "SMA crossover strategy that filters entries with external news/sentiment context.";
+  readonly description =
+    "SMA crossover strategy that filters entries with external news/sentiment context.";
   readonly paramsSchema = paramsSchema;
 
   private ctx!: StrategyContext;
@@ -81,7 +82,10 @@ export class SentimentAwareSMACrossover implements IStrategy {
         });
         return false;
       }
-      if (signal.action === "CLOSE_LONG" && summary.averageScore > this.params.maxCloseLongSentiment) {
+      if (
+        signal.action === "CLOSE_LONG" &&
+        summary.averageScore > this.params.maxCloseLongSentiment
+      ) {
         this.ctx.logger.info("Blocked CLOSE_LONG because sentiment is too positive", {
           averageScore: summary.averageScore,
           maxCloseLongSentiment: this.params.maxCloseLongSentiment,

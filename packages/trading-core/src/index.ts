@@ -22,10 +22,7 @@ export type {
   SentimentSummary,
   StrategyContextProvider,
 } from "./context/types";
-export {
-  InMemoryStrategyContextProvider,
-  NullStrategyContextProvider,
-} from "./context/types";
+export { InMemoryStrategyContextProvider, NullStrategyContextProvider } from "./context/types";
 export { SignalHarvesterContextProvider } from "./context/SignalHarvesterContextProvider";
 export { SMACrossover } from "./strategy/strategies/SMACrossover";
 export { RSIMeanReversion } from "./strategy/strategies/RSIMeanReversion";

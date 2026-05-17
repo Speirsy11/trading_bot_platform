@@ -1,4 +1,9 @@
-export type ExternalContextKind = "news_sentiment" | "market_feature" | "macro" | "onchain" | "social";
+export type ExternalContextKind =
+  | "news_sentiment"
+  | "market_feature"
+  | "macro"
+  | "onchain"
+  | "social";
 
 export interface ExternalContextEvent {
   id: string;
@@ -35,7 +40,11 @@ export interface ContextQuery {
 
 export interface StrategyContextProvider {
   getEvents(query: ContextQuery): Promise<ExternalContextEvent[]>;
-  getSentimentSummary(query: { topic: string; asOf: Date; windowHours: number }): Promise<SentimentSummary>;
+  getSentimentSummary(query: {
+    topic: string;
+    asOf: Date;
+    windowHours: number;
+  }): Promise<SentimentSummary>;
 }
 
 export class NullStrategyContextProvider implements StrategyContextProvider {
@@ -43,7 +52,11 @@ export class NullStrategyContextProvider implements StrategyContextProvider {
     return [];
   }
 
-  async getSentimentSummary(query: { topic: string; asOf: Date; windowHours: number }): Promise<SentimentSummary> {
+  async getSentimentSummary(query: {
+    topic: string;
+    asOf: Date;
+    windowHours: number;
+  }): Promise<SentimentSummary> {
     return {
       topic: query.topic,
       windowHours: query.windowHours,
@@ -70,9 +83,18 @@ export class InMemoryStrategyContextProvider implements StrategyContextProvider 
       .slice(0, query.limit ?? 100);
   }
 
-  async getSentimentSummary(query: { topic: string; asOf: Date; windowHours: number }): Promise<SentimentSummary> {
+  async getSentimentSummary(query: {
+    topic: string;
+    asOf: Date;
+    windowHours: number;
+  }): Promise<SentimentSummary> {
     const from = new Date(query.asOf.getTime() - query.windowHours * 3_600_000);
-    const events = await this.getEvents({ topic: query.topic, from, to: query.asOf, limit: 10_000 });
+    const events = await this.getEvents({
+      topic: query.topic,
+      from,
+      to: query.asOf,
+      limit: 10_000,
+    });
     const scored = events.filter((event) => typeof event.score === "number");
     const averageScore = scored.length
       ? scored.reduce((sum, event) => sum + (event.score ?? 0), 0) / scored.length

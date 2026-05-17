@@ -57,7 +57,12 @@ export default function ExchangesPage() {
       setTestingExchangeId(exchangeId);
     },
     onSuccess: (result) => {
-      toast.success(`Connection verified. ${result.balance.totalAssets} asset balances available.`);
+      if ("balance" in result) {
+        toast.success(`Connection verified. ${result.balance.totalAssets} asset balances available.`);
+        return;
+      }
+
+      toast.success("Connection verified in simulated testing mode.");
     },
     onError: (error) => toast.error(error.message),
     onSettled: () => setTestingExchangeId(null),

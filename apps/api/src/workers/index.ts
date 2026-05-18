@@ -59,8 +59,13 @@ async function startWorkers() {
 
   const botWorker = createBotExecutorWorker({ db, redis, exchangeManager });
   const backtestWorker = createBacktestWorker({ db, redis });
-  const pipelineWorkers = createDataPipelineWorkers({ db, redis, exportsDir });
   const collectionConfig = await loadCollectionConfig(db);
+  const pipelineWorkers = await createDataPipelineWorkers({
+    db,
+    redis,
+    exportsDir,
+    collectionConfig,
+  });
   const harvesterMarketDataSync =
     process.env["SIGNAL_HARVESTER_URL"] && process.env["APP_MODE"] !== "testing"
       ? startHarvesterMarketDataSync({
@@ -80,7 +85,11 @@ async function startWorkers() {
     await Promise.allSettled([
       botWorker.close(),
       backtestWorker.close(),
+      pipelineWorkers.collectionWorker.close(),
+      pipelineWorkers.backfillWorker.close(),
       pipelineWorkers.exportWorker.close(),
+      pipelineWorkers.collectionQueue.close(),
+      pipelineWorkers.backfillQueue.close(),
       harvesterMarketDataSync?.close(),
       retentionWorker.close(),
       redis.quit(),

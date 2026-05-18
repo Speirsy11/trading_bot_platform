@@ -1,6 +1,7 @@
 import {
   queryOHLCVByRange,
   dataCollectionStatus,
+  deriveCandlesFromLowerTimeframe,
   ohlcv,
   orderBookSnapshots,
   DEFAULT_PAIRS,
@@ -64,14 +65,54 @@ export const marketRouter = createTrpcRouter({
     )
     .query(async ({ ctx, input }) => {
       if (input.startTime || input.endTime) {
-        const rows = await queryOHLCVByRange(
-          ctx.db,
-          input.exchange,
-          input.symbol,
-          input.timeframe,
-          new Date(input.startTime ?? 0),
-          new Date(input.endTime ?? Date.now())
-        );
+        const startTime = new Date(input.startTime ?? 0);
+        const endTime = new Date(input.endTime ?? Date.now());
+        const rows =
+          input.timeframe === "1m"
+            ? await queryOHLCVByRange(
+                ctx.db,
+                input.exchange,
+                input.symbol,
+                "1m",
+                startTime,
+                endTime
+              )
+            : await deriveCandlesFromLowerTimeframe(ctx.db, {
+                exchange: input.exchange,
+                symbol: input.symbol,
+                sourceTimeframe: "1m",
+                targetTimeframe: input.timeframe,
+                startTime,
+                endTime,
+              });
+        return rows.slice(-input.limit).map(serializeCandleRow);
+      }
+
+      if (input.timeframe !== "1m") {
+        const latest = await ctx.db
+          .select({ time: ohlcv.time })
+          .from(ohlcv)
+          .where(
+            and(
+              eq(ohlcv.exchange, input.exchange),
+              eq(ohlcv.symbol, input.symbol),
+              eq(ohlcv.timeframe, "1m")
+            )
+          )
+          .orderBy(desc(ohlcv.time))
+          .limit(1);
+        const latestTime = latest[0]?.time;
+        if (!latestTime) return [];
+
+        const windowMs = timeframeToMs(input.timeframe) * (input.limit + 1);
+        const rows = await deriveCandlesFromLowerTimeframe(ctx.db, {
+          exchange: input.exchange,
+          symbol: input.symbol,
+          sourceTimeframe: "1m",
+          targetTimeframe: input.timeframe,
+          startTime: new Date(latestTime.getTime() - windowMs),
+          endTime: latestTime,
+        });
         return rows.slice(-input.limit).map(serializeCandleRow);
       }
 
@@ -82,7 +123,7 @@ export const marketRouter = createTrpcRouter({
           and(
             eq(ohlcv.exchange, input.exchange),
             eq(ohlcv.symbol, input.symbol),
-            eq(ohlcv.timeframe, input.timeframe)
+            eq(ohlcv.timeframe, "1m")
           )
         )
         .orderBy(desc(ohlcv.time))
@@ -233,7 +274,17 @@ export const marketRouter = createTrpcRouter({
   getStrategies: publicProcedure.query(async () => getStrategyCatalog()),
 });
 
-function serializeCandleRow(row: typeof ohlcv.$inferSelect) {
+type CandleLike = {
+  time: Date;
+  open: string;
+  high: string;
+  low: string;
+  close: string;
+  volume: string;
+  tradesCount?: number | null;
+};
+
+function serializeCandleRow(row: CandleLike) {
   return {
     time: row.time.getTime(),
     open: toNumber(row.open),

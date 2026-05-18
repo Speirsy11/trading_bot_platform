@@ -9,7 +9,7 @@ import { settings } from "../schema/settings";
 // pairs or many venues creates predictable BadSymbol/WebSocket failures.
 export const DEFAULT_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
 
-export const DEFAULT_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"];
+export const DEFAULT_TIMEFRAMES = ["1m"];
 
 export const DEFAULT_EXCHANGES = ["binance"];
 

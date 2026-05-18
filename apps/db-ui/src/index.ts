@@ -22,6 +22,16 @@ type CandleProgress = {
   minutes_covered: string | null;
 };
 
+const binanceSpotStartDates: Record<string, string> = {
+  "BTC/USDT": "2017-08-17T00:00:00.000Z",
+  "ETH/USDT": "2017-08-17T00:00:00.000Z",
+  "SOL/USDT": "2020-08-11T00:00:00.000Z",
+};
+
+const defaultExchangeStartDates: Record<string, string> = {
+  binance: "2017-08-17T00:00:00.000Z",
+};
+
 type LatestCandle = {
   exchange: string;
   symbol: string;
@@ -54,6 +64,16 @@ function toNumber(value: string | number | null | undefined) {
 
 function formatIso(value: Date | null | undefined) {
   return value ? value.toISOString() : null;
+}
+
+function oneMinuteCandlesBetween(start: Date | null | undefined, end: Date) {
+  if (!start) return 0;
+  return Math.max(0, Math.floor((end.getTime() - start.getTime()) / 60_000) + 1);
+}
+
+function historicalStart(exchange: string, symbol: string) {
+  const configured = exchange === "binance" ? binanceSpotStartDates[symbol] : undefined;
+  return new Date(configured ?? defaultExchangeStartDates[exchange] ?? "2017-01-01T00:00:00.000Z");
 }
 
 async function tableExists(table: string) {
@@ -126,13 +146,31 @@ app.get("/api/summary", async () => {
       latest: formatIso(totals[0]?.latest),
       latestAgeSeconds: ageSeconds,
     },
-    progress: progress.map((row) => ({
-      ...row,
-      candles: toNumber(row.candles),
-      minutesCovered: toNumber(row.minutes_covered),
-      earliest: formatIso(row.earliest),
-      latest: formatIso(row.latest),
-    })),
+    progress: progress.map((row) => {
+      const candles = toNumber(row.candles);
+      const latestAvailable = new Date(Date.now() - 60_000);
+      const targetStart =
+        row.timeframe === "1m" ? historicalStart(row.exchange, row.symbol) : row.earliest;
+      const expectedCandles =
+        row.timeframe === "1m" ? oneMinuteCandlesBetween(targetStart, latestAvailable) : candles;
+      const storedWindowExpected =
+        row.timeframe === "1m" ? oneMinuteCandlesBetween(row.earliest, latestAvailable) : candles;
+      return {
+        ...row,
+        candles,
+        expectedCandles,
+        storedWindowExpected,
+        missingHistoricalCandles: Math.max(0, expectedCandles - candles),
+        fillPercent: expectedCandles > 0 ? Math.min(100, (candles / expectedCandles) * 100) : 0,
+        storedWindowFillPercent:
+          storedWindowExpected > 0 ? Math.min(100, (candles / storedWindowExpected) * 100) : 0,
+        minutesCovered: toNumber(row.minutes_covered),
+        targetStart: formatIso(targetStart),
+        earliest: formatIso(row.earliest),
+        latest: formatIso(row.latest),
+        latestAvailable: latestAvailable.toISOString(),
+      };
+    }),
     latest: latest.map((row) => ({
       ...row,
       time: row.time.toISOString(),
@@ -181,7 +219,7 @@ const html = String.raw`<!doctype html>
         radial-gradient(circle at 80% 10%, rgba(52, 211, 153, 0.14), transparent 28rem),
         linear-gradient(135deg, #07111f 0%, #0f172a 46%, #111827 100%);
     }
-    main { width: min(1220px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 44px; }
+    main { width: min(1380px, calc(100vw - 32px)); margin: 0 auto; padding: 32px 0 44px; }
     header { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; margin-bottom: 24px; }
     h1 { margin: 0; font-size: clamp(30px, 5vw, 56px); letter-spacing: -0.06em; line-height: 0.95; }
     .subtitle { margin-top: 12px; color: var(--muted); max-width: 680px; line-height: 1.55; }
@@ -195,7 +233,7 @@ const html = String.raw`<!doctype html>
     .label { color: var(--muted); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
     .value { margin-top: 12px; font-size: 34px; font-weight: 760; letter-spacing: -0.04em; }
     .hint { margin-top: 7px; color: var(--muted); font-size: 13px; }
-    .layout { grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); align-items: start; }
+    .layout { grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); align-items: start; }.wide { margin-bottom: 16px; }.history-table { overflow:auto; }.nowrap { white-space: nowrap; }.metric { color: var(--text); font-weight: 760; }
     .panel { padding: 20px; overflow: hidden; }
     .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
     h2 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }
@@ -222,7 +260,7 @@ const html = String.raw`<!doctype html>
   <header>
     <div>
       <h1>Market data<br/>DB progress</h1>
-      <div class="subtitle">A lightweight view of OHLCV ingestion, canonical 1m history, recent candles and ingestion events. Auto-refreshes every 10 seconds.</div>
+      <div class="subtitle">A lightweight view of live OHLCV ingestion plus historical Binance 1m backfill. Live rows show the newest candles; historical progress compares stored 1m candles against each market’s full expected Binance 1m history.</div>
     </div>
     <div class="status-pill"><span class="dot"></span><span id="status">Connecting…</span></div>
   </header>
@@ -234,11 +272,17 @@ const html = String.raw`<!doctype html>
     <div class="card"><div class="label">Freshness</div><div class="value mono" id="freshness">—</div><div class="hint" id="latestTime">Latest candle</div></div>
   </section>
 
+  <section class="panel wide">
+    <div class="panel-head"><h2>Historical 1m data collection</h2><span class="small" id="generatedAt">—</span></div>
+    <div class="small" style="margin-bottom:12px">Separate from live rows. We collect and store canonical Binance candles at <span class="metric">1 minute</span> frequency only; higher timeframes should be derived from this base dataset. Progress is stored 1m candles divided by the full expected Binance 1m history for that market.</div>
+    <div class="history-table"><table><thead><tr><th>Market</th><th>Stored / full expected candles</th><th>Full-history progress</th><th>Historical target start</th><th>Earliest stored</th><th>Latest stored</th><th>Expected through</th></tr></thead><tbody id="progressRows"></tbody></table></div>
+  </section>
+
   <section class="grid layout">
     <div class="panel">
-      <div class="panel-head"><h2>Fill progress by market</h2><span class="small" id="generatedAt">—</span></div>
-      <div style="overflow:auto"><table><thead><tr><th>Market</th><th>TF</th><th>Candles</th><th>Earliest</th><th>Latest</th><th>Span</th></tr></thead><tbody id="progressRows"></tbody></table></div>
-      <div class="latest-table"><div class="panel-head"><h2>Latest rows</h2><span class="small">Newest OHLCV records</span></div><table><thead><tr><th>Time</th><th>Market</th><th>TF</th><th>Close</th><th>Volume</th><th>Source</th></tr></thead><tbody id="latestRows"></tbody></table></div>
+      <div class="panel-head"><h2>Recent live rows</h2><span class="small">Newest OHLCV records</span></div>
+      <div class="small" style="margin-bottom:12px">These are the latest per-minute candles being synced continuously.</div>
+      <div class="latest-table"><table><thead><tr><th>Time</th><th>Market</th><th>TF</th><th>Close</th><th>Volume</th><th>Source</th></tr></thead><tbody id="latestRows"></tbody></table></div>
     </div>
     <div class="panel">
       <div class="panel-head"><h2>Ingestion events</h2><span class="small">Recent</span></div>
@@ -262,6 +306,10 @@ const html = String.raw`<!doctype html>
     if (!value) return '—';
     return new Date(value).toLocaleString(undefined, { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   }
+  function fullDate(value) {
+    if (!value) return '—';
+    return new Date(value).toLocaleString(undefined, { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', timeZoneName: 'short' });
+  }
   function days(minutes) { return minutes ? (minutes / 1440).toFixed(1) + 'd' : '—'; }
   function esc(value) {
     return String(value ?? '').replace(/[&<>"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
@@ -280,20 +328,21 @@ const html = String.raw`<!doctype html>
       setText('latestTime', data.totals.latest ? shortDate(data.totals.latest) : 'Latest candle');
       setText('generatedAt', 'Updated ' + shortDate(data.generatedAt));
 
-      const maxCandles = Math.max(1, ...data.progress.map(r => r.candles));
-      document.getElementById('progressRows').innerHTML = data.progress.map(row =>
+      const historicalRows = data.progress.filter(row => row.timeframe === '1m');
+      document.getElementById('progressRows').innerHTML = historicalRows.map(row =>
         '<tr>' +
-          '<td><span class="tag">' + esc(row.exchange) + '</span> ' + esc(row.symbol) + '</td>' +
-          '<td class="mono">' + esc(row.timeframe) + '</td>' +
-          '<td class="mono">' + fmt.format(row.candles) + '<div class="bar"><div class="fill" style="width:' + Math.max(2, row.candles / maxCandles * 100) + '%"></div></div></td>' +
-          '<td class="mono">' + shortDate(row.earliest) + '</td>' +
-          '<td class="mono">' + shortDate(row.latest) + '</td>' +
-          '<td class="mono">' + days(row.minutesCovered) + '</td>' +
+          '<td><span class="tag">' + esc(row.exchange) + '</span> ' + esc(row.symbol) + '<div class="small mono">' + esc(row.timeframe) + '</div></td>' +
+          '<td class="mono"><span class="metric">' + fmt.format(row.candles) + '</span> / ' + fmt.format(row.expectedCandles) + '<div class="small">missing ' + fmt.format(row.missingHistoricalCandles) + ' historical 1m candles</div></td>' +
+          '<td class="mono"><span class="metric">' + row.fillPercent.toFixed(3) + '%</span><div class="bar"><div class="fill" style="width:' + Math.max(0.2, row.fillPercent) + '%"></div></div><div class="small">stored-window fill ' + row.storedWindowFillPercent.toFixed(2) + '%</div></td>' +
+          '<td class="mono nowrap">' + fullDate(row.targetStart) + '</td>' +
+          '<td class="mono nowrap">' + fullDate(row.earliest) + '</td>' +
+          '<td class="mono nowrap">' + fullDate(row.latest) + '</td>' +
+          '<td class="mono nowrap">' + fullDate(row.latestAvailable) + '</td>' +
         '</tr>').join('');
 
       document.getElementById('latestRows').innerHTML = data.latest.map(row =>
         '<tr>' +
-          '<td class="mono">' + shortDate(row.time) + '</td>' +
+          '<td class="mono nowrap">' + fullDate(row.time) + '</td>' +
           '<td>' + esc(row.symbol) + '</td>' +
           '<td class="mono">' + esc(row.timeframe) + '</td>' +
           '<td class="mono">' + fmt.format(row.close) + '</td>' +
@@ -303,7 +352,7 @@ const html = String.raw`<!doctype html>
 
       document.getElementById('events').innerHTML = data.events.length ? data.events.map(event =>
         '<div class="event">' +
-          '<div class="event-top"><span class="tag">' + esc(event.event_type || 'event') + '</span><span class="small mono">' + shortDate(event.created_at) + '</span></div>' +
+          '<div class="event-top"><span class="tag">' + esc(event.event_type || 'event') + '</span><span class="small mono">' + fullDate(event.created_at) + '</span></div>' +
           '<div class="small">' + esc([event.exchange, event.symbol, event.timeframe].filter(Boolean).join(' · ') || 'system') + '</div>' +
           '<div class="event-msg">' + esc(event.message || 'No message') + '</div>' +
         '</div>').join('') : '<div class="empty">No ingestion events yet.</div>';

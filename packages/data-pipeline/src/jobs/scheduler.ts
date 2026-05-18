@@ -140,6 +140,13 @@ export async function setupHistoricalBackfillJob(
   data: HistoricalBackfillJobData,
   everyMs = 30 * 60_000
 ) {
+  const repeatableJobs = await backfillQueue.getRepeatableJobs();
+  for (const job of repeatableJobs) {
+    if (job.name === JOB_NAMES.BACKFILL_HISTORY) {
+      await backfillQueue.removeRepeatableByKey(job.key);
+    }
+  }
+
   await backfillQueue.add(JOB_NAMES.BACKFILL_HISTORY, data, {
     ...DEFAULT_JOB_OPTIONS,
     repeat: { every: everyMs },

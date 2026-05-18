@@ -41,6 +41,13 @@ function syncJobId(exchange: string, symbol: string, timeframe: string) {
   return `tb-${exchange}-${symbol.replace(/[^a-z0-9]/gi, "-")}-${timeframe}`.toLowerCase();
 }
 
+function collectionTimeframes(_configuredTimeframes: string[]) {
+  // Signal Harvester is the external rate-limited collector. Spend that budget on
+  // the highest-resolution candles only; API/UI consumers can roll 1m candles up
+  // into 5m/15m/1h/4h/1d locally when they need wider views.
+  return ["1m"];
+}
+
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
   if (!response.ok) {
@@ -68,11 +75,12 @@ export function startHarvesterMarketDataSync(options: {
     if (running || stopped) return;
     running = true;
     try {
+      const timeframes = collectionTimeframes(options.config.timeframes);
       for (const exchange of options.config.exchanges) {
         const provider = toHarvesterProvider(exchange);
         for (const pair of options.config.pairs) {
           const symbol = toHarvesterSymbol(pair);
-          for (const timeframe of options.config.timeframes) {
+          for (const timeframe of timeframes) {
             const jobId = syncJobId(exchange, pair, timeframe);
             await requestJson(`${baseUrl}/api/financial-jobs`, {
               method: "POST",

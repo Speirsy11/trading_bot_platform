@@ -1,6 +1,6 @@
 # Crypto Trading Bot Platform
 
-A personal crypto trading bot platform with backtesting, live trading, and a monitoring dashboard.
+A focused crypto trading bot platform for creating strategies, backtesting them on collected candle data, and running them as paper or live crypto bots.
 
 ## Quick Start
 
@@ -24,6 +24,16 @@ To run workers directly on the host instead:
 ```bash
 pnpm --filter api dev:workers
 ```
+
+## Product Focus
+
+The app is centred on three workflows:
+
+1. **Strategies** — browse templates, edit parameters and risk presets, then launch research or bot runs.
+2. **Backtesting** — validate the exact strategy config against collected OHLCV candles before risking capital.
+3. **Live Runs** — run algorithms in paper mode first, then real crypto mode through configured exchange credentials.
+
+See [docs/TRADING_PLATFORM_FOCUS.md](docs/TRADING_PLATFORM_FOCUS.md) for the competitive baseline and product direction.
 
 ## Architecture
 

@@ -6,6 +6,7 @@ import {
   FlaskConical,
   LineChart,
   Database,
+  SlidersHorizontal,
   History,
   Settings,
   Activity,
@@ -19,9 +20,10 @@ import { useUiStore } from "@/stores/ui";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/bots", label: "Bots", icon: Bot },
+  { href: "/strategies", label: "Strategies", icon: SlidersHorizontal },
   { href: "/backtest", label: "Backtest", icon: FlaskConical },
-  { href: "/trading", label: "Trading", icon: LineChart },
+  { href: "/bots", label: "Live Runs", icon: Bot },
+  { href: "/trading", label: "Charts", icon: LineChart },
   { href: "/market-data", label: "Market Data", icon: Database },
   { href: "/history", label: "History", icon: History },
   { href: "/settings", label: "Settings", icon: Settings },

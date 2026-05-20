@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeft, ArrowRight, Check, ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import React, { useEffect, useRef, useState } from "react";
 import { useForm, type FieldPath, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
@@ -33,15 +33,15 @@ const botFormSchema = z.object({
 
 type BotFormData = z.infer<typeof botFormSchema>;
 
-type StrategyOption = { name: string; description?: string };
+type StrategyOption = { key: string; name: string; description?: string };
 type ExchangeOption = { exchange: string; name: string };
 
-const STEPS = ["Strategy", "Parameters", "Exchange & Pair", "Risk", "Mode", "Review"];
+const STEPS = ["Strategy", "Parameters", "Exchange & Pair", "Risk", "Run Mode", "Review"];
 
 const FALLBACK_STRATEGIES: StrategyOption[] = [
-  { name: "sma_crossover" },
-  { name: "rsi_mean_reversion" },
-  { name: "macd_trend" },
+  { key: "sma-crossover", name: "SMA Crossover" },
+  { key: "rsi-mean-reversion", name: "RSI Mean Reversion" },
+  { key: "bollinger-bounce", name: "Bollinger Bounce" },
 ];
 
 const FALLBACK_EXCHANGES: ExchangeOption[] = [
@@ -71,7 +71,7 @@ const TEMPLATES: Array<{ label: string; values: Partial<BotFormData> }> = [
   {
     label: "Conservative SMA Crossover",
     values: {
-      strategy: "SMA Crossover",
+      strategy: "sma-crossover",
       timeframe: "4h",
       riskConfig: {
         maxPositionSizePercent: 5,
@@ -87,7 +87,7 @@ const TEMPLATES: Array<{ label: string; values: Partial<BotFormData> }> = [
   {
     label: "Aggressive RSI Mean Reversion",
     values: {
-      strategy: "RSI Mean Reversion",
+      strategy: "rsi-mean-reversion",
       timeframe: "1h",
       riskConfig: {
         maxPositionSizePercent: 15,
@@ -103,7 +103,7 @@ const TEMPLATES: Array<{ label: string; values: Partial<BotFormData> }> = [
   {
     label: "Bollinger Bounce (default params)",
     values: {
-      strategy: "BollingerBounce",
+      strategy: "bollinger-bounce",
       timeframe: "1h",
       riskConfig: {
         maxPositionSizePercent: 10,
@@ -123,14 +123,15 @@ const draftKey = "bot-wizard-draft";
 export default function CreateBotPage() {
   const [step, setStep] = useState(0);
   const router = useRouter();
-  const strategiesQuery = trpc.market.getStrategies.useQuery();
+  const searchParams = useSearchParams();
+  const strategiesQuery = trpc.strategies.catalog.useQuery();
   const exchangesQuery = trpc.exchanges.list.useQuery();
 
   const form = useForm<BotFormData>({
     resolver: zodResolver(botFormSchema),
     defaultValues: {
       name: "",
-      strategy: "",
+      strategy: searchParams.get("strategy") ?? "sma-crossover",
       strategyParams: {},
       exchange: "binance",
       symbol: "BTC/USDT",
@@ -198,9 +199,10 @@ export default function CreateBotPage() {
 
   const strategyOptions = Array.from(
     new Map(
-      [...FALLBACK_STRATEGIES, ...((strategiesQuery.data ?? []) as StrategyOption[])].map(
-        (strategy) => [strategy.name, strategy]
-      )
+      [
+        ...FALLBACK_STRATEGIES,
+        ...((strategiesQuery.data?.strategies ?? []) as StrategyOption[]),
+      ].map((strategy) => [strategy.key, strategy])
     ).values()
   );
 
@@ -468,7 +470,7 @@ function StepStrategy({
         <SelectField id="bot-strategy" {...register("strategy")}>
           <option value="">Select a strategy...</option>
           {strategies.map((s) => (
-            <option key={s.name} value={s.name}>
+            <option key={s.key} value={s.key}>
               {s.name}
             </option>
           ))}
@@ -616,7 +618,7 @@ function StepMode({ form }: { form: UseFormReturn<BotFormData> }) {
     <div className="space-y-4">
       <h2 className="text-lg">Mode Selection</h2>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {(["paper", "backtest", "live"] as const).map((m) => (
+        {(["paper", "live"] as const).map((m) => (
           <button
             key={m}
             type="button"
@@ -635,8 +637,7 @@ function StepMode({ form }: { form: UseFormReturn<BotFormData> }) {
             </div>
             <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
               {m === "paper" && "Simulated trading with real-time data"}
-              {m === "backtest" && "Test against historical data"}
-              {m === "live" && "Real money trading"}
+              {m === "live" && "Real crypto execution through configured exchange credentials"}
             </div>
           </button>
         ))}
@@ -649,19 +650,17 @@ function StepMode({ form }: { form: UseFormReturn<BotFormData> }) {
           ⚠ Live mode uses real money. Ensure your risk settings are appropriate.
         </div>
       )}
-      {mode !== "backtest" && (
-        <FormField label="Initial Balance (optional)" htmlFor="bot-current-balance">
-          <InputField
-            id="bot-current-balance"
-            type="number"
-            step="0.01"
-            placeholder="10000"
-            {...form.register("currentBalance", {
-              setValueAs: (value) => (value === "" ? undefined : Number(value)),
-            })}
-          />
-        </FormField>
-      )}
+      <FormField label="Initial Balance (paper mode)" htmlFor="bot-current-balance">
+        <InputField
+          id="bot-current-balance"
+          type="number"
+          step="0.01"
+          placeholder="10000"
+          {...form.register("currentBalance", {
+            setValueAs: (value) => (value === "" ? undefined : Number(value)),
+          })}
+        />
+      </FormField>
     </div>
   );
 }

@@ -102,12 +102,11 @@ async function createTestApp(opts: TestAppOptions = {}) {
     queues: {
       botExecutionQueue: { name: "bot-execution" },
       backtestQueue: { name: "backtest" },
-      dataCollectionQueue: { name: "data-collection" },
-      dataBackfillQueue: { name: "data-backfill" },
       dataExportQueue: { name: "data-export" },
       close: async () => undefined,
     } as never,
     exchangeManager: { fetchOpenOrders, cancelOrder } as never,
+    marketData: { close: vi.fn().mockResolvedValue(undefined) } as never,
     keyVault: new KeyVault("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
     exportsDir: "/tmp/exports",
     enableBullBoard: false,

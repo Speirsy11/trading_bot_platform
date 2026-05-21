@@ -7,7 +7,18 @@ import { settings } from "../schema/settings";
 // Keep this exchange/pair set small and internally compatible: the current
 // settings schema applies every pair to every exchange, so mixing USD/USDT
 // pairs or many venues creates predictable BadSymbol/WebSocket failures.
-export const DEFAULT_PAIRS = ["BTC/USDT", "ETH/USDT", "SOL/USDT"];
+export const DEFAULT_PAIRS = [
+  "BTC/USDT",
+  "ETH/USDT",
+  "SOL/USDT",
+  "BNB/USDT",
+  "XRP/USDT",
+  "TRX/USDT",
+  "DOGE/USDT",
+  "ZEC/USDT",
+  "ADA/USDT",
+  "BCH/USDT",
+];
 
 export const DEFAULT_TIMEFRAMES = ["1m"];
 

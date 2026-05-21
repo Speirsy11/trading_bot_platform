@@ -89,8 +89,6 @@ describe("bots router", () => {
             queues: {
               botExecutionQueue: { add },
               backtestQueue: {},
-              dataCollectionQueue: {},
-              dataBackfillQueue: {},
               dataExportQueue: {},
               close: async () => undefined,
             } as never,

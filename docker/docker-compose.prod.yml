@@ -10,6 +10,7 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - SIGNAL_HARVESTER_DATABASE_URL=${SIGNAL_HARVESTER_DATABASE_URL:?SIGNAL_HARVESTER_DATABASE_URL is required}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - API_AUTH_TOKEN=${API_AUTH_TOKEN:?API_AUTH_TOKEN is required}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
@@ -34,11 +35,10 @@ services:
     environment:
       - NODE_ENV=production
       - DATABASE_URL=${DATABASE_URL:?DATABASE_URL is required}
+      - SIGNAL_HARVESTER_DATABASE_URL=${SIGNAL_HARVESTER_DATABASE_URL:?SIGNAL_HARVESTER_DATABASE_URL is required}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - API_AUTH_TOKEN=${API_AUTH_TOKEN:?API_AUTH_TOKEN is required}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
-      - SIGNAL_HARVESTER_URL=${SIGNAL_HARVESTER_URL:?SIGNAL_HARVESTER_URL is required}
-      - HARVESTER_SYNC_INTERVAL_MS=${HARVESTER_SYNC_INTERVAL_MS:-60000}
     depends_on:
       postgres:
         condition: service_healthy

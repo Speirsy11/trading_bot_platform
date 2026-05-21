@@ -99,7 +99,14 @@ export const strategiesRouter = createTrpcRouter({
   }),
 });
 
-function buildConfigWarnings(mode: string, riskConfig: { riskPerTradePercent: number; maxPositionSizePercent: number; maxDailyLossPercent: number }) {
+function buildConfigWarnings(
+  mode: string,
+  riskConfig: {
+    riskPerTradePercent: number;
+    maxPositionSizePercent: number;
+    maxDailyLossPercent: number;
+  }
+) {
   const warnings: string[] = [];
   if (mode === "live") {
     warnings.push("Live mode can place real exchange orders. Start in paper mode first.");
@@ -108,7 +115,9 @@ function buildConfigWarnings(mode: string, riskConfig: { riskPerTradePercent: nu
     warnings.push("Risk per trade is above 3%; this is aggressive for unattended bots.");
   }
   if (riskConfig.maxPositionSizePercent > 10) {
-    warnings.push("Max position size is above 10%; consider lowering it until the strategy is proven.");
+    warnings.push(
+      "Max position size is above 10%; consider lowering it until the strategy is proven."
+    );
   }
   if (riskConfig.maxDailyLossPercent > 5) {
     warnings.push("Daily loss limit is above 5%; tighter loss caps are safer for live automation.");

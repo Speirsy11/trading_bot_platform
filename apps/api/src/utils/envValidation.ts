@@ -25,7 +25,7 @@ export const ENV_VARS: EnvVar[] = [
   { name: "APP_MODE", required: false, defaultValue: "development" },
   { name: "SEED_TESTING_DATA", required: false, defaultValue: "0" },
   { name: "SIGNAL_HARVESTER_URL", required: false },
-  { name: "HARVESTER_SYNC_INTERVAL_MS", required: false, defaultValue: "60000" },
+  { name: "SIGNAL_HARVESTER_DATABASE_URL", required: false, redacted: true },
   { name: "TRADING_ENABLED", required: false, defaultValue: "false" },
   { name: "NODE_ENV", required: false, defaultValue: "development" },
   { name: "BULL_BOARD_USERNAME", required: false },

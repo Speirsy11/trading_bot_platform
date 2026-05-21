@@ -67,12 +67,12 @@ services:
       - ../.env
     environment:
       DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
+      SIGNAL_HARVESTER_DATABASE_URL: ${SIGNAL_HARVESTER_DATABASE_URL:-postgresql://signal:signal@host.docker.internal:5544/signal_harvester}
       REDIS_URL: redis://redis:6379/0
+      SIGNAL_HARVESTER_URL: ${SIGNAL_HARVESTER_URL:-http://host.docker.internal:3010}
       APP_MODE: ${APP_MODE:-development}
       SEED_TESTING_DATA: ${SEED_TESTING_DATA:-0}
       TRADING_ENABLED: ${TRADING_ENABLED:-false}
-      SIGNAL_HARVESTER_URL: ${SIGNAL_HARVESTER_URL:-http://host.docker.internal:3010}
-      HARVESTER_SYNC_INTERVAL_MS: ${HARVESTER_SYNC_INTERVAL_MS:-60000}
     depends_on:
       postgres:
         condition: service_healthy
@@ -107,12 +107,12 @@ services:
     working_dir: /app
     command: ["sh", "-lc", "corepack enable && pnpm --filter db-ui exec tsx src/index.ts"]
     environment:
-      DATABASE_URL: postgresql://trading_bot:changeme@postgres:5432/trading_bot_dev
+      DATABASE_URL: ${SIGNAL_HARVESTER_DATABASE_URL:-postgresql://signal:signal@host.docker.internal:5544/signal_harvester}
       PORT: 3003
     ports:
       - "3003:3003"
     depends_on:
-      postgres:
+      redis:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:

@@ -4,6 +4,7 @@ import type IORedis from "ioredis";
 
 import type { QueueSet } from "../queues/index";
 import type { ExchangeManager } from "../services/exchangeManager";
+import type { MarketDataReader } from "../services/harvesterMarketData";
 import type { KeyVault } from "../services/keyVault";
 
 export interface AppContextOptions {
@@ -11,6 +12,7 @@ export interface AppContextOptions {
   redis: IORedis;
   queues: QueueSet;
   exchangeManager: ExchangeManager;
+  marketData: MarketDataReader;
   keyVault: KeyVault;
   exportsDir: string;
 }

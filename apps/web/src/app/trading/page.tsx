@@ -38,7 +38,9 @@ export default function TradingPage() {
                 {formatCurrency(lastPrice)}
               </span>
               <span className="tabular-nums" style={{ color: pnlColor(change24h ?? 0) }}>
-                {change24h !== undefined ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(2)}%` : "—"}
+                {change24h !== undefined
+                  ? `${change24h >= 0 ? "+" : ""}${change24h.toFixed(2)}%`
+                  : "—"}
               </span>
               <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                 Vol {formatNumber(volume24h, 0)}
@@ -79,16 +81,33 @@ export default function TradingPage() {
               Algorithm launchpad
             </h3>
             <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-              Manual single-order entry has been removed from the primary workflow. Use strategies, backtests, and controlled bot runs instead.
+              Manual single-order entry has been removed from the primary workflow. Use strategies,
+              backtests, and controlled bot runs instead.
             </p>
             <div className="mt-4 grid gap-2">
-              <Link href={`/backtest?symbol=${encodeURIComponent(selectedSymbol)}&exchange=${selectedExchange}`} className="rounded-xl px-3 py-2 text-center text-sm" style={{ background: "var(--accent)", color: "#08080a" }}>
+              <Link
+                href={`/backtest?symbol=${encodeURIComponent(selectedSymbol)}&exchange=${selectedExchange}`}
+                className="rounded-xl px-3 py-2 text-center text-sm"
+                style={{ background: "var(--accent)", color: "#08080a" }}
+              >
                 Backtest on this market
               </Link>
-              <Link href="/bots/new" className="rounded-xl px-3 py-2 text-center text-sm" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+              <Link
+                href="/bots/new"
+                className="rounded-xl px-3 py-2 text-center text-sm"
+                style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+              >
                 Create paper/live bot
               </Link>
-              <Link href="/strategies" className="rounded-xl px-3 py-2 text-center text-sm" style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+              <Link
+                href="/strategies"
+                className="rounded-xl px-3 py-2 text-center text-sm"
+                style={{
+                  background: "var(--bg-input)",
+                  color: "var(--text-primary)",
+                  border: "1px solid var(--border)",
+                }}
+              >
                 Edit strategies
               </Link>
             </div>
@@ -105,8 +124,15 @@ export default function TradingPage() {
                 </p>
               ) : (
                 symbolBots.map((bot) => (
-                  <Link key={bot.id} href={`/bots/${bot.id}`} className="block rounded-xl p-3" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
-                    <div className="text-sm" style={{ color: "var(--text-primary)" }}>{bot.name}</div>
+                  <Link
+                    key={bot.id}
+                    href={`/bots/${bot.id}`}
+                    className="block rounded-xl p-3"
+                    style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+                  >
+                    <div className="text-sm" style={{ color: "var(--text-primary)" }}>
+                      {bot.name}
+                    </div>
                     <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
                       {bot.strategy} · {bot.mode} · {bot.status}
                     </div>
@@ -120,7 +146,10 @@ export default function TradingPage() {
             <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
               Live safety model
             </h3>
-            <ul className="mt-2 list-disc space-y-1 pl-4 text-xs" style={{ color: "var(--text-muted)" }}>
+            <ul
+              className="mt-2 list-disc space-y-1 pl-4 text-xs"
+              style={{ color: "var(--text-muted)" }}
+            >
               <li>Paper mode uses the same strategy/runtime path without real orders.</li>
               <li>Live mode requires exchange credentials and existing kill-switch/risk checks.</li>
               <li>Every run links back to a strategy config and backtest workflow.</li>

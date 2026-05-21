@@ -1,8 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
-import { createDb, settings } from "@tb/db";
-import { eq } from "drizzle-orm";
+import { createDb } from "@tb/db";
 import IORedis from "ioredis";
 
 import { createExchangeManager } from "../services/exchangeManager";
@@ -13,27 +12,9 @@ import { createBacktestWorker } from "./backtestRunner";
 import { createBotExecutorWorker } from "./botExecutor";
 import { createDataPipelineWorkers } from "./dataPipelineWorkers";
 import { createDataRetentionWorker, scheduleDataRetentionJob } from "./dataRetentionWorker";
-import { startHarvesterMarketDataSync } from "./harvesterMarketDataSync";
 import { startHealthServer } from "./healthServer";
 
 const processLogger = console;
-
-async function loadCollectionConfig(db: ReturnType<typeof createDb>["db"]) {
-  const rows = await db.select().from(settings).where(eq(settings.key, "collection.pairs"));
-  const pairsRow = rows[0];
-
-  const tfRows = await db.select().from(settings).where(eq(settings.key, "collection.timeframes"));
-  const tfRow = tfRows[0];
-
-  const exRows = await db.select().from(settings).where(eq(settings.key, "collection.exchanges"));
-  const exRow = exRows[0];
-
-  return {
-    pairs: pairsRow ? (JSON.parse(pairsRow.value) as string[]) : [],
-    timeframes: tfRow ? (JSON.parse(tfRow.value) as string[]) : [],
-    exchanges: exRow ? (JSON.parse(exRow.value) as string[]) : [],
-  };
-}
 
 async function startWorkers() {
   const databaseUrl = process.env["DATABASE_URL"]?.trim();
@@ -59,23 +40,11 @@ async function startWorkers() {
 
   const botWorker = createBotExecutorWorker({ db, redis, exchangeManager });
   const backtestWorker = createBacktestWorker({ db, redis });
-  const collectionConfig = await loadCollectionConfig(db);
   const pipelineWorkers = await createDataPipelineWorkers({
     db,
     redis,
     exportsDir,
-    collectionConfig,
   });
-  const harvesterMarketDataSync =
-    process.env["SIGNAL_HARVESTER_URL"] && process.env["APP_MODE"] !== "testing"
-      ? startHarvesterMarketDataSync({
-          db,
-          redis,
-          harvesterUrl: process.env["SIGNAL_HARVESTER_URL"],
-          config: collectionConfig,
-          intervalMs: Number(process.env["HARVESTER_SYNC_INTERVAL_MS"] ?? "60000"),
-        })
-      : null;
   const retentionWorker = createDataRetentionWorker({ db, redis });
 
   startHealthServer();
@@ -85,12 +54,7 @@ async function startWorkers() {
     await Promise.allSettled([
       botWorker.close(),
       backtestWorker.close(),
-      pipelineWorkers.collectionWorker.close(),
-      pipelineWorkers.backfillWorker.close(),
       pipelineWorkers.exportWorker.close(),
-      pipelineWorkers.collectionQueue.close(),
-      pipelineWorkers.backfillQueue.close(),
-      harvesterMarketDataSync?.close(),
       retentionWorker.close(),
       redis.quit(),
       client.end(),

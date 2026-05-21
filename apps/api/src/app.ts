@@ -45,6 +45,7 @@ function resolveApiVersion(): string {
 
 import type { QueueSet } from "./queues/index";
 import type { ExchangeManager } from "./services/exchangeManager";
+import type { MarketDataReader } from "./services/harvesterMarketData";
 import type { KeyVault } from "./services/keyVault";
 import { createTrpcContext } from "./trpc/context";
 import { appRouter } from "./trpc/router";
@@ -58,6 +59,7 @@ interface CreateAppOptions {
   subscriber: IORedis;
   queues: QueueSet;
   exchangeManager: ExchangeManager;
+  marketData: MarketDataReader;
   keyVault: KeyVault;
   exportsDir: string;
   enableBullBoard?: boolean;
@@ -135,6 +137,7 @@ export async function createApp(options: CreateAppOptions) {
   await setupSocketHub(app, options.subscriber);
   app.addHook("onClose", async () => {
     await io.close();
+    await options.marketData.close?.().catch(() => undefined);
     if (
       rateLimitRedis &&
       (rateLimitRedis.status === "ready" || rateLimitRedis.status === "connecting")
@@ -294,6 +297,7 @@ export async function createApp(options: CreateAppOptions) {
             redis: options.redis,
             queues: options.queues,
             exchangeManager: options.exchangeManager,
+            marketData: options.marketData,
             keyVault: options.keyVault,
             exportsDir: options.exportsDir,
           },
@@ -317,8 +321,6 @@ export async function createApp(options: CreateAppOptions) {
         queues: [
           new BullMQAdapter(options.queues.botExecutionQueue),
           new BullMQAdapter(options.queues.backtestQueue),
-          new BullMQAdapter(options.queues.dataCollectionQueue),
-          new BullMQAdapter(options.queues.dataBackfillQueue),
           new BullMQAdapter(options.queues.dataExportQueue),
         ],
         serverAdapter,

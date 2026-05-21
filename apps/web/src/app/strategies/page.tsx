@@ -28,23 +28,44 @@ export default function StrategiesPage() {
             Create, test, then deploy trading strategies
           </h1>
           <p className="mt-2 max-w-3xl text-sm" style={{ color: "var(--text-muted)" }}>
-            The platform is now centred on the strategy lifecycle: edit parameters, backtest on collected OHLCV candles, then run the same configuration in paper or live crypto mode.
+            The platform is now centred on the strategy lifecycle: edit parameters, backtest on
+            collected OHLCV candles, then run the same configuration in paper or live crypto mode.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Link href="/backtest" className="rounded-xl px-4 py-2 text-sm" style={{ background: "var(--accent)", color: "#08080a" }}>
+          <Link
+            href="/backtest"
+            className="rounded-xl px-4 py-2 text-sm"
+            style={{ background: "var(--accent)", color: "#08080a" }}
+          >
             Run backtest
           </Link>
-          <Link href="/bots/new" className="rounded-xl px-4 py-2 text-sm" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+          <Link
+            href="/bots/new"
+            className="rounded-xl px-4 py-2 text-sm"
+            style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+          >
             Create live/paper bot
           </Link>
         </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <Capability icon={SlidersHorizontal} title="Strategy editor" text="Parameter schemas, templates, risk presets, and draft-safe bot creation." />
-        <Capability icon={FlaskConical} title="Backtest first" text="Run configs against collected candles before trusting them with capital." />
-        <Capability icon={PlayCircle} title="Paper/live launch" text="Promote a proven setup to a paper runner, then live exchange execution when ready." />
+        <Capability
+          icon={SlidersHorizontal}
+          title="Strategy editor"
+          text="Parameter schemas, templates, risk presets, and draft-safe bot creation."
+        />
+        <Capability
+          icon={FlaskConical}
+          title="Backtest first"
+          text="Run configs against collected candles before trusting them with capital."
+        />
+        <Capability
+          icon={PlayCircle}
+          title="Paper/live launch"
+          text="Promote a proven setup to a paper runner, then live exchange execution when ready."
+        />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[340px,1fr]">
@@ -59,7 +80,8 @@ export default function StrategiesPage() {
                 onClick={() => setSelectedStrategy(strategy.key)}
                 className="w-full rounded-xl p-3 text-left transition-colors"
                 style={{
-                  background: selectedStrategy === strategy.key ? "var(--accent-dim)" : "var(--bg-input)",
+                  background:
+                    selectedStrategy === strategy.key ? "var(--accent-dim)" : "var(--bg-input)",
                   border: `1px solid ${selectedStrategy === strategy.key ? "var(--accent)" : "var(--border)"}`,
                 }}
               >
@@ -71,7 +93,11 @@ export default function StrategiesPage() {
                 </div>
               </button>
             ))}
-            {isLoading && <div className="text-sm" style={{ color: "var(--text-muted)" }}>Loading strategies…</div>}
+            {isLoading && (
+              <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Loading strategies…
+              </div>
+            )}
           </div>
         </div>
 
@@ -83,7 +109,8 @@ export default function StrategiesPage() {
                   {selected?.name ?? "Select a strategy"}
                 </h2>
                 <p className="mt-2 text-sm" style={{ color: "var(--text-muted)" }}>
-                  {selected?.description ?? "Choose a strategy from the catalog to inspect editable parameters."}
+                  {selected?.description ??
+                    "Choose a strategy from the catalog to inspect editable parameters."}
                 </p>
               </div>
               <ShieldCheck size={28} style={{ color: "var(--accent)" }} />
@@ -91,22 +118,39 @@ export default function StrategiesPage() {
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {(selected?.params ?? []).map((param) => (
-                <div key={param.name} className="rounded-xl p-3" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
+                <div
+                  key={param.name}
+                  className="rounded-xl p-3"
+                  style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+                >
                   <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
                     {param.name}
                   </div>
                   <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                    {String(param.type).replace("Zod", "")} · default {param.defaultValue == null ? "—" : String(param.defaultValue)}
+                    {String(param.type).replace("Zod", "")} · default{" "}
+                    {param.defaultValue == null ? "—" : String(param.defaultValue)}
                   </div>
                 </div>
               ))}
             </div>
 
             <div className="mt-5 flex flex-wrap gap-2">
-              <Link href={`/backtest?strategy=${selectedStrategy}&symbol=${encodeURIComponent(DEFAULT_SYMBOL)}&exchange=${DEFAULT_EXCHANGE}`} className="rounded-xl px-4 py-2 text-sm" style={{ background: "var(--accent)", color: "#08080a" }}>
+              <Link
+                href={`/backtest?strategy=${selectedStrategy}&symbol=${encodeURIComponent(DEFAULT_SYMBOL)}&exchange=${DEFAULT_EXCHANGE}`}
+                className="rounded-xl px-4 py-2 text-sm"
+                style={{ background: "var(--accent)", color: "#08080a" }}
+              >
                 Backtest this strategy
               </Link>
-              <Link href={`/bots/new?strategy=${selectedStrategy}`} className="rounded-xl px-4 py-2 text-sm" style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}>
+              <Link
+                href={`/bots/new?strategy=${selectedStrategy}`}
+                className="rounded-xl px-4 py-2 text-sm"
+                style={{
+                  background: "var(--bg-input)",
+                  color: "var(--text-primary)",
+                  border: "1px solid var(--border)",
+                }}
+              >
                 Create bot from strategy
               </Link>
             </div>
@@ -118,11 +162,20 @@ export default function StrategiesPage() {
             </h2>
             <div className="grid gap-3 md:grid-cols-3">
               {(data?.presets ?? []).map((preset) => (
-                <div key={preset.id} className="rounded-xl p-4" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
-                  <div className="flex items-center gap-2 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                <div
+                  key={preset.id}
+                  className="rounded-xl p-4"
+                  style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+                >
+                  <div
+                    className="flex items-center gap-2 text-sm font-medium"
+                    style={{ color: "var(--text-primary)" }}
+                  >
                     <Bot size={16} /> {preset.name}
                   </div>
-                  <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>{preset.description}</p>
+                  <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                    {preset.description}
+                  </p>
                   <div className="mt-3 text-xs" style={{ color: "var(--accent)" }}>
                     {preset.recommendedTimeframes.join(" · ")}
                   </div>
@@ -136,12 +189,24 @@ export default function StrategiesPage() {
   );
 }
 
-function Capability({ icon: Icon, title, text }: { icon: typeof SlidersHorizontal; title: string; text: string }) {
+function Capability({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: typeof SlidersHorizontal;
+  title: string;
+  text: string;
+}) {
   return (
     <div className="glass-panel p-4">
       <Icon size={22} style={{ color: "var(--accent)" }} />
-      <h2 className="mt-3 text-sm font-medium" style={{ color: "var(--text-primary)" }}>{title}</h2>
-      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{text}</p>
+      <h2 className="mt-3 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+        {title}
+      </h2>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+        {text}
+      </p>
     </div>
   );
 }

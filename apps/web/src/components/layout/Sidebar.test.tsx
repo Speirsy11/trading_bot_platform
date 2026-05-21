@@ -28,12 +28,14 @@ describe("Sidebar", () => {
   it("renders all nav items", () => {
     render(<Sidebar />);
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
-    expect(screen.getByText("Bots")).toBeInTheDocument();
+    expect(screen.getByText("Strategies")).toBeInTheDocument();
     expect(screen.getByText("Backtest")).toBeInTheDocument();
-    expect(screen.getByText("Trading")).toBeInTheDocument();
+    expect(screen.getByText("Live Runs")).toBeInTheDocument();
+    expect(screen.getByText("Charts")).toBeInTheDocument();
     expect(screen.getByText("Market Data")).toBeInTheDocument();
     expect(screen.getByText("History")).toBeInTheDocument();
     expect(screen.getByText("Settings")).toBeInTheDocument();
+    expect(screen.getByText("Status")).toBeInTheDocument();
   });
 
   it("renders Obsidian branding when open", () => {

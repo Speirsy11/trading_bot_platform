@@ -4,7 +4,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { BarChart2, Bot, Database, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useMemo, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import {
+  useEffect,
+  useMemo,
+  type InputHTMLAttributes,
+  type ReactNode,
+  type SelectHTMLAttributes,
+} from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -97,7 +103,9 @@ export default function BacktestPage() {
   useEffect(() => {
     if (!selectedStrategy) return;
     const defaults = Object.fromEntries(
-      selectedStrategy.params.map((param) => [param.name, param.defaultValue]).filter(([, value]) => value !== undefined)
+      selectedStrategy.params
+        .map((param) => [param.name, param.defaultValue])
+        .filter(([, value]) => value !== undefined)
     );
     form.setValue("strategyParams", defaults);
     if (!form.getValues("name")) form.setValue("name", `${selectedStrategy.name} research run`);
@@ -126,26 +134,59 @@ export default function BacktestPage() {
             Prove a strategy before it becomes a bot
           </h1>
           <p className="mt-2 max-w-3xl text-sm" style={{ color: "var(--text-muted)" }}>
-            Run the same strategy configuration the live runner uses against collected market candles, with explicit fees, slippage and risk settings.
+            Run the same strategy configuration the live runner uses against collected market
+            candles, with explicit fees, slippage and risk settings.
           </p>
         </div>
-        <Link href="/strategies" className="rounded-xl px-4 py-2 text-sm" style={{ background: "var(--bg-input)", border: "1px solid var(--border)", color: "var(--text-primary)" }}>
+        <Link
+          href="/strategies"
+          className="rounded-xl px-4 py-2 text-sm"
+          style={{
+            background: "var(--bg-input)",
+            border: "1px solid var(--border)",
+            color: "var(--text-primary)",
+          }}
+        >
           Strategy workbench
         </Link>
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        <InfoCard icon={Database} title="Collected OHLCV data" text={coverage.data?.earliest ? `${new Date(coverage.data.earliest).toLocaleDateString()} → ${new Date(coverage.data.latest ?? Date.now()).toLocaleDateString()}` : "Coverage loads from the market data service."} />
-        <InfoCard icon={ShieldCheck} title="Realistic execution" text="Fees, slippage, position sizing, drawdown and daily-loss constraints are part of the run config." />
-        <InfoCard icon={Bot} title="Promote to paper/live" text="Keep the same strategy key and parameters when moving from research to bot execution." />
+        <InfoCard
+          icon={Database}
+          title="Collected OHLCV data"
+          text={
+            coverage.data?.earliest
+              ? `${new Date(coverage.data.earliest).toLocaleDateString()} → ${new Date(coverage.data.latest ?? Date.now()).toLocaleDateString()}`
+              : "Coverage loads from the market data service."
+          }
+        />
+        <InfoCard
+          icon={ShieldCheck}
+          title="Realistic execution"
+          text="Fees, slippage, position sizing, drawdown and daily-loss constraints are part of the run config."
+        />
+        <InfoCard
+          icon={Bot}
+          title="Promote to paper/live"
+          text="Keep the same strategy key and parameters when moving from research to bot execution."
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1.2fr),minmax(360px,0.8fr)]">
-        <form onSubmit={(event) => void form.handleSubmit(onSubmit)(event)} className="glass-panel space-y-5 p-5">
+        <form
+          onSubmit={(event) => void form.handleSubmit(onSubmit)(event)}
+          className="glass-panel space-y-5 p-5"
+        >
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg" style={{ color: "var(--text-primary)" }}>New backtest</h2>
+            <h2 className="text-lg" style={{ color: "var(--text-primary)" }}>
+              New backtest
+            </h2>
             {coverage.data && (
-              <span className="rounded-full px-3 py-1 text-xs" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>
+              <span
+                className="rounded-full px-3 py-1 text-xs"
+                style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+              >
                 {coverage.data.completeness.toFixed(1)}% coverage
               </span>
             )}
@@ -158,17 +199,24 @@ export default function BacktestPage() {
             <Field label="Strategy">
               <Select {...form.register("strategy")}>
                 {(strategies.data?.strategies ?? []).map((strategy) => (
-                  <option key={strategy.key} value={strategy.key}>{strategy.name}</option>
+                  <option key={strategy.key} value={strategy.key}>
+                    {strategy.name}
+                  </option>
                 ))}
               </Select>
             </Field>
           </div>
 
-          <div className="rounded-xl p-4" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
+          <div
+            className="rounded-xl p-4"
+            style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+          >
             <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
               {selectedStrategy?.name ?? "Strategy parameters"}
             </div>
-            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{selectedStrategy?.description ?? "Select a catalog strategy to edit its parameters."}</p>
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              {selectedStrategy?.description ?? "Select a catalog strategy to edit its parameters."}
+            </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {(selectedStrategy?.params ?? []).map((param) => (
                 <Field key={param.name} label={param.name}>
@@ -178,7 +226,10 @@ export default function BacktestPage() {
                     defaultValue={String(param.defaultValue ?? "")}
                     onChange={(event) => {
                       const current = form.getValues("strategyParams");
-                      form.setValue("strategyParams", { ...current, [param.name]: Number(event.target.value) });
+                      form.setValue("strategyParams", {
+                        ...current,
+                        [param.name]: Number(event.target.value),
+                      });
                     }}
                   />
                 </Field>
@@ -187,50 +238,154 @@ export default function BacktestPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <Field label="Exchange"><Select {...form.register("exchange")}><option value="binance">Binance</option><option value="kraken">Kraken</option><option value="kucoin">KuCoin</option></Select></Field>
-            <Field label="Symbol"><Input {...form.register("symbol")} placeholder="BTC/USDT" /></Field>
-            <Field label="Timeframe"><Select {...form.register("timeframe")}>{["1m", "5m", "15m", "1h", "4h", "1d"].map((tf) => <option key={tf} value={tf}>{tf}</option>)}</Select></Field>
+            <Field label="Exchange">
+              <Select {...form.register("exchange")}>
+                <option value="binance">Binance</option>
+                <option value="kraken">Kraken</option>
+                <option value="kucoin">KuCoin</option>
+              </Select>
+            </Field>
+            <Field label="Symbol">
+              <Input {...form.register("symbol")} placeholder="BTC/USDT" />
+            </Field>
+            <Field label="Timeframe">
+              <Select {...form.register("timeframe")}>
+                {["1m", "5m", "15m", "1h", "4h", "1d"].map((tf) => (
+                  <option key={tf} value={tf}>
+                    {tf}
+                  </option>
+                ))}
+              </Select>
+            </Field>
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
-            <Field label="Start"><Input type="date" value={toDateInput(form.watch("startTime"))} onChange={(event) => form.setValue("startTime", new Date(`${event.target.value}T00:00:00Z`).getTime(), { shouldValidate: true })} /></Field>
-            <Field label="End"><Input type="date" value={toDateInput(form.watch("endTime"))} onChange={(event) => form.setValue("endTime", new Date(`${event.target.value}T23:59:59Z`).getTime(), { shouldValidate: true })} /></Field>
-            <Field label="Initial balance"><Input type="number" {...form.register("initialBalance", { valueAsNumber: true })} /></Field>
-            <Field label="Risk per trade %"><Input type="number" step="0.1" {...form.register("riskConfig.riskPerTradePercent", { valueAsNumber: true })} /></Field>
-            <Field label="Max position %"><Input type="number" step="1" {...form.register("riskConfig.maxPositionSizePercent", { valueAsNumber: true })} /></Field>
-            <Field label="Max daily loss %"><Input type="number" step="1" {...form.register("riskConfig.maxDailyLossPercent", { valueAsNumber: true })} /></Field>
-            <Field label="Maker fee"><Input type="number" step="0.0001" {...form.register("fees.maker", { valueAsNumber: true })} /></Field>
-            <Field label="Taker fee"><Input type="number" step="0.0001" {...form.register("fees.taker", { valueAsNumber: true })} /></Field>
+            <Field label="Start">
+              <Input
+                type="date"
+                value={toDateInput(form.watch("startTime"))}
+                onChange={(event) =>
+                  form.setValue(
+                    "startTime",
+                    new Date(`${event.target.value}T00:00:00Z`).getTime(),
+                    { shouldValidate: true }
+                  )
+                }
+              />
+            </Field>
+            <Field label="End">
+              <Input
+                type="date"
+                value={toDateInput(form.watch("endTime"))}
+                onChange={(event) =>
+                  form.setValue("endTime", new Date(`${event.target.value}T23:59:59Z`).getTime(), {
+                    shouldValidate: true,
+                  })
+                }
+              />
+            </Field>
+            <Field label="Initial balance">
+              <Input type="number" {...form.register("initialBalance", { valueAsNumber: true })} />
+            </Field>
+            <Field label="Risk per trade %">
+              <Input
+                type="number"
+                step="0.1"
+                {...form.register("riskConfig.riskPerTradePercent", { valueAsNumber: true })}
+              />
+            </Field>
+            <Field label="Max position %">
+              <Input
+                type="number"
+                step="1"
+                {...form.register("riskConfig.maxPositionSizePercent", { valueAsNumber: true })}
+              />
+            </Field>
+            <Field label="Max daily loss %">
+              <Input
+                type="number"
+                step="1"
+                {...form.register("riskConfig.maxDailyLossPercent", { valueAsNumber: true })}
+              />
+            </Field>
+            <Field label="Maker fee">
+              <Input
+                type="number"
+                step="0.0001"
+                {...form.register("fees.maker", { valueAsNumber: true })}
+              />
+            </Field>
+            <Field label="Taker fee">
+              <Input
+                type="number"
+                step="0.0001"
+                {...form.register("fees.taker", { valueAsNumber: true })}
+              />
+            </Field>
           </div>
 
-          <button type="submit" disabled={runBacktest.isPending || validateConfig.isPending} className="w-full rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-60" style={{ background: "var(--accent)", color: "var(--primary-foreground)" }}>
+          <button
+            type="submit"
+            disabled={runBacktest.isPending || validateConfig.isPending}
+            className="w-full rounded-xl py-2.5 text-sm font-medium transition-colors disabled:opacity-60"
+            style={{ background: "var(--accent)", color: "var(--primary-foreground)" }}
+          >
             {runBacktest.isPending || validateConfig.isPending ? "Queueing…" : "Run backtest"}
           </button>
         </form>
 
         <div className="glass-panel p-5">
-          <h2 className="mb-4 text-lg" style={{ color: "var(--text-primary)" }}>Backtest history</h2>
+          <h2 className="mb-4 text-lg" style={{ color: "var(--text-primary)" }}>
+            Backtest history
+          </h2>
           {isBacktestsError ? (
             <div className="flex flex-col items-center gap-3 py-12">
-              <p className="text-sm" style={{ color: "var(--loss)" }}>Failed to load data</p>
-              <button onClick={() => void refetchBacktests()} className="rounded-lg px-3 py-1.5 text-xs" style={{ background: "var(--accent-dim)", color: "var(--accent)" }}>Retry</button>
+              <p className="text-sm" style={{ color: "var(--loss)" }}>
+                Failed to load data
+              </p>
+              <button
+                onClick={() => void refetchBacktests()}
+                className="rounded-lg px-3 py-1.5 text-xs"
+                style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+              >
+                Retry
+              </button>
             </div>
           ) : !backtests || backtests.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <BarChart2 size={48} style={{ color: "var(--text-muted)", opacity: 0.4 }} className="mb-4" />
-              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>No backtests yet</p>
-              <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.7 }}>Run your first backtest using the form.</p>
+              <BarChart2
+                size={48}
+                style={{ color: "var(--text-muted)", opacity: 0.4 }}
+                className="mb-4"
+              />
+              <p className="text-sm font-medium" style={{ color: "var(--text-muted)" }}>
+                No backtests yet
+              </p>
+              <p className="mt-1 text-xs" style={{ color: "var(--text-muted)", opacity: 0.7 }}>
+                Run your first backtest using the form.
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
               {backtests.map((bt) => (
-                <Link key={bt.id} href={`/backtest/${bt.id}`} className="block rounded-lg p-3 transition-colors" style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}>
+                <Link
+                  key={bt.id}
+                  href={`/backtest/${bt.id}`}
+                  className="block rounded-lg p-3 transition-colors"
+                  style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+                >
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm" style={{ color: "var(--text-primary)" }}>{bt.name}</div>
-                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>{bt.strategy} · {bt.symbol}</div>
+                      <div className="text-sm" style={{ color: "var(--text-primary)" }}>
+                        {bt.name}
+                      </div>
+                      <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                        {bt.strategy} · {bt.symbol}
+                      </div>
                     </div>
-                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>{bt.status}</div>
+                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                      {bt.status}
+                    </div>
                   </div>
                 </Link>
               ))}
@@ -242,20 +397,67 @@ export default function BacktestPage() {
   );
 }
 
-function InfoCard({ icon: Icon, title, text }: { icon: typeof Database; title: string; text: string }) {
-  return <div className="glass-panel p-4"><Icon size={22} style={{ color: "var(--accent)" }} /><h2 className="mt-3 text-sm font-medium" style={{ color: "var(--text-primary)" }}>{title}</h2><p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>{text}</p></div>;
+function InfoCard({
+  icon: Icon,
+  title,
+  text,
+}: {
+  icon: typeof Database;
+  title: string;
+  text: string;
+}) {
+  return (
+    <div className="glass-panel p-4">
+      <Icon size={22} style={{ color: "var(--accent)" }} />
+      <h2 className="mt-3 text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+        {title}
+      </h2>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+        {text}
+      </p>
+    </div>
+  );
 }
 
 function Field({ label, children }: { label: string; children: ReactNode }) {
-  return <label className="space-y-1.5"><span className="block text-xs" style={{ color: "var(--text-muted)" }}>{label}</span>{children}</label>;
+  return (
+    <label className="space-y-1.5">
+      <span className="block text-xs" style={{ color: "var(--text-muted)" }}>
+        {label}
+      </span>
+      {children}
+    </label>
+  );
 }
 
 function Input(props: InputHTMLAttributes<HTMLInputElement>) {
-  return <input {...props} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)", ...props.style }} />;
+  return (
+    <input
+      {...props}
+      className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+      style={{
+        background: "var(--bg-input)",
+        color: "var(--text-primary)",
+        border: "1px solid var(--border)",
+        ...props.style,
+      }}
+    />
+  );
 }
 
 function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className="w-full rounded-lg px-3 py-2 text-sm outline-none" style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)", ...props.style }} />;
+  return (
+    <select
+      {...props}
+      className="w-full rounded-lg px-3 py-2 text-sm outline-none"
+      style={{
+        background: "var(--bg-input)",
+        color: "var(--text-primary)",
+        border: "1px solid var(--border)",
+        ...props.style,
+      }}
+    />
+  );
 }
 
 function toDateInput(timestamp: number) {

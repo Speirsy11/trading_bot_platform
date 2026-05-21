@@ -77,24 +77,13 @@ export const dataCollectionRouter = createTrpcRouter({
         endTime: z.string().datetime(),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      await ctx.queues.dataBackfillQueue.add(
-        "backfill",
-        {
-          exchange: input.exchange,
-          symbol: input.symbol,
-          timeframe: input.timeframe,
-          startTime: input.startTime,
-          endTime: input.endTime,
-        },
-        {
-          jobId: `backfill-${input.exchange}-${input.symbol.replace("/", "-")}-${input.timeframe}-${Date.now()}`,
-          attempts: 5,
-          backoff: { type: "exponential", delay: 2000 },
-        }
-      );
-
-      return { queued: true };
+    .mutation(async () => {
+      return {
+        queued: false,
+        disabled: true,
+        message:
+          "Historical market-data backfill is owned by Signal Harvester. Trading bot platform is read-only for market data.",
+      };
     }),
 
   /** Trigger gap detection for a specific pair */
@@ -106,22 +95,13 @@ export const dataCollectionRouter = createTrpcRouter({
         timeframe: z.string().min(1),
       })
     )
-    .mutation(async ({ ctx, input }) => {
-      await ctx.queues.dataCollectionQueue.add(
-        "detect-gaps",
-        {
-          exchange: input.exchange,
-          symbol: input.symbol,
-          timeframe: input.timeframe,
-        },
-        {
-          jobId: `detect-gaps-manual-${input.exchange}-${input.symbol.replace("/", "-")}-${input.timeframe}-${Date.now()}`,
-          attempts: 3,
-          backoff: { type: "exponential", delay: 2000 },
-        }
-      );
-
-      return { queued: true };
+    .mutation(async () => {
+      return {
+        queued: false,
+        disabled: true,
+        message:
+          "Gap detection/repair is owned by Signal Harvester. Trading bot platform is read-only for market data.",
+      };
     }),
 
   /** Get data quality metrics per exchange/symbol/timeframe */
@@ -201,12 +181,8 @@ export const dataCollectionRouter = createTrpcRouter({
 
   /** Get queue job counts for monitoring */
   queueStats: publicProcedure.query(async ({ ctx }) => {
-    const [collection, backfill, exportQ] = await Promise.all([
-      ctx.queues.dataCollectionQueue.getJobCounts(),
-      ctx.queues.dataBackfillQueue.getJobCounts(),
-      ctx.queues.dataExportQueue.getJobCounts(),
-    ]);
+    const exportQ = await ctx.queues.dataExportQueue.getJobCounts();
 
-    return { collection, backfill, export: exportQ };
+    return { export: exportQ };
   }),
 });

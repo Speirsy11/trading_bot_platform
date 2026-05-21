@@ -1,13 +1,6 @@
-import {
-  queryOHLCVByRange,
-  dataCollectionStatus,
-  deriveCandlesFromLowerTimeframe,
-  ohlcv,
-  orderBookSnapshots,
-  DEFAULT_PAIRS,
-} from "@tb/db";
+import { orderBookSnapshots, DEFAULT_PAIRS } from "@tb/db";
 import { timeframeToMs } from "@tb/trading-core";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { getStrategyCatalog } from "../../services/strategyCatalog";
@@ -25,14 +18,7 @@ export const marketRouter = createTrpcRouter({
         }
         throw new Error("Testing mode uses local ticker fallback");
       } catch {
-        const latest = await ctx.db
-          .select()
-          .from(ohlcv)
-          .where(and(eq(ohlcv.exchange, input.exchange), eq(ohlcv.symbol, input.symbol)))
-          .orderBy(desc(ohlcv.time))
-          .limit(1);
-
-        const candle = latest[0];
+        const candle = await ctx.marketData.getLatestCandle(input.exchange, input.symbol);
         if (!candle) {
           throw mapExchangeError(
             new Error(`No market data available for ${input.exchange} ${input.symbol}`)
@@ -64,72 +50,15 @@ export const marketRouter = createTrpcRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      if (input.startTime || input.endTime) {
-        const startTime = new Date(input.startTime ?? 0);
-        const endTime = new Date(input.endTime ?? Date.now());
-        const rows =
-          input.timeframe === "1m"
-            ? await queryOHLCVByRange(
-                ctx.db,
-                input.exchange,
-                input.symbol,
-                "1m",
-                startTime,
-                endTime
-              )
-            : await deriveCandlesFromLowerTimeframe(ctx.db, {
-                exchange: input.exchange,
-                symbol: input.symbol,
-                sourceTimeframe: "1m",
-                targetTimeframe: input.timeframe,
-                startTime,
-                endTime,
-              });
-        return rows.slice(-input.limit).map(serializeCandleRow);
-      }
-
-      if (input.timeframe !== "1m") {
-        const latest = await ctx.db
-          .select({ time: ohlcv.time })
-          .from(ohlcv)
-          .where(
-            and(
-              eq(ohlcv.exchange, input.exchange),
-              eq(ohlcv.symbol, input.symbol),
-              eq(ohlcv.timeframe, "1m")
-            )
-          )
-          .orderBy(desc(ohlcv.time))
-          .limit(1);
-        const latestTime = latest[0]?.time;
-        if (!latestTime) return [];
-
-        const windowMs = timeframeToMs(input.timeframe) * (input.limit + 1);
-        const rows = await deriveCandlesFromLowerTimeframe(ctx.db, {
-          exchange: input.exchange,
-          symbol: input.symbol,
-          sourceTimeframe: "1m",
-          targetTimeframe: input.timeframe,
-          startTime: new Date(latestTime.getTime() - windowMs),
-          endTime: latestTime,
-        });
-        return rows.slice(-input.limit).map(serializeCandleRow);
-      }
-
-      const rows = await ctx.db
-        .select()
-        .from(ohlcv)
-        .where(
-          and(
-            eq(ohlcv.exchange, input.exchange),
-            eq(ohlcv.symbol, input.symbol),
-            eq(ohlcv.timeframe, "1m")
-          )
-        )
-        .orderBy(desc(ohlcv.time))
-        .limit(input.limit);
-
-      return rows.reverse().map(serializeCandleRow);
+      const rows = await ctx.marketData.getCandles({
+        exchange: input.exchange,
+        symbol: input.symbol,
+        timeframe: input.timeframe,
+        startTime: input.startTime ? new Date(input.startTime) : undefined,
+        endTime: input.endTime ? new Date(input.endTime) : undefined,
+        limit: input.limit,
+      });
+      return rows.map(serializeCandleRow);
     }),
 
   getOrderBook: publicProcedure
@@ -174,20 +103,7 @@ export const marketRouter = createTrpcRouter({
           };
         }
 
-        const latest = await ctx.db
-          .select()
-          .from(ohlcv)
-          .where(
-            and(
-              eq(ohlcv.exchange, input.exchange),
-              eq(ohlcv.symbol, input.symbol),
-              eq(ohlcv.timeframe, "1m")
-            )
-          )
-          .orderBy(desc(ohlcv.time))
-          .limit(1);
-
-        const candle = latest[0];
+        const candle = await ctx.marketData.getLatestCandle(input.exchange, input.symbol);
         if (!candle) throw mapExchangeError(error);
 
         const mid = toNumber(candle.close);
@@ -217,14 +133,7 @@ export const marketRouter = createTrpcRouter({
         }
         throw new Error("Testing mode uses local symbols fallback");
       } catch {
-        const rows = await ctx.db
-          .select({ symbol: ohlcv.symbol })
-          .from(ohlcv)
-          .where(eq(ohlcv.exchange, input.exchange))
-          .groupBy(ohlcv.symbol)
-          .orderBy(asc(ohlcv.symbol));
-
-        const symbols = rows.map((row) => row.symbol);
+        const symbols = await ctx.marketData.getSymbols(input.exchange);
         return input.collectedOnly ? symbols.filter((s) => DEFAULT_PAIRS.includes(s)) : symbols;
       }
     }),
@@ -232,20 +141,8 @@ export const marketRouter = createTrpcRouter({
   getDataCoverage: publicProcedure
     .input(z.object({ exchange: z.string(), symbol: z.string(), timeframe: z.string() }))
     .query(async ({ ctx, input }) => {
-      const status = await ctx.db
-        .select()
-        .from(dataCollectionStatus)
-        .where(
-          and(
-            eq(dataCollectionStatus.exchange, input.exchange),
-            eq(dataCollectionStatus.symbol, input.symbol),
-            eq(dataCollectionStatus.timeframe, input.timeframe)
-          )
-        )
-        .limit(1);
-
-      const row = status[0];
-      if (!row || !row.earliest || !row.latest) {
+      const row = await ctx.marketData.getCoverage(input.exchange, input.symbol, input.timeframe);
+      if (!row.earliest || !row.latest) {
         return {
           earliest: null,
           latest: null,

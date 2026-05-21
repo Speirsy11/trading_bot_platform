@@ -1,64 +1,24 @@
-import {
-  createBackfillWorker,
-  createCollectionWorker,
-  createExportWorker,
-  QUEUE_NAMES,
-  setupHistoricalBackfillJob,
-  setupRepeatableJobs,
-  type BackfillJobData,
-  type HistoricalBackfillJobData,
-} from "@tb/data-pipeline";
+import { createExportWorker } from "@tb/data-pipeline";
 import type { Database } from "@tb/db";
-import { Queue } from "bullmq";
 import type IORedis from "ioredis";
 
 export async function createDataPipelineWorkers(options: {
   db: Database;
   redis: IORedis;
   exportsDir: string;
-  collectionConfig: {
-    exchanges: string[];
-    pairs: string[];
-    timeframes: string[];
-  };
 }) {
   const redisConnection = {
     host: options.redis.options.host ?? "127.0.0.1",
     port: options.redis.options.port ?? 6379,
   };
 
-  const collectionWorker = createCollectionWorker({
-    db: options.db,
-    redisConnection,
-    exportDir: options.exportsDir,
-  });
-  const backfillWorker = createBackfillWorker({
-    db: options.db,
-    redisConnection,
-    exportDir: options.exportsDir,
-  });
+  // Trading bot platform does not collect or backfill market data. Signal Harvester
+  // owns ingestion and writes market candles to the configured database; this worker
+  // only handles platform-local export jobs.
   const exportWorker = createExportWorker({
     db: options.db,
     redisConnection,
     exportDir: options.exportsDir,
-  });
-  const collectionQueue = new Queue(QUEUE_NAMES.DATA_COLLECTION, { connection: redisConnection });
-  const backfillQueue = new Queue<BackfillJobData | HistoricalBackfillJobData>(
-    QUEUE_NAMES.DATA_BACKFILL,
-    { connection: redisConnection }
-  );
-
-  await setupRepeatableJobs(
-    collectionQueue,
-    options.collectionConfig.pairs,
-    options.collectionConfig.exchanges,
-    options.collectionConfig.timeframes
-  );
-  await setupHistoricalBackfillJob(backfillQueue, {
-    exchanges: options.collectionConfig.exchanges,
-    symbols: options.collectionConfig.pairs,
-    timeframes: options.collectionConfig.timeframes,
-    maxChunksPerRun: 3,
   });
 
   exportWorker.on("completed", async (job) => {
@@ -91,5 +51,5 @@ export async function createDataPipelineWorkers(options: {
     }
   });
 
-  return { collectionWorker, backfillWorker, exportWorker, collectionQueue, backfillQueue };
+  return { exportWorker };
 }

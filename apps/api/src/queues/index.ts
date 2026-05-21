@@ -6,8 +6,6 @@ import { API_QUEUE_NAMES, type BacktestJobData, type BotJobData } from "./types"
 export interface QueueSet {
   botExecutionQueue: Queue<BotJobData>;
   backtestQueue: Queue<BacktestJobData>;
-  dataCollectionQueue: Queue;
-  dataBackfillQueue: Queue;
   dataExportQueue: Queue;
   close: () => Promise<void>;
 }
@@ -26,22 +24,16 @@ export function createQueueSet(redis: IORedis): QueueSet {
     connection,
     defaultJobOptions: retryDefaults,
   });
-  const dataCollectionQueue = new Queue(API_QUEUE_NAMES.DATA_COLLECTION, { connection });
-  const dataBackfillQueue = new Queue(API_QUEUE_NAMES.DATA_BACKFILL, { connection });
   const dataExportQueue = new Queue(API_QUEUE_NAMES.DATA_EXPORT, { connection });
 
   return {
     botExecutionQueue,
     backtestQueue,
-    dataCollectionQueue,
-    dataBackfillQueue,
     dataExportQueue,
     close: async () => {
       await Promise.allSettled([
         botExecutionQueue.close(),
         backtestQueue.close(),
-        dataCollectionQueue.close(),
-        dataBackfillQueue.close(),
         dataExportQueue.close(),
       ]);
 

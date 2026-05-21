@@ -23,9 +23,16 @@ type CandleProgress = {
 };
 
 const binanceSpotStartDates: Record<string, string> = {
-  "BTC/USDT": "2017-08-17T00:00:00.000Z",
-  "ETH/USDT": "2017-08-17T00:00:00.000Z",
-  "SOL/USDT": "2020-08-11T00:00:00.000Z",
+  "ADA/USDT": "2018-04-17T04:02:00.000Z",
+  "BCH/USDT": "2019-11-28T10:00:00.000Z",
+  "BNB/USDT": "2017-11-06T03:54:00.000Z",
+  "BTC/USDT": "2017-08-17T04:00:00.000Z",
+  "DOGE/USDT": "2019-07-05T12:00:00.000Z",
+  "ETH/USDT": "2017-08-17T04:00:00.000Z",
+  "SOL/USDT": "2020-08-11T06:00:00.000Z",
+  "TRX/USDT": "2018-06-11T11:30:00.000Z",
+  "XRP/USDT": "2018-05-04T08:11:00.000Z",
+  "ZEC/USDT": "2019-03-21T04:00:00.000Z",
 };
 
 const defaultExchangeStartDates: Record<string, string> = {
@@ -76,6 +83,16 @@ function historicalStart(exchange: string, symbol: string) {
   return new Date(configured ?? defaultExchangeStartDates[exchange] ?? "2017-01-01T00:00:00.000Z");
 }
 
+function unique(values: string[]) {
+  return [...new Set(values)].sort();
+}
+
+function fromHarvesterSymbol(symbol: string) {
+  if (symbol.endsWith("USDT")) return `${symbol.slice(0, -4)}/USDT`;
+  if (symbol.endsWith("USD")) return `${symbol.slice(0, -3)}/USD`;
+  return symbol;
+}
+
 async function tableExists(table: string) {
   const result = await sql<{ exists: boolean }[]>`
     SELECT EXISTS (
@@ -90,37 +107,96 @@ async function tableExists(table: string) {
 app.get("/health", async () => ({ ok: true }));
 
 app.get("/api/summary", async () => {
-  const [progress, latest, totals, ingestionEventsExists] = await Promise.all([
-    sql<CandleProgress[]>`
+  const [markets, ingestionEventsExists] = await Promise.all([
+    sql<
+      Array<{
+        exchange: string;
+        symbol: string;
+        timeframe: string;
+        candles: string;
+        earliest: Date | null;
+        latest: Date | null;
+        minutes_covered: string | null;
+        time: Date | null;
+        open: string | null;
+        high: string | null;
+        low: string | null;
+        close: string | null;
+        volume: string | null;
+        source: string | null;
+        repaired: boolean | null;
+        exchange_verified: boolean | null;
+      }>
+    >`
       SELECT
-        exchange,
-        symbol,
-        timeframe,
-        COUNT(*)::text AS candles,
-        MIN(time) AS earliest,
-        MAX(time) AS latest,
-        FLOOR(EXTRACT(EPOCH FROM (MAX(time) - MIN(time))) / 60)::text AS minutes_covered
-      FROM ohlcv
-      GROUP BY exchange, symbol, timeframe
-      ORDER BY exchange, symbol, timeframe
-    `,
-    sql<LatestCandle[]>`
-      SELECT exchange, symbol, timeframe, time, open, high, low, close, volume,
-             source, repaired, exchange_verified
-      FROM ohlcv
-      ORDER BY time DESC
-      LIMIT 80
-    `,
-    sql<{ candles: string; symbols: string; earliest: Date | null; latest: Date | null }[]>`
-      SELECT
-        COUNT(*)::text AS candles,
-        COUNT(DISTINCT symbol)::text AS symbols,
-        MIN(time) AS earliest,
-        MAX(time) AS latest
-      FROM ohlcv
+        b.provider AS exchange,
+        b.symbol,
+        b.interval AS timeframe,
+        b.total_inserted::text AS candles,
+        b.start_time AS earliest,
+        latest.timestamp AS latest,
+        CASE
+          WHEN b.start_time IS NOT NULL AND latest.timestamp IS NOT NULL
+          THEN FLOOR(EXTRACT(EPOCH FROM (latest.timestamp - b.start_time)) / 60)::text
+          ELSE NULL
+        END AS minutes_covered,
+        latest.timestamp AS time,
+        latest.open::text AS open,
+        latest.high::text AS high,
+        latest.low::text AS low,
+        latest.close::text AS close,
+        COALESCE(latest.volume, 0)::text AS volume,
+        latest.source_name AS source,
+        false AS repaired,
+        true AS exchange_verified
+      FROM market_data_backfills b
+      LEFT JOIN LATERAL (
+        SELECT timestamp, open, high, low, close, volume, source_name
+        FROM market_data_points p
+        WHERE p.provider = b.provider
+          AND p.symbol = b.symbol
+          AND p.interval = b.interval
+        ORDER BY timestamp DESC
+        LIMIT 1
+      ) latest ON true
+      ORDER BY b.provider, b.symbol, b.interval
     `,
     tableExists("ingestion_events"),
   ]);
+
+  const progress: CandleProgress[] = markets.map((row) => ({
+    exchange: row.exchange,
+    symbol: row.symbol,
+    timeframe: row.timeframe,
+    candles: row.candles,
+    earliest: row.earliest,
+    latest: row.latest,
+    minutes_covered: row.minutes_covered,
+  }));
+  const latest: LatestCandle[] = markets
+    .filter((row) => row.time && row.timeframe === "1m")
+    .map((row) => ({
+      exchange: row.exchange,
+      symbol: row.symbol,
+      timeframe: row.timeframe,
+      time: row.time as Date,
+      open: row.open ?? "0",
+      high: row.high ?? "0",
+      low: row.low ?? "0",
+      close: row.close ?? "0",
+      volume: row.volume ?? "0",
+      source: row.source,
+      repaired: row.repaired,
+      exchange_verified: row.exchange_verified,
+    }));
+
+  const configuredExchanges = unique(progress.map((row) => row.exchange));
+  const configuredSymbols = unique(
+    progress.filter((row) => row.timeframe === "1m").map((row) => fromHarvesterSymbol(row.symbol))
+  );
+  const configuredMarkets = configuredExchanges.flatMap((exchange) =>
+    configuredSymbols.map((symbol) => ({ exchange, symbol, timeframe: "1m" }))
+  );
 
   const events = ingestionEventsExists
     ? await sql<IngestionEvent[]>`
@@ -131,55 +207,89 @@ app.get("/api/summary", async () => {
       `
     : [];
 
-  const latestMs = totals[0]?.latest?.getTime();
-  const ageSeconds = latestMs ? Math.max(0, Math.round((Date.now() - latestMs) / 1000)) : null;
+  const progressByMarket = new Map(
+    progress.map((row) => [
+      `${row.exchange}:${fromHarvesterSymbol(row.symbol)}:${row.timeframe}`,
+      row,
+    ])
+  );
+  const latestByMarket = new Map(
+    latest.map((row) => [
+      `${row.exchange}:${fromHarvesterSymbol(row.symbol)}:${row.timeframe}`,
+      row,
+    ])
+  );
   const oneMinuteRows = progress.filter((row) => row.timeframe === "1m");
   const canonicalCandles = oneMinuteRows.reduce((sum, row) => sum + toNumber(row.candles), 0);
+  const latestTimes = oneMinuteRows.flatMap((row) => (row.latest ? [row.latest.getTime()] : []));
+  const earliestTimes = oneMinuteRows.flatMap((row) =>
+    row.earliest ? [row.earliest.getTime()] : []
+  );
+  const latestMs = latestTimes.length > 0 ? Math.max(...latestTimes) : null;
+  const earliestMs = earliestTimes.length > 0 ? Math.min(...earliestTimes) : null;
+  const ageSeconds = latestMs ? Math.max(0, Math.round((Date.now() - latestMs) / 1000)) : null;
+  const latestAvailable = new Date(Date.now() - 60_000);
+
+  const progressRows = configuredMarkets.map((market) => {
+    const row = progressByMarket.get(`${market.exchange}:${market.symbol}:${market.timeframe}`);
+    const candles = toNumber(row?.candles);
+    const targetStart = historicalStart(market.exchange, market.symbol);
+    const expectedCandles = oneMinuteCandlesBetween(targetStart, latestAvailable);
+    const storedWindowExpected = row ? oneMinuteCandlesBetween(row.earliest, latestAvailable) : 0;
+    return {
+      ...market,
+      candles,
+      expectedCandles,
+      storedWindowExpected,
+      missingHistoricalCandles: Math.max(0, expectedCandles - candles),
+      fillPercent: expectedCandles > 0 ? Math.min(100, (candles / expectedCandles) * 100) : 0,
+      storedWindowFillPercent:
+        storedWindowExpected > 0 ? Math.min(100, (candles / storedWindowExpected) * 100) : 0,
+      minutesCovered: toNumber(row?.minutes_covered),
+      targetStart: formatIso(targetStart),
+      earliest: formatIso(row?.earliest),
+      latest: formatIso(row?.latest),
+      latestAvailable: latestAvailable.toISOString(),
+    };
+  });
 
   return {
     generatedAt: new Date().toISOString(),
+    configuredMarkets,
     totals: {
-      candles: toNumber(totals[0]?.candles),
+      candles: canonicalCandles,
       canonicalCandles,
-      symbols: toNumber(totals[0]?.symbols),
-      earliest: formatIso(totals[0]?.earliest),
-      latest: formatIso(totals[0]?.latest),
+      symbols: configuredSymbols.length,
+      storedSymbols: configuredSymbols.length,
+      earliest: earliestMs ? new Date(earliestMs).toISOString() : null,
+      latest: latestMs ? new Date(latestMs).toISOString() : null,
       latestAgeSeconds: ageSeconds,
     },
-    progress: progress.map((row) => {
-      const candles = toNumber(row.candles);
-      const latestAvailable = new Date(Date.now() - 60_000);
-      const targetStart =
-        row.timeframe === "1m" ? historicalStart(row.exchange, row.symbol) : row.earliest;
-      const expectedCandles =
-        row.timeframe === "1m" ? oneMinuteCandlesBetween(targetStart, latestAvailable) : candles;
-      const storedWindowExpected =
-        row.timeframe === "1m" ? oneMinuteCandlesBetween(row.earliest, latestAvailable) : candles;
-      return {
-        ...row,
-        candles,
-        expectedCandles,
-        storedWindowExpected,
-        missingHistoricalCandles: Math.max(0, expectedCandles - candles),
-        fillPercent: expectedCandles > 0 ? Math.min(100, (candles / expectedCandles) * 100) : 0,
-        storedWindowFillPercent:
-          storedWindowExpected > 0 ? Math.min(100, (candles / storedWindowExpected) * 100) : 0,
-        minutesCovered: toNumber(row.minutes_covered),
-        targetStart: formatIso(targetStart),
-        earliest: formatIso(row.earliest),
-        latest: formatIso(row.latest),
-        latestAvailable: latestAvailable.toISOString(),
-      };
+    progress: progressRows,
+    latest: configuredMarkets.map((market) => {
+      const row = latestByMarket.get(`${market.exchange}:${market.symbol}:${market.timeframe}`);
+      return row
+        ? {
+            ...row,
+            symbol: fromHarvesterSymbol(row.symbol),
+            time: row.time.toISOString(),
+            open: Number(row.open),
+            high: Number(row.high),
+            low: Number(row.low),
+            close: Number(row.close),
+            volume: Number(row.volume),
+          }
+        : {
+            ...market,
+            time: null,
+            open: null,
+            high: null,
+            low: null,
+            close: null,
+            volume: null,
+            source: null,
+          };
     }),
-    latest: latest.map((row) => ({
-      ...row,
-      time: row.time.toISOString(),
-      open: Number(row.open),
-      high: Number(row.high),
-      low: Number(row.low),
-      close: Number(row.close),
-      volume: Number(row.volume),
-    })),
     events: events.map((event) => ({
       ...event,
       created_at: event.created_at.toISOString(),
@@ -233,7 +343,12 @@ const html = String.raw`<!doctype html>
     .label { color: var(--muted); font-size: 13px; letter-spacing: .04em; text-transform: uppercase; }
     .value { margin-top: 12px; font-size: 34px; font-weight: 760; letter-spacing: -0.04em; }
     .hint { margin-top: 7px; color: var(--muted); font-size: 13px; }
-    .layout { grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); align-items: start; }.wide { margin-bottom: 16px; }.history-table { overflow:auto; }.nowrap { white-space: nowrap; }.metric { color: var(--text); font-weight: 760; }
+    .layout { grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); align-items: start; }
+    .market-pair { grid-template-columns: 1fr 1fr; align-items: stretch; margin-bottom: 16px; }
+    .wide { margin-bottom: 16px; }
+    .history-table, .scroll { overflow:auto; }
+    .equal-panel { min-height: 650px; }
+    .nowrap { white-space: nowrap; }.metric { color: var(--text); font-weight: 760; }
     .panel { padding: 20px; overflow: hidden; }
     .panel-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
     h2 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }
@@ -252,7 +367,7 @@ const html = String.raw`<!doctype html>
     .event-msg { color: #cbd5e1; line-height: 1.35; font-size: 13px; }
     .latest-table { margin-top: 16px; max-height: 520px; overflow: auto; }
     .empty { color: var(--muted); padding: 24px; border: 1px dashed var(--line); border-radius: 18px; text-align: center; }
-    @media (max-width: 900px) { .cards, .layout { grid-template-columns: 1fr; } header { flex-direction: column; } }
+    @media (max-width: 900px) { .cards, .layout, .market-pair { grid-template-columns: 1fr; } header { flex-direction: column; } .equal-panel { min-height: 0; } }
   </style>
 </head>
 <body>
@@ -260,7 +375,7 @@ const html = String.raw`<!doctype html>
   <header>
     <div>
       <h1>Market data<br/>DB progress</h1>
-      <div class="subtitle">A lightweight view of live OHLCV ingestion plus historical Binance 1m backfill. Live rows show the newest candles; historical progress compares stored 1m candles against each market’s full expected Binance 1m history.</div>
+      <div class="subtitle">A lightweight view of live OHLCV ingestion plus historical Binance 1m backfill. Live and historical collection are shown separately for all configured markets so partial history is not mistaken for complete coverage.</div>
     </div>
     <div class="status-pill"><span class="dot"></span><span id="status">Connecting…</span></div>
   </header>
@@ -272,22 +387,22 @@ const html = String.raw`<!doctype html>
     <div class="card"><div class="label">Freshness</div><div class="value mono" id="freshness">—</div><div class="hint" id="latestTime">Latest candle</div></div>
   </section>
 
-  <section class="panel wide">
-    <div class="panel-head"><h2>Historical 1m data collection</h2><span class="small" id="generatedAt">—</span></div>
-    <div class="small" style="margin-bottom:12px">Separate from live rows. We collect and store canonical Binance candles at <span class="metric">1 minute</span> frequency only; higher timeframes should be derived from this base dataset. Progress is stored 1m candles divided by the full expected Binance 1m history for that market.</div>
-    <div class="history-table"><table><thead><tr><th>Market</th><th>Stored / full expected candles</th><th>Full-history progress</th><th>Historical target start</th><th>Earliest stored</th><th>Latest stored</th><th>Expected through</th></tr></thead><tbody id="progressRows"></tbody></table></div>
+  <section class="grid market-pair">
+    <div class="panel equal-panel">
+      <div class="panel-head"><h2>Live 1m collection</h2><span class="small">Newest candle per market</span></div>
+      <div class="small" style="margin-bottom:12px">One latest 1m candle per configured market. This is live freshness only — it does not imply historical backfill is complete.</div>
+      <div class="scroll"><table><thead><tr><th>Market</th><th>Status</th><th>Candle time</th><th>Close</th><th>Volume</th><th>Source</th></tr></thead><tbody id="latestRows"></tbody></table></div>
+    </div>
+    <div class="panel equal-panel">
+      <div class="panel-head"><h2>Historical collection</h2><span class="small" id="generatedAt">—</span></div>
+      <div class="small" style="margin-bottom:12px">Backfill progress per market. Progress is stored 1m candles divided by the full expected Binance 1m history for that market, using explicit Binance first-candle dates for all 10 tracked symbols.</div>
+      <div class="history-table"><table><thead><tr><th>Market</th><th>Stored / expected</th><th>Progress</th><th>Target start</th><th>Earliest stored</th><th>Latest stored</th></tr></thead><tbody id="progressRows"></tbody></table></div>
+    </div>
   </section>
 
-  <section class="grid layout">
-    <div class="panel">
-      <div class="panel-head"><h2>Recent live rows</h2><span class="small">Newest OHLCV records</span></div>
-      <div class="small" style="margin-bottom:12px">These are the latest per-minute candles being synced continuously.</div>
-      <div class="latest-table"><table><thead><tr><th>Time</th><th>Market</th><th>TF</th><th>Close</th><th>Volume</th><th>Source</th></tr></thead><tbody id="latestRows"></tbody></table></div>
-    </div>
-    <div class="panel">
-      <div class="panel-head"><h2>Ingestion events</h2><span class="small">Recent</span></div>
-      <div class="events" id="events"></div>
-    </div>
+  <section class="panel wide">
+    <div class="panel-head"><h2>Ingestion events</h2><span class="small">Recent</span></div>
+    <div class="events" id="events"></div>
   </section>
 </main>
 <script>
@@ -337,18 +452,20 @@ const html = String.raw`<!doctype html>
           '<td class="mono nowrap">' + fullDate(row.targetStart) + '</td>' +
           '<td class="mono nowrap">' + fullDate(row.earliest) + '</td>' +
           '<td class="mono nowrap">' + fullDate(row.latest) + '</td>' +
-          '<td class="mono nowrap">' + fullDate(row.latestAvailable) + '</td>' +
         '</tr>').join('');
 
-      document.getElementById('latestRows').innerHTML = data.latest.map(row =>
-        '<tr>' +
+      document.getElementById('latestRows').innerHTML = data.latest.map(row => {
+        const ageSeconds = row.time ? Math.max(0, Math.round((Date.now() - new Date(row.time).getTime()) / 1000)) : null;
+        const status = ageSeconds == null ? 'missing' : ageSeconds <= 180 ? 'live' : ageSeconds <= 1800 ? 'lagging' : 'stale';
+        return '<tr>' +
+          '<td>' + esc(row.symbol) + '<div class="small mono">' + esc(row.exchange) + ' · ' + esc(row.timeframe) + '</div></td>' +
+          '<td><span class="tag">' + status + '</span><div class="small">' + (ageSeconds == null ? 'No row stored yet' : ago(ageSeconds) + ' behind') + '</div></td>' +
           '<td class="mono nowrap">' + fullDate(row.time) + '</td>' +
-          '<td>' + esc(row.symbol) + '</td>' +
-          '<td class="mono">' + esc(row.timeframe) + '</td>' +
-          '<td class="mono">' + fmt.format(row.close) + '</td>' +
-          '<td class="mono">' + fmt.format(Math.round(row.volume * 100) / 100) + '</td>' +
+          '<td class="mono">' + (row.close == null ? '—' : fmt.format(row.close)) + '</td>' +
+          '<td class="mono">' + (row.volume == null ? '—' : fmt.format(Math.round(row.volume * 100) / 100)) + '</td>' +
           '<td><span class="tag">' + esc(row.source || 'unknown') + '</span></td>' +
-        '</tr>').join('');
+        '</tr>';
+      }).join('');
 
       document.getElementById('events').innerHTML = data.events.length ? data.events.map(event =>
         '<div class="event">' +

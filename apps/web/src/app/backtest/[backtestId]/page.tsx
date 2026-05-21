@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
 
@@ -87,9 +87,22 @@ export default function BacktestResultsPage({
   }
 
   const metrics = (results.metrics ?? {}) as Record<string, unknown>;
-  const equityCurve = (metrics.equityCurve ?? []) as { time: number; equity: number }[];
-  const drawdownCurve = (metrics.drawdownCurve ?? []) as { time: number; drawdown: number }[];
-  const trades = (metrics.trades ?? []) as Record<string, unknown>[];
+  const storedResult = (metrics.result ?? {}) as Record<string, unknown>;
+  const equityCurve = (
+    (storedResult.equityCurve ?? metrics.equityCurve ?? []) as {
+      time: number;
+      equity: number;
+    }[]
+  ).map((point) => ({ time: point.time, equity: point.equity }));
+  const drawdownCurve = (
+    (storedResult.drawdownCurve ?? metrics.drawdownCurve ?? []) as {
+      time: number;
+      drawdown: number;
+    }[]
+  ).map((point) => ({ time: point.time, drawdown: point.drawdown }));
+  const trades = (storedResult.trades ?? metrics.trades ?? []) as Record<string, unknown>[];
+  const promotionHref = buildPromotionHref(backtestId, results);
+  const readiness = getPromotionReadiness(results);
 
   const metricsCards = [
     {
@@ -140,6 +153,49 @@ export default function BacktestResultsPage({
           <p className="text-xs" style={{ color: "var(--text-muted)" }}>
             {results.strategy} · {results.symbol}
           </p>
+        </div>
+      </div>
+
+      <div className="glass-panel p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex gap-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+              style={{ background: readiness.good ? "var(--accent-dim)" : "rgba(248,113,113,0.1)" }}
+            >
+              {readiness.good ? (
+                <CheckCircle2 size={20} style={{ color: "var(--accent)" }} />
+              ) : (
+                <AlertTriangle size={20} style={{ color: "var(--loss)" }} />
+              )}
+            </div>
+            <div>
+              <h2 className="text-lg" style={{ color: "var(--text-primary)" }}>
+                {readiness.title}
+              </h2>
+              <p className="mt-1 max-w-3xl text-sm" style={{ color: "var(--text-muted)" }}>
+                {readiness.description}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {readiness.checks.map((check) => (
+                  <span
+                    key={check}
+                    className="rounded-full px-3 py-1 text-xs"
+                    style={{ background: "var(--bg-input)", color: "var(--text-secondary)" }}
+                  >
+                    {check}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+          <Link
+            href={promotionHref}
+            className="inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm"
+            style={{ background: "var(--accent)", color: "var(--primary-foreground)" }}
+          >
+            <Bot size={16} /> Create paper bot from this backtest
+          </Link>
         </div>
       </div>
 
@@ -254,4 +310,59 @@ export default function BacktestResultsPage({
       </div>
     </div>
   );
+}
+
+type BacktestResultForPromotion = {
+  name?: string | null;
+  strategy: string;
+  strategyParams?: unknown;
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  riskConfig?: unknown;
+  initialBalance?: number | null;
+  totalPnlPercent?: number | null;
+  maxDrawdown?: number | null;
+  totalTrades?: number | null;
+  sharpeRatio?: number | null;
+};
+
+function buildPromotionHref(backtestId: string, results: BacktestResultForPromotion) {
+  const params = new URLSearchParams({
+    sourceBacktest: backtestId,
+    mode: "paper",
+    strategy: results.strategy,
+    exchange: results.exchange,
+    symbol: results.symbol,
+    timeframe: results.timeframe,
+    name: `${results.name ?? results.strategy} paper run`,
+    balance: String(results.initialBalance ?? 10000),
+  });
+
+  if (results.strategyParams) params.set("strategyParams", JSON.stringify(results.strategyParams));
+  if (results.riskConfig) params.set("riskConfig", JSON.stringify(results.riskConfig));
+
+  return `/bots/new?${params.toString()}`;
+}
+
+function getPromotionReadiness(results: BacktestResultForPromotion) {
+  const totalReturn = Number(results.totalPnlPercent) || 0;
+  const maxDrawdown = Number(results.maxDrawdown) || 0;
+  const totalTrades = Number(results.totalTrades) || 0;
+  const sharpe = Number(results.sharpeRatio) || 0;
+  const good = totalReturn > 0 && maxDrawdown <= 20 && totalTrades >= 5;
+
+  return {
+    good,
+    title: good ? "Ready for a paper-trading trial" : "Paper-trade this before trusting it",
+    description: good
+      ? "This backtest clears the first sanity checks. Launch it in paper mode next so the same strategy config can prove itself on live market data without risking capital."
+      : "The result is not strong enough for live capital yet. You can still promote it to paper mode to observe behaviour, but treat it as research, not approval.",
+    checks: [
+      `${formatPercent(totalReturn)} return`,
+      `${formatPercent(-maxDrawdown)} max drawdown`,
+      `${totalTrades} trades`,
+      `${sharpe.toFixed(2)} Sharpe`,
+    ],
+  };
 }

@@ -120,40 +120,77 @@ const TEMPLATES: Array<{ label: string; values: Partial<BotFormData> }> = [
 
 const draftKey = "bot-wizard-draft";
 
+type RiskConfig = BotFormData["riskConfig"];
+
+function parseJsonParam<T>(value: string | null): T | undefined {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseOptionalNumber(value: string | null) {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function mergeRiskConfig(
+  defaults: RiskConfig,
+  override: Partial<RiskConfig> | undefined
+): RiskConfig {
+  return { ...defaults, ...(override ?? {}) };
+}
+
 export default function CreateBotPage() {
   const [step, setStep] = useState(0);
   const router = useRouter();
   const searchParams = useSearchParams();
   const strategiesQuery = trpc.strategies.catalog.useQuery();
   const exchangesQuery = trpc.exchanges.list.useQuery();
+  const sourceBacktest = searchParams.get("sourceBacktest");
+  const promotedStrategyParams = parseJsonParam<Record<string, unknown>>(
+    searchParams.get("strategyParams")
+  );
+  const promotedRiskConfig = parseJsonParam<Partial<RiskConfig>>(searchParams.get("riskConfig"));
+  const defaultRiskConfig: RiskConfig = {
+    maxPositionSizePercent: 10,
+    maxDrawdownPercent: 20,
+    riskPerTradePercent: 2,
+    maxConcurrentPositions: 5,
+    maxDailyLossPercent: 5,
+    trailingStopEnabled: false,
+    trailingStopPercent: 5,
+  };
 
   const form = useForm<BotFormData>({
     resolver: zodResolver(botFormSchema),
     defaultValues: {
-      name: "",
+      name: searchParams.get("name") ?? "",
       strategy: searchParams.get("strategy") ?? "sma-crossover",
-      strategyParams: {},
-      exchange: "binance",
-      symbol: "BTC/USDT",
-      timeframe: "1h",
-      mode: "paper",
-      riskConfig: {
-        maxPositionSizePercent: 10,
-        maxDrawdownPercent: 20,
-        riskPerTradePercent: 2,
-        maxConcurrentPositions: 5,
-        maxDailyLossPercent: 5,
-        trailingStopEnabled: false,
-        trailingStopPercent: 5,
-      },
+      strategyParams: promotedStrategyParams ?? {},
+      exchange: searchParams.get("exchange") ?? "binance",
+      symbol: searchParams.get("symbol") ?? "BTC/USDT",
+      timeframe: searchParams.get("timeframe") ?? "1h",
+      mode: searchParams.get("mode") === "live" ? "live" : "paper",
+      riskConfig: mergeRiskConfig(defaultRiskConfig, promotedRiskConfig),
+      currentBalance: parseOptionalNumber(searchParams.get("balance")),
     },
   });
 
   const [templateOpen, setTemplateOpen] = useState(false);
   const templateRef = useRef<HTMLDivElement>(null);
 
-  // Load draft on mount
+  // Load draft on mount. Promoted backtests intentionally bypass stale drafts.
   useEffect(() => {
+    if (sourceBacktest) {
+      localStorage.removeItem(draftKey);
+      toast.info("Backtest config loaded into a paper bot draft");
+      return;
+    }
+
     try {
       const raw = localStorage.getItem(draftKey);
       if (raw) {
@@ -166,7 +203,7 @@ export default function CreateBotPage() {
     } catch {
       // ignore corrupt draft
     }
-  }, []); // mount-only: intentionally reads localStorage once on load
+  }, [form, sourceBacktest]);
 
   // Save draft on every change
   useEffect(() => {
@@ -256,10 +293,28 @@ export default function CreateBotPage() {
         <Link href="/bots" className="rounded-lg p-2" style={{ color: "var(--text-muted)" }}>
           <ArrowLeft size={18} />
         </Link>
-        <h1 className="text-2xl" style={{ color: "var(--text-primary)" }}>
-          Create Bot
-        </h1>
+        <div>
+          <h1 className="text-2xl" style={{ color: "var(--text-primary)" }}>
+            {sourceBacktest ? "Create Paper Bot" : "Create Bot"}
+          </h1>
+          {sourceBacktest && (
+            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+              Prefilled from backtest {sourceBacktest.slice(0, 8)}. Review the config, then run it
+              safely in paper mode.
+            </p>
+          )}
+        </div>
       </div>
+
+      {sourceBacktest && (
+        <div
+          className="rounded-xl p-4 text-sm"
+          style={{ background: "var(--accent-dim)", color: "var(--text-primary)" }}
+        >
+          This bot draft inherits the strategy, market, risk settings and starting balance from the
+          backtest. Keep it in <strong>paper mode</strong> until it behaves well on live data.
+        </div>
+      )}
 
       {/* Step Indicator + Templates */}
       <div className="flex items-center justify-between gap-2">
@@ -338,8 +393,8 @@ export default function CreateBotPage() {
         {step === 1 && <StepParameters form={form} />}
         {step === 2 && <StepExchange form={form} exchanges={exchangeOptions} />}
         {step === 3 && <StepRisk form={form} />}
-        {step === 4 && <StepMode form={form} />}
-        {step === 5 && <StepReview form={form} />}
+        {step === 4 && <StepMode form={form} promotedFromBacktest={!!sourceBacktest} />}
+        {step === 5 && <StepReview form={form} sourceBacktest={sourceBacktest} />}
 
         <div className="flex justify-between pt-4" style={{ borderTop: "1px solid var(--border)" }}>
           <button
@@ -612,7 +667,13 @@ function StepRisk({ form }: { form: UseFormReturn<BotFormData> }) {
   );
 }
 
-function StepMode({ form }: { form: UseFormReturn<BotFormData> }) {
+function StepMode({
+  form,
+  promotedFromBacktest,
+}: {
+  form: UseFormReturn<BotFormData>;
+  promotedFromBacktest?: boolean;
+}) {
   const mode = form.watch("mode");
   return (
     <div className="space-y-4">
@@ -642,6 +703,14 @@ function StepMode({ form }: { form: UseFormReturn<BotFormData> }) {
           </button>
         ))}
       </div>
+      {promotedFromBacktest && mode === "paper" && (
+        <div
+          className="rounded-lg p-3 text-xs"
+          style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+        >
+          Recommended next step: paper trading. This uses live market data but simulated orders.
+        </div>
+      )}
       {mode === "live" && (
         <div
           className="rounded-lg p-3 text-xs"
@@ -665,9 +734,16 @@ function StepMode({ form }: { form: UseFormReturn<BotFormData> }) {
   );
 }
 
-function StepReview({ form }: { form: UseFormReturn<BotFormData> }) {
+function StepReview({
+  form,
+  sourceBacktest,
+}: {
+  form: UseFormReturn<BotFormData>;
+  sourceBacktest?: string | null;
+}) {
   const values = form.getValues();
   const rows = [
+    ...(sourceBacktest ? [["Source", `Backtest ${sourceBacktest.slice(0, 8)}`]] : []),
     ["Name", values.name],
     ["Strategy", values.strategy],
     ["Exchange", values.exchange],

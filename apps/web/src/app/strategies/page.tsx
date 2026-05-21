@@ -1,21 +1,109 @@
 "use client";
 
-import { Bot, FlaskConical, PlayCircle, ShieldCheck, SlidersHorizontal } from "lucide-react";
+import {
+  Bot,
+  FlaskConical,
+  PlayCircle,
+  Save,
+  ShieldCheck,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { toast } from "@/components/ui/Toaster";
 import { trpc } from "@/lib/trpc";
 
 const DEFAULT_SYMBOL = "BTC/USDT";
 const DEFAULT_EXCHANGE = "binance";
+const DEFAULT_TIMEFRAME = "1h";
+const DEFAULT_RISK_CONFIG = {
+  maxPositionSizePercent: 10,
+  maxDrawdownPercent: 20,
+  riskPerTradePercent: 2,
+  maxConcurrentPositions: 5,
+  maxDailyLossPercent: 5,
+  trailingStopEnabled: false,
+  trailingStopPercent: 5,
+};
+
+type StrategyParams = Record<string, unknown>;
 
 export default function StrategiesPage() {
+  const utils = trpc.useUtils();
   const { data, isLoading } = trpc.strategies.catalog.useQuery();
+  const drafts = trpc.strategies.listDrafts.useQuery({});
+  const createDraft = trpc.strategies.createDraft.useMutation({
+    onSuccess: async () => {
+      await utils.strategies.listDrafts.invalidate();
+      toast.success("Strategy draft saved");
+    },
+    onError: (error) => toast.error(`Failed to save draft: ${error.message}`),
+  });
+  const deleteDraft = trpc.strategies.deleteDraft.useMutation({
+    onSuccess: async () => {
+      await utils.strategies.listDrafts.invalidate();
+      toast.success("Strategy draft deleted");
+    },
+    onError: (error) => toast.error(`Failed to delete draft: ${error.message}`),
+  });
+
   const [selectedStrategy, setSelectedStrategy] = useState("sma-crossover");
+  const [draftName, setDraftName] = useState("");
+  const [exchange, setExchange] = useState(DEFAULT_EXCHANGE);
+  const [symbol, setSymbol] = useState(DEFAULT_SYMBOL);
+  const [timeframe, setTimeframe] = useState(DEFAULT_TIMEFRAME);
+  const [notes, setNotes] = useState("");
+  const [strategyParams, setStrategyParams] = useState<StrategyParams>({});
+
   const selected = useMemo(
     () => data?.strategies.find((strategy) => strategy.key === selectedStrategy),
     [data?.strategies, selectedStrategy]
   );
+
+  useEffect(() => {
+    if (!selected || Object.keys(strategyParams).length > 0) return;
+    const defaults = getDefaultParams(selected.params);
+    setStrategyParams(defaults);
+    setDraftName(`${selected.name} draft`);
+  }, [selected, strategyParams]);
+
+  const selectCatalogStrategy = (strategy: NonNullable<typeof data>["strategies"][number]) => {
+    setSelectedStrategy(strategy.key);
+    setStrategyParams(getDefaultParams(strategy.params));
+    setDraftName(`${strategy.name} draft`);
+    setNotes("");
+  };
+
+  const saveCurrentDraft = () => {
+    createDraft.mutate({
+      name: draftName.trim() || `${selected?.name ?? selectedStrategy} draft`,
+      strategy: selectedStrategy,
+      strategyParams,
+      riskConfig: DEFAULT_RISK_CONFIG,
+      exchange,
+      symbol,
+      timeframe,
+      notes: notes.trim() || undefined,
+    });
+  };
+
+  const selectedBacktestHref = buildBacktestHref({
+    strategy: selectedStrategy,
+    strategyParams,
+    exchange,
+    symbol,
+    timeframe,
+  });
+  const selectedBotHref = buildBotHref({
+    strategy: selectedStrategy,
+    strategyParams,
+    exchange,
+    symbol,
+    timeframe,
+    name: `${draftName || selected?.name || selectedStrategy} paper run`,
+  });
 
   return (
     <div className="space-y-6">
@@ -25,11 +113,11 @@ export default function StrategiesPage() {
             Strategy workbench
           </p>
           <h1 className="text-2xl" style={{ color: "var(--text-primary)" }}>
-            Create, test, then deploy trading strategies
+            Create, save, test, then deploy trading strategies
           </h1>
           <p className="mt-2 max-w-3xl text-sm" style={{ color: "var(--text-muted)" }}>
-            The platform is now centred on the strategy lifecycle: edit parameters, backtest on
-            collected OHLCV candles, then run the same configuration in paper or live crypto mode.
+            Save reusable strategy drafts with parameters, market defaults and notes. Backtest the
+            exact draft first, then promote it into a paper bot.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -53,22 +141,22 @@ export default function StrategiesPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <Capability
           icon={SlidersHorizontal}
-          title="Strategy editor"
-          text="Parameter schemas, templates, risk presets, and draft-safe bot creation."
+          title="Draft editor"
+          text="Tune template parameters and save named strategy drafts for reuse."
         />
         <Capability
           icon={FlaskConical}
           title="Backtest first"
-          text="Run configs against collected candles before trusting them with capital."
+          text="Launch a backtest from the exact saved draft before trusting it with capital."
         />
         <Capability
           icon={PlayCircle}
           title="Paper/live launch"
-          text="Promote a proven setup to a paper runner, then live exchange execution when ready."
+          text="Promote a proven setup to paper mode, then live exchange execution when ready."
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[340px,1fr]">
+      <div className="grid gap-6 xl:grid-cols-[320px,minmax(0,1fr),360px]">
         <div className="glass-panel p-4">
           <h2 className="mb-3 text-lg" style={{ color: "var(--text-primary)" }}>
             Strategy catalog
@@ -77,7 +165,7 @@ export default function StrategiesPage() {
             {(data?.strategies ?? []).map((strategy) => (
               <button
                 key={strategy.key}
-                onClick={() => setSelectedStrategy(strategy.key)}
+                onClick={() => selectCatalogStrategy(strategy)}
                 className="w-full rounded-xl p-3 text-left transition-colors"
                 style={{
                   background:
@@ -118,32 +206,63 @@ export default function StrategiesPage() {
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
               {(selected?.params ?? []).map((param) => (
-                <div
+                <StrategyParamField
                   key={param.name}
-                  className="rounded-xl p-3"
-                  style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
-                >
-                  <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-                    {param.name}
-                  </div>
-                  <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                    {String(param.type).replace("Zod", "")} · default{" "}
-                    {param.defaultValue == null ? "—" : String(param.defaultValue)}
-                  </div>
-                </div>
+                  name={param.name}
+                  type={String(param.type).replace("Zod", "")}
+                  defaultValue={param.defaultValue}
+                  value={strategyParams[param.name]}
+                  onChange={(value) =>
+                    setStrategyParams((current) => ({ ...current, [param.name]: value }))
+                  }
+                />
               ))}
             </div>
 
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              <Field label="Draft name">
+                <Input value={draftName} onChange={(event) => setDraftName(event.target.value)} />
+              </Field>
+              <Field label="Exchange">
+                <Input value={exchange} onChange={(event) => setExchange(event.target.value)} />
+              </Field>
+              <Field label="Symbol">
+                <Input value={symbol} onChange={(event) => setSymbol(event.target.value)} />
+              </Field>
+              <Field label="Timeframe">
+                <Input value={timeframe} onChange={(event) => setTimeframe(event.target.value)} />
+              </Field>
+            </div>
+
+            <div className="mt-3">
+              <Field label="Notes">
+                <textarea
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                  style={{
+                    background: "var(--bg-input)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-primary)",
+                  }}
+                  placeholder="Why this config exists, what to test next, or safety assumptions…"
+                />
+              </Field>
+            </div>
+
             <div className="mt-5 flex flex-wrap gap-2">
-              <Link
-                href={`/backtest?strategy=${selectedStrategy}&symbol=${encodeURIComponent(DEFAULT_SYMBOL)}&exchange=${DEFAULT_EXCHANGE}`}
-                className="rounded-xl px-4 py-2 text-sm"
+              <button
+                type="button"
+                onClick={saveCurrentDraft}
+                disabled={createDraft.isPending}
+                className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm disabled:opacity-60"
                 style={{ background: "var(--accent)", color: "#08080a" }}
               >
-                Backtest this strategy
-              </Link>
+                <Save size={16} /> {createDraft.isPending ? "Saving…" : "Save draft"}
+              </button>
               <Link
-                href={`/bots/new?strategy=${selectedStrategy}`}
+                href={selectedBacktestHref}
                 className="rounded-xl px-4 py-2 text-sm"
                 style={{
                   background: "var(--bg-input)",
@@ -151,7 +270,14 @@ export default function StrategiesPage() {
                   border: "1px solid var(--border)",
                 }}
               >
-                Create bot from strategy
+                Backtest current config
+              </Link>
+              <Link
+                href={selectedBotHref}
+                className="rounded-xl px-4 py-2 text-sm"
+                style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+              >
+                Create paper bot
               </Link>
             </div>
           </div>
@@ -184,8 +310,190 @@ export default function StrategiesPage() {
             </div>
           </div>
         </div>
+
+        <div className="glass-panel p-4">
+          <h2 className="mb-3 text-lg" style={{ color: "var(--text-primary)" }}>
+            Saved drafts
+          </h2>
+          <div className="space-y-3">
+            {(drafts.data ?? []).map((draft) => {
+              const draftBacktestHref = buildBacktestHref({
+                strategy: draft.strategy,
+                strategyParams: draft.strategyParams as StrategyParams,
+                exchange: draft.exchange,
+                symbol: draft.symbol,
+                timeframe: draft.timeframe,
+              });
+              const draftBotHref = buildBotHref({
+                strategy: draft.strategy,
+                strategyParams: draft.strategyParams as StrategyParams,
+                exchange: draft.exchange,
+                symbol: draft.symbol,
+                timeframe: draft.timeframe,
+                name: `${draft.name} paper run`,
+              });
+
+              return (
+                <div
+                  key={draft.id}
+                  className="rounded-xl p-4"
+                  style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                        {draft.name}
+                      </div>
+                      <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                        {draft.strategy} · {draft.symbol} · {draft.timeframe}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Delete ${draft.name}`}
+                      onClick={() => deleteDraft.mutate({ draftId: draft.id })}
+                      className="rounded-lg p-1.5"
+                      style={{ color: "var(--loss)" }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                  {draft.notes && (
+                    <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+                      {draft.notes}
+                    </p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedStrategy(draft.strategy);
+                        setDraftName(draft.name);
+                        setExchange(draft.exchange);
+                        setSymbol(draft.symbol);
+                        setTimeframe(draft.timeframe);
+                        setNotes(draft.notes ?? "");
+                        setStrategyParams((draft.strategyParams as StrategyParams) ?? {});
+                      }}
+                      className="rounded-lg px-3 py-1.5 text-xs"
+                      style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
+                    >
+                      Load
+                    </button>
+                    <Link
+                      href={draftBacktestHref}
+                      className="rounded-lg px-3 py-1.5 text-xs"
+                      style={{ color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                    >
+                      Backtest
+                    </Link>
+                    <Link
+                      href={draftBotHref}
+                      className="rounded-lg px-3 py-1.5 text-xs"
+                      style={{ color: "var(--text-primary)", border: "1px solid var(--border)" }}
+                    >
+                      Paper bot
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+            {drafts.isLoading && (
+              <div className="text-sm" style={{ color: "var(--text-muted)" }}>
+                Loading drafts…
+              </div>
+            )}
+            {!drafts.isLoading && (drafts.data ?? []).length === 0 && (
+              <div className="rounded-xl p-4 text-sm" style={{ color: "var(--text-muted)" }}>
+                No saved drafts yet. Tune a catalog strategy and save it here.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
+  );
+}
+
+function getDefaultParams(params: { name: string; defaultValue?: unknown }[]) {
+  return Object.fromEntries(
+    params
+      .map((param) => [param.name, param.defaultValue])
+      .filter(([, value]) => value !== undefined)
+  );
+}
+
+function StrategyParamField({
+  name,
+  type,
+  defaultValue,
+  value,
+  onChange,
+}: {
+  name: string;
+  type: string;
+  defaultValue: unknown;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const isBoolean = typeof defaultValue === "boolean";
+  const isNumber = typeof defaultValue === "number";
+
+  return (
+    <div
+      className="rounded-xl p-3"
+      style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+    >
+      <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+        {name}
+      </label>
+      <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+        {type} · default {defaultValue == null ? "—" : String(defaultValue)}
+      </div>
+      {isBoolean ? (
+        <label
+          className="mt-3 flex items-center gap-2 text-sm"
+          style={{ color: "var(--text-secondary)" }}
+        >
+          <input
+            type="checkbox"
+            checked={Boolean(value)}
+            onChange={(event) => onChange(event.target.checked)}
+          />
+          Enabled
+        </label>
+      ) : (
+        <Input
+          className="mt-3"
+          type={isNumber ? "number" : "text"}
+          value={value == null ? "" : String(value)}
+          onChange={(event) => onChange(isNumber ? Number(event.target.value) : event.target.value)}
+        />
+      )}
+    </div>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="block space-y-1.5 text-xs" style={{ color: "var(--text-secondary)" }}>
+      <span>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <input
+      className={`w-full rounded-xl px-3 py-2 text-sm outline-none ${className}`}
+      style={{
+        background: "var(--bg-input)",
+        border: "1px solid var(--border)",
+        color: "var(--text-primary)",
+      }}
+      {...props}
+    />
   );
 }
 
@@ -209,4 +517,54 @@ function Capability({
       </p>
     </div>
   );
+}
+
+function buildBacktestHref({
+  strategy,
+  strategyParams,
+  exchange,
+  symbol,
+  timeframe,
+}: {
+  strategy: string;
+  strategyParams: StrategyParams;
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+}) {
+  const params = new URLSearchParams({
+    strategy,
+    strategyParams: JSON.stringify(strategyParams),
+    exchange,
+    symbol,
+    timeframe,
+  });
+  return `/backtest?${params.toString()}`;
+}
+
+function buildBotHref({
+  strategy,
+  strategyParams,
+  exchange,
+  symbol,
+  timeframe,
+  name,
+}: {
+  strategy: string;
+  strategyParams: StrategyParams;
+  exchange: string;
+  symbol: string;
+  timeframe: string;
+  name: string;
+}) {
+  const params = new URLSearchParams({
+    mode: "paper",
+    strategy,
+    strategyParams: JSON.stringify(strategyParams),
+    exchange,
+    symbol,
+    timeframe,
+    name,
+  });
+  return `/bots/new?${params.toString()}`;
 }

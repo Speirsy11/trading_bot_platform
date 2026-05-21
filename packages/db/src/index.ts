@@ -46,6 +46,11 @@ export {
 } from "./schema/backtestTrades";
 export { settings, type SettingRow, type SettingInsert } from "./schema/settings";
 export {
+  strategyDrafts,
+  type StrategyDraftRow,
+  type StrategyDraftInsert,
+} from "./schema/strategyDrafts";
+export {
   orderAuditLog,
   type OrderAuditLogRow,
   type OrderAuditLogInsert,

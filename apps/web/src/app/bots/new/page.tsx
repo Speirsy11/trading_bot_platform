@@ -149,6 +149,7 @@ export default function CreateBotPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const strategiesQuery = trpc.strategies.catalog.useQuery();
+  const strategyDraftsQuery = trpc.strategies.listDrafts.useQuery({});
   const exchangesQuery = trpc.exchanges.list.useQuery();
   const sourceBacktest = searchParams.get("sourceBacktest");
   const promotedStrategyParams = parseJsonParam<Record<string, unknown>>(
@@ -227,11 +228,27 @@ export default function CreateBotPage() {
 
   const loadTemplate = (tpl: (typeof TEMPLATES)[number]) => {
     Object.entries(tpl.values).forEach(([key, value]) => {
-      form.setValue(key as keyof BotFormData, value as never);
+      form.setValue(key as keyof BotFormData, value as never, { shouldValidate: true });
     });
     setTemplateOpen(false);
     setStep(0);
     toast.info("Template loaded");
+  };
+
+  const loadStrategyDraft = (draftId: string) => {
+    const draft = strategyDraftsQuery.data?.find((item) => item.id === draftId);
+    if (!draft) return;
+
+    form.setValue("name", `${draft.name} paper run`, { shouldValidate: true });
+    form.setValue("strategy", draft.strategy, { shouldValidate: true });
+    form.setValue("strategyParams", (draft.strategyParams as Record<string, unknown>) ?? {});
+    form.setValue("riskConfig", draft.riskConfig as RiskConfig, { shouldValidate: true });
+    form.setValue("exchange", draft.exchange, { shouldValidate: true });
+    form.setValue("symbol", draft.symbol, { shouldValidate: true });
+    form.setValue("timeframe", draft.timeframe, { shouldValidate: true });
+    form.setValue("mode", "paper", { shouldValidate: true });
+    setStep(0);
+    toast.info("Strategy draft loaded into paper bot");
   };
 
   const strategyOptions = Array.from(
@@ -389,7 +406,14 @@ export default function CreateBotPage() {
         }}
         className="glass-panel p-6 space-y-5"
       >
-        {step === 0 && <StepStrategy form={form} strategies={strategyOptions} />}
+        {step === 0 && (
+          <StepStrategy
+            form={form}
+            strategies={strategyOptions}
+            drafts={strategyDraftsQuery.data ?? []}
+            onLoadDraft={loadStrategyDraft}
+          />
+        )}
         {step === 1 && <StepParameters form={form} />}
         {step === 2 && <StepExchange form={form} exchanges={exchangeOptions} />}
         {step === 3 && <StepRisk form={form} />}
@@ -506,9 +530,19 @@ function SelectField({
 function StepStrategy({
   form,
   strategies,
+  drafts,
+  onLoadDraft,
 }: {
   form: UseFormReturn<BotFormData>;
   strategies: StrategyOption[];
+  drafts: Array<{
+    id: string;
+    name: string;
+    strategy: string;
+    symbol: string;
+    timeframe: string;
+  }>;
+  onLoadDraft: (draftId: string) => void;
 }) {
   const {
     register,
@@ -518,6 +552,23 @@ function StepStrategy({
   return (
     <div className="space-y-4">
       <h2 className="text-lg">Select Strategy</h2>
+      <FormField label="Saved Strategy Draft" htmlFor="bot-draft">
+        <SelectField
+          id="bot-draft"
+          defaultValue=""
+          onChange={(event) => {
+            onLoadDraft(event.target.value);
+            event.currentTarget.value = "";
+          }}
+        >
+          <option value="">Load a saved draft…</option>
+          {drafts.map((draft) => (
+            <option key={draft.id} value={draft.id}>
+              {draft.name} · {draft.symbol} · {draft.timeframe}
+            </option>
+          ))}
+        </SelectField>
+      </FormField>
       <FormField label="Bot Name" htmlFor="bot-name" error={errors.name?.message}>
         <InputField id="bot-name" placeholder="My Trading Bot" {...register("name")} />
       </FormField>

@@ -57,10 +57,20 @@ const defaultRisk = {
   trailingStopPercent: 5,
 };
 
+function parseJsonParam<T>(value: string | null): T | undefined {
+  if (!value) return undefined;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    return undefined;
+  }
+}
+
 export default function BacktestPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const strategies = trpc.strategies.catalog.useQuery();
+  const drafts = trpc.strategies.listDrafts.useQuery({});
   const {
     data: backtests,
     isError: isBacktestsError,
@@ -68,15 +78,18 @@ export default function BacktestPage() {
   } = trpc.backtest.list.useQuery({ limit: 20 });
 
   const initialStrategy = searchParams.get("strategy") ?? "sma-crossover";
+  const initialStrategyParams = parseJsonParam<Record<string, unknown>>(
+    searchParams.get("strategyParams")
+  );
   const form = useForm<BacktestFormData>({
     resolver: zodResolver(backtestSchema),
     defaultValues: {
       name: `${initialStrategy} research run`,
       strategy: initialStrategy,
-      strategyParams: {},
+      strategyParams: initialStrategyParams ?? {},
       exchange: searchParams.get("exchange") ?? "binance",
       symbol: searchParams.get("symbol") ?? "BTC/USDT",
-      timeframe: "1h",
+      timeframe: searchParams.get("timeframe") ?? "1h",
       startTime: Date.now() - 180 * 24 * 60 * 60 * 1000,
       endTime: Date.now(),
       initialBalance: 10000,
@@ -94,6 +107,7 @@ export default function BacktestPage() {
     () => strategies.data?.strategies.find((strategy) => strategy.key === selectedStrategyKey),
     [selectedStrategyKey, strategies.data?.strategies]
   );
+  const strategyParams = form.watch("strategyParams");
 
   const coverage = trpc.market.getDataCoverage.useQuery(
     { exchange, symbol, timeframe },
@@ -107,15 +121,31 @@ export default function BacktestPage() {
         .map((param) => [param.name, param.defaultValue])
         .filter(([, value]) => value !== undefined)
     );
-    form.setValue("strategyParams", defaults);
+    if (!initialStrategyParams) form.setValue("strategyParams", defaults);
     if (!form.getValues("name")) form.setValue("name", `${selectedStrategy.name} research run`);
-  }, [form, selectedStrategy]);
+  }, [form, initialStrategyParams, selectedStrategy]);
 
   const validateConfig = trpc.strategies.validateBacktestConfig.useMutation();
   const runBacktest = trpc.backtest.run.useMutation({
     onSuccess: (data) => router.push(`/backtest/${data.backtestId}`),
     onError: (error) => toast.error(`Failed to run backtest: ${error.message}`),
   });
+
+  const loadDraft = (draftId: string) => {
+    const draft = drafts.data?.find((item) => item.id === draftId);
+    if (!draft) return;
+
+    form.setValue("name", `${draft.name} backtest`, { shouldValidate: true });
+    form.setValue("strategy", draft.strategy, { shouldValidate: true });
+    form.setValue("strategyParams", (draft.strategyParams as Record<string, unknown>) ?? {});
+    form.setValue("riskConfig", draft.riskConfig as BacktestFormData["riskConfig"], {
+      shouldValidate: true,
+    });
+    form.setValue("exchange", draft.exchange, { shouldValidate: true });
+    form.setValue("symbol", draft.symbol, { shouldValidate: true });
+    form.setValue("timeframe", draft.timeframe, { shouldValidate: true });
+    toast.info("Strategy draft loaded into backtest");
+  };
 
   const onSubmit = async (data: BacktestFormData) => {
     const validation = await validateConfig.mutateAsync(data);
@@ -193,6 +223,22 @@ export default function BacktestPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-2">
+            <Field label="Saved draft">
+              <Select
+                defaultValue=""
+                onChange={(event) => {
+                  loadDraft(event.target.value);
+                  event.currentTarget.value = "";
+                }}
+              >
+                <option value="">Load a saved draft…</option>
+                {(drafts.data ?? []).map((draft) => (
+                  <option key={draft.id} value={draft.id}>
+                    {draft.name} · {draft.symbol} · {draft.timeframe}
+                  </option>
+                ))}
+              </Select>
+            </Field>
             <Field label="Name">
               <Input {...form.register("name")} placeholder="BTC trend test" />
             </Field>
@@ -223,7 +269,7 @@ export default function BacktestPage() {
                   <Input
                     type="number"
                     step="1"
-                    defaultValue={String(param.defaultValue ?? "")}
+                    value={String(strategyParams[param.name] ?? param.defaultValue ?? "")}
                     onChange={(event) => {
                       const current = form.getValues("strategyParams");
                       form.setValue("strategyParams", {

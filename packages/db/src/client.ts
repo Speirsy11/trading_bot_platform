@@ -17,6 +17,7 @@ import * as ohlcvSchema from "./schema/ohlcv";
 import * as orderAuditLogSchema from "./schema/orderAuditLog";
 import * as orderBookSnapshotsSchema from "./schema/orderBookSnapshots";
 import * as settingsSchema from "./schema/settings";
+import * as strategyDraftsSchema from "./schema/strategyDrafts";
 import * as webhooksSchema from "./schema/webhooks";
 
 const schema = {
@@ -36,6 +37,7 @@ const schema = {
   ...backtestsSchema,
   ...backtestTradesSchema,
   ...settingsSchema,
+  ...strategyDraftsSchema,
   ...webhooksSchema,
 };
 

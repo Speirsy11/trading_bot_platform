@@ -1,8 +1,22 @@
+import { strategyDrafts, type Database } from "@tb/db";
+import { TRPCError } from "@trpc/server";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 
 import { getStrategyCatalog } from "../../services/strategyCatalog";
-import { backtestConfigSchema, botConfigSchema } from "../schemas";
+import { backtestConfigSchema, botConfigSchema, riskConfigSchema, uuidSchema } from "../schemas";
 import { createTrpcRouter, publicProcedure } from "../trpc";
+
+const strategyDraftInputSchema = z.object({
+  name: z.string().min(1).max(120),
+  strategy: z.string().min(1),
+  strategyParams: z.record(z.unknown()).default({}),
+  riskConfig: riskConfigSchema.default(riskConfigSchema.parse({})),
+  exchange: z.string().min(1).default("binance"),
+  symbol: z.string().min(3).default("BTC/USDT"),
+  timeframe: z.string().min(1).default("1h"),
+  notes: z.string().max(1000).optional(),
+});
 
 const STRATEGY_PRESETS = [
   {
@@ -97,6 +111,72 @@ export const strategiesRouter = createTrpcRouter({
       ],
     };
   }),
+
+  listDrafts: publicProcedure
+    .input(z.object({ strategy: z.string().optional() }).default({}))
+    .query(async ({ ctx, input }) => {
+      const conditions = [isNull(strategyDrafts.deletedAt)];
+      if (input.strategy) conditions.push(eq(strategyDrafts.strategy, input.strategy));
+
+      const rows = await ctx.db
+        .select()
+        .from(strategyDrafts)
+        .where(and(...conditions))
+        .orderBy(desc(strategyDrafts.updatedAt), desc(strategyDrafts.createdAt));
+
+      return rows.map(serializeStrategyDraft);
+    }),
+
+  createDraft: publicProcedure.input(strategyDraftInputSchema).mutation(async ({ ctx, input }) => {
+    validateStrategy(input.strategy);
+
+    const inserted = await ctx.db
+      .insert(strategyDrafts)
+      .values({
+        name: input.name,
+        strategy: input.strategy,
+        strategyParams: input.strategyParams,
+        riskConfig: input.riskConfig,
+        exchange: input.exchange,
+        symbol: input.symbol,
+        timeframe: input.timeframe,
+        notes: input.notes,
+      })
+      .returning();
+
+    return serializeStrategyDraft(inserted[0]!);
+  }),
+
+  updateDraft: publicProcedure
+    .input(z.object({ draftId: uuidSchema, patch: strategyDraftInputSchema.partial() }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await findStrategyDraft(ctx.db, input.draftId);
+      const strategy = input.patch.strategy ?? existing.strategy;
+      validateStrategy(strategy);
+
+      const updated = await ctx.db
+        .update(strategyDrafts)
+        .set({
+          ...input.patch,
+          strategy,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(strategyDrafts.id, input.draftId), isNull(strategyDrafts.deletedAt)))
+        .returning();
+
+      return serializeStrategyDraft(updated[0]!);
+    }),
+
+  deleteDraft: publicProcedure
+    .input(z.object({ draftId: uuidSchema }))
+    .mutation(async ({ ctx, input }) => {
+      await findStrategyDraft(ctx.db, input.draftId);
+      await ctx.db
+        .update(strategyDrafts)
+        .set({ deletedAt: new Date(), updatedAt: new Date() })
+        .where(eq(strategyDrafts.id, input.draftId));
+      return { success: true };
+    }),
 });
 
 function buildConfigWarnings(
@@ -123,4 +203,31 @@ function buildConfigWarnings(
     warnings.push("Daily loss limit is above 5%; tighter loss caps are safer for live automation.");
   }
   return warnings;
+}
+
+function validateStrategy(strategyKey: string) {
+  const exists = getStrategyCatalog().some((entry) => entry.key === strategyKey);
+  if (!exists) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown strategy: ${strategyKey}` });
+  }
+}
+
+async function findStrategyDraft(db: Database, draftId: string) {
+  const rows = await db
+    .select()
+    .from(strategyDrafts)
+    .where(and(eq(strategyDrafts.id, draftId), isNull(strategyDrafts.deletedAt)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Strategy draft not found" });
+  return row;
+}
+
+function serializeStrategyDraft(row: typeof strategyDrafts.$inferSelect) {
+  return {
+    ...row,
+    createdAt: row.createdAt?.toISOString() ?? null,
+    updatedAt: row.updatedAt?.toISOString() ?? null,
+    deletedAt: row.deletedAt?.toISOString() ?? null,
+  };
 }

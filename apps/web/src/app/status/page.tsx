@@ -91,8 +91,7 @@ export default function StatusPage() {
     void fetchHealth();
     const id = setInterval(() => void fetchHealth(), REFRESH_INTERVAL_MS);
     return () => clearInterval(id);
-    // mount-only: fetchHealth is stable, refreshTick is intentional
-  }, [refreshTick]);
+  }, [fetchHealth, refreshTick]);
 
   // tRPC queries — re-fetched on refreshTick via queryKey
   const { data: summary } = trpc.portfolio.getSummary.useQuery(undefined, {

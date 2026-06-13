@@ -35,9 +35,11 @@ const hasDocker = await (async () => {
   }
 })();
 
-describe.skipIf(!hasDocker)("@tb/db integration tests", () => {
-  let container: StartedPostgreSqlContainer;
-  let client: ReturnType<typeof postgres>;
+const runIntegrationTests = process.env["RUN_TESTCONTAINERS_INTEGRATION"] === "1";
+
+describe.skipIf(!runIntegrationTests || !hasDocker)("@tb/db integration tests", () => {
+  let container: StartedPostgreSqlContainer | undefined;
+  let client: ReturnType<typeof postgres> | undefined;
   let db: ReturnType<typeof drizzle>;
 
   beforeAll(async () => {
@@ -241,8 +243,8 @@ describe.skipIf(!hasDocker)("@tb/db integration tests", () => {
   }, 120_000);
 
   afterAll(async () => {
-    await client.end();
-    await container.stop();
+    await client?.end();
+    await container?.stop();
   });
 
   describe("OHLCV queries", () => {

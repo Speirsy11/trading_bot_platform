@@ -2,15 +2,16 @@ import { randomUUID } from "node:crypto";
 
 import {
   botLogs,
+  botTrades,
   bots,
   exchangeConfigs,
-  getLatestTimestamp,
-  queryOHLCVByRange,
+  type BotTradeInsert,
   type Database,
 } from "@tb/db";
 import {
   Bot as TradingBot,
   BotRunner,
+  type BotOrderFill,
   type IExchange,
   LiveExchange,
   PaperExchange,
@@ -18,6 +19,7 @@ import {
   StrategyRegistry,
   timeframeToMs,
 } from "@tb/trading-core";
+import type { Balance } from "@tb/types";
 import { Worker } from "bullmq";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type IORedis from "ioredis";
@@ -25,6 +27,7 @@ import pino from "pino";
 
 import { API_QUEUE_NAMES, BOT_JOB_NAMES, type BotJobData } from "../queues/types";
 import type { ExchangeManager } from "../services/exchangeManager";
+import type { MarketDataReader } from "../services/harvesterMarketData";
 import { bootstrapStrategies } from "../services/strategyCatalog";
 import { deliverWebhook } from "../services/webhookDelivery";
 import { BalanceDropDetector, getBalanceDropThreshold } from "../utils/balanceDropDetector";
@@ -87,6 +90,7 @@ export function createBotExecutorWorker(options: {
   db: Database;
   redis: IORedis;
   exchangeManager: ExchangeManager;
+  marketData: MarketDataReader;
 }) {
   bootstrapStrategies();
   const runtimes = new Map<string, BotRuntime>();
@@ -97,7 +101,14 @@ export function createBotExecutorWorker(options: {
       switch (job.name) {
         case BOT_JOB_NAMES.START:
           return withBotLock(options.redis, job.data.botId, () =>
-            startBot(job.data.botId, options.db, options.redis, options.exchangeManager, runtimes)
+            startBot(
+              job.data.botId,
+              options.db,
+              options.redis,
+              options.exchangeManager,
+              options.marketData,
+              runtimes
+            )
           );
         case BOT_JOB_NAMES.PAUSE:
           return withBotLock(options.redis, job.data.botId, () =>
@@ -165,6 +176,7 @@ async function startBot(
   db: Database,
   redis: IORedis,
   exchangeManager: ExchangeManager,
+  marketData: MarketDataReader,
   runtimes: Map<string, BotRuntime>
 ) {
   const existing = runtimes.get(botId);
@@ -184,6 +196,7 @@ async function startBot(
     await createRuntimeExchange(botRow, db, exchangeManager),
     botId
   );
+  const quoteCurrency = botRow.symbol.includes("/") ? botRow.symbol.split("/")[1]! : "USDT";
   const tradingBot = new TradingBot(
     {
       id: botRow.id,
@@ -192,10 +205,23 @@ async function startBot(
       timeframe: botRow.timeframe,
       strategyParams: parseJsonValue(botRow.strategyParams, {}),
       riskConfig: parseJsonValue(botRow.riskConfig, undefined),
+      marketMode: "spot",
+      fees: { maker: 0.001, taker: 0.001 },
+      slippage: { enabled: true, percentage: 0.0005 },
       closePositionsOnStop: true,
       contextProvider: process.env["SIGNAL_HARVESTER_URL"]
         ? new SignalHarvesterContextProvider(process.env["SIGNAL_HARVESTER_URL"])
         : undefined,
+      onOrderFilled: async (fill) => {
+        try {
+          await persistBotOrderFill(db, botId, runtimeExchange, fill);
+        } catch (err) {
+          logger.error({ botId, err, orderId: fill.order.id }, "Failed to persist bot order fill");
+          await logBot(db, botId, "error", "Failed to persist bot order fill").catch(
+            () => undefined
+          );
+        }
+      },
     },
     strategy,
     runtimeExchange,
@@ -212,7 +238,6 @@ async function startBot(
   // Fetch starting balance for catastrophic-drop detection.
   // Extract quote currency from the symbol (e.g. "BTC/USDT" → "USDT").
   // If the balance for that currency is unavailable, sum all total values.
-  const quoteCurrency = botRow.symbol.includes("/") ? botRow.symbol.split("/")[1]! : "USDT";
   let startingBalance = 0;
   try {
     const startBalance = await runtimeExchange.fetchBalance();
@@ -235,7 +260,7 @@ async function startBot(
 
   let runner: BotRunner | undefined;
   try {
-    const afterCandle = async () => {
+    const afterCandle = async (candle: { close: number }) => {
       // ── Daily loss limit check (LT-3) ───────────────────────────────────
       const exceeded = await hasExceededDailyLossLimit(db, botId).catch(() => false);
       if (exceeded) {
@@ -272,11 +297,11 @@ async function startBot(
       if (balanceDropDetector) {
         try {
           const currentBalanceSnapshot = await runtimeExchange.fetchBalance();
-          const quoted = currentBalanceSnapshot.total[quoteCurrency];
-          const currentBalance =
-            typeof quoted === "number" && quoted >= 0
-              ? quoted
-              : Object.values(currentBalanceSnapshot.total).reduce((s, v) => s + (v ?? 0), 0);
+          const currentBalance = calculateSpotEquity(
+            currentBalanceSnapshot,
+            botRow.symbol,
+            candle.close
+          );
 
           if (balanceDropDetector.check(currentBalance)) {
             const dropPercent = parseFloat(
@@ -322,11 +347,16 @@ async function startBot(
       }
     };
 
-    await assertMarketDataReady(db, botRow.exchange, botRow.symbol, botRow.timeframe);
+    await assertMarketDataReady(marketData, botRow.exchange, botRow.symbol, botRow.timeframe);
 
     runner = new BotRunner(tradingBot, runtimeExchange, botRow.symbol, botRow.timeframe, {
       afterCandle,
-      candleSource: createDbCandleSource(db, botRow.exchange, botRow.symbol, botRow.timeframe),
+      candleSource: createMarketDataCandleSource(
+        marketData,
+        botRow.exchange,
+        botRow.symbol,
+        botRow.timeframe
+      ),
       onError: (err) => {
         logger.warn({ botId, err }, "BotRunner poll error (will retry)");
       },
@@ -454,7 +484,12 @@ async function stopBot(
   return { status: "stopped" };
 }
 
-function createDbCandleSource(db: Database, exchange: string, symbol: string, timeframe: string) {
+export function createMarketDataCandleSource(
+  marketData: MarketDataReader,
+  exchange: string,
+  symbol: string,
+  timeframe: string
+) {
   return async (since: number | undefined, limit: number) => {
     const timeframeMs = timeframeToMs(timeframe);
     const endTime = new Date(Date.now());
@@ -463,7 +498,14 @@ function createDbCandleSource(db: Database, exchange: string, symbol: string, ti
       ? new Date(since)
       : new Date(endTime.getTime() - lookbackCandles * timeframeMs);
 
-    const rows = await queryOHLCVByRange(db, exchange, symbol, timeframe, startTime, endTime);
+    const rows = await marketData.getCandles({
+      exchange,
+      symbol,
+      timeframe,
+      startTime,
+      endTime,
+      limit,
+    });
 
     return rows.slice(-limit).map((row) => ({
       time: row.time.getTime(),
@@ -476,14 +518,14 @@ function createDbCandleSource(db: Database, exchange: string, symbol: string, ti
   };
 }
 
-async function assertMarketDataReady(
-  db: Database,
+export async function assertMarketDataReady(
+  marketData: MarketDataReader,
   exchange: string,
   symbol: string,
   timeframe: string
 ) {
-  const latest = await getLatestTimestamp(db, exchange, symbol, timeframe);
-  if (!latest) {
+  const coverage = await marketData.getCoverage(exchange, symbol, timeframe);
+  if (!coverage.latest) {
     throw new Error(
       `No canonical market data available for ${exchange} ${symbol} ${timeframe}; start ingestion before running this bot`
     );
@@ -491,11 +533,11 @@ async function assertMarketDataReady(
 
   const timeframeMs = timeframeToMs(timeframe);
   const maxAgeMs = Number(process.env["BOT_MAX_MARKET_DATA_STALENESS_MS"] ?? timeframeMs * 3);
-  const ageMs = Date.now() - latest.getTime();
+  const ageMs = Date.now() - coverage.latest.getTime();
 
   if (ageMs > maxAgeMs) {
     throw new Error(
-      `Canonical market data is stale for ${exchange} ${symbol} ${timeframe}; latest candle is ${latest.toISOString()}`
+      `Canonical market data is stale for ${exchange} ${symbol} ${timeframe}; latest candle is ${coverage.latest.toISOString()}`
     );
   }
 }
@@ -526,6 +568,104 @@ async function createRuntimeExchange(
   }
 
   return new PaperExchange(publicExchange, toNumber(botRow.currentBalance, 10_000));
+}
+
+async function persistBotOrderFill(
+  db: Database,
+  botId: string,
+  exchange: IExchange,
+  fill: BotOrderFill
+) {
+  await db.insert(botTrades).values(mapOrderFillToBotTrade(botId, fill));
+
+  const rows = await db
+    .select({ pnl: botTrades.pnl })
+    .from(botTrades)
+    .where(eq(botTrades.botId, botId));
+  const pnlValues = rows.map((row) => toNumber(row.pnl));
+  const totalPnl = pnlValues.reduce((sum, pnl) => sum + pnl, 0);
+  const totalTrades = rows.length;
+  const wins = pnlValues.filter((pnl) => pnl > 0).length;
+  const winRate = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+
+  const markPrice = fill.candle?.close ?? fill.order.price ?? fill.trade?.exitPrice;
+  const updateValues: {
+    totalPnl: string;
+    totalTrades: string;
+    winRate: string;
+    updatedAt: Date;
+    currentBalance?: string;
+  } = {
+    totalPnl: totalPnl.toString(),
+    totalTrades: totalTrades.toString(),
+    winRate: winRate.toString(),
+    updatedAt: new Date(),
+  };
+
+  try {
+    const balance = await exchange.fetchBalance();
+    updateValues.currentBalance = calculateSpotEquity(
+      balance,
+      fill.order.symbol,
+      markPrice
+    ).toString();
+  } catch (err) {
+    logger.warn({ botId, err }, "Could not refresh bot balance after order fill");
+  }
+
+  await db.update(bots).set(updateValues).where(eq(bots.id, botId));
+}
+
+export function mapOrderFillToBotTrade(botId: string, fill: BotOrderFill): BotTradeInsert {
+  const amount = fill.order.filled || fill.order.amount;
+  const price = fill.order.price ?? (amount > 0 ? fill.order.cost / amount : 0);
+  const cost = fill.order.cost || amount * price;
+  const fee = fill.order.fee?.cost ?? fill.trade?.fee ?? 0;
+  const pnl = fill.trade?.pnl ?? 0;
+  const entryCost =
+    fill.trade && fill.trade.entryPrice > 0 && fill.trade.amount > 0
+      ? fill.trade.entryPrice * fill.trade.amount
+      : cost;
+  const pnlPercent = entryCost > 0 ? (pnl / entryCost) * 100 : 0;
+
+  const row: BotTradeInsert = {
+    botId,
+    orderId: fill.order.id,
+    symbol: fill.order.symbol,
+    side: fill.order.side,
+    type: fill.order.type,
+    amount: amount.toString(),
+    price: price.toString(),
+    cost: cost.toString(),
+    fee: fee.toString(),
+    pnl: pnl.toString(),
+    pnlPercent: pnlPercent.toString(),
+    reason: fill.trade?.reason ?? fill.signal?.reason ?? fill.reason,
+    executedAt: new Date(fill.order.timestamp || fill.candle?.time || Date.now()),
+  };
+  if (fill.order.fee?.currency) {
+    row.feeCurrency = fill.order.fee.currency;
+  }
+  return row;
+}
+
+export function calculateSpotEquity(balance: Balance, symbol: string, markPrice?: number): number {
+  const [base, quote = "USDT"] = symbol.split("/");
+  const quoteTotal = safeBalanceValue(balance.total[quote] ?? balance.free[quote]);
+  const baseTotal = base ? safeBalanceValue(balance.total[base] ?? balance.free[base]) : 0;
+  const mark = safeBalanceValue(markPrice);
+  const markedBase = mark > 0 ? baseTotal * mark : 0;
+  const equity = quoteTotal + markedBase;
+
+  if (equity > 0 || quoteTotal > 0 || markedBase > 0) {
+    return equity;
+  }
+
+  return Object.values(balance.total).reduce((sum, value) => sum + safeBalanceValue(value), 0);
+}
+
+function safeBalanceValue(value: number | null | undefined): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
 async function logBot(db: Database, botId: string, level: string, message: string) {

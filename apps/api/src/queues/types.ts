@@ -3,6 +3,7 @@ import { QUEUE_NAMES as DATA_PIPELINE_QUEUE_NAMES } from "@tb/data-pipeline";
 export const API_QUEUE_NAMES = {
   BOT_EXECUTION: "bot-execution",
   BACKTEST: "backtest",
+  RESEARCH: "research",
   DATA_EXPORT: DATA_PIPELINE_QUEUE_NAMES.DATA_EXPORT,
 } as const;
 
@@ -16,10 +17,18 @@ export const BACKTEST_JOB_NAMES = {
   RUN: "run-backtest",
 } as const;
 
+export const RESEARCH_JOB_NAMES = {
+  RUN_SWEEP: "run-research-sweep",
+} as const;
+
 export interface BotJobData {
   botId: string;
 }
 
 export interface BacktestJobData {
   backtestId: string;
+}
+
+export interface ResearchJobData {
+  sweepId: string;
 }

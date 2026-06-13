@@ -25,7 +25,7 @@ export class BacktestEngine {
   private contextProvider?: StrategyContextProvider;
 
   constructor(config: BacktestConfig, logger?: Logger, contextProvider?: StrategyContextProvider) {
-    this.config = config;
+    this.config = { ...config, marketMode: config.marketMode ?? "spot" };
     this.logger = logger ?? silentLogger;
     this.contextProvider = contextProvider;
   }
@@ -89,10 +89,7 @@ export class BacktestEngine {
       // b. Sync filled orders with position manager
       const closedOrders = await exchange.fetchClosedOrders();
       for (const order of closedOrders) {
-        if (order.status === "closed" && order.filled > 0 && !processedOrderIds.has(order.id)) {
-          processedOrderIds.add(order.id);
-          positionManager.processFilledOrder(order);
-        }
+        this.processFilledOrder(order, positionManager, processedOrderIds);
       }
 
       // c. Update position prices
@@ -113,7 +110,8 @@ export class BacktestEngine {
           positionManager,
           riskManager,
           positionSizer,
-          candle
+          candle,
+          processedOrderIds
         );
       }
 
@@ -144,6 +142,7 @@ export class BacktestEngine {
       finalBalance: tracker.getLastEquity(),
       metrics,
       trades,
+      orderFills: exchange.getTrades(),
       equityCurve,
       drawdownCurve: tracker.getDrawdownCurve(),
     };
@@ -155,11 +154,17 @@ export class BacktestEngine {
     positionManager: PositionManager,
     riskManager: RiskManager,
     positionSizer: PositionSizer,
-    candle: Candle
+    candle: Candle,
+    processedOrderIds: Set<string>
   ): Promise<void> {
     const [, quote] = this.config.symbol.split("/") as [string, string];
 
     if (signal.action === "CLOSE_LONG" || signal.action === "CLOSE_SHORT") {
+      if (this.config.marketMode !== "margin" && signal.action === "CLOSE_SHORT") {
+        this.logger.debug("Short close ignored in spot market mode");
+        return;
+      }
+
       const pos = positionManager.getPosition(signal.symbol);
       if (!pos) return;
 
@@ -173,7 +178,7 @@ export class BacktestEngine {
           signal.price
         );
         if (order.status === "closed") {
-          positionManager.processFilledOrder(order);
+          this.processFilledOrder(order, positionManager, processedOrderIds, signal.reason);
         }
       } catch {
         this.logger.warn(`Failed to close position for ${signal.symbol}`);
@@ -184,6 +189,30 @@ export class BacktestEngine {
     if (signal.action === "NEUTRAL") return;
 
     // BUY or SELL signal
+    if (this.config.marketMode !== "margin" && signal.action === "SELL") {
+      const pos = positionManager.getPosition(signal.symbol);
+      if (!pos || pos.side !== "long") {
+        this.logger.debug("Short entry rejected in spot market mode");
+        return;
+      }
+
+      try {
+        const order = await exchange.createOrder(
+          signal.symbol,
+          signal.orderType,
+          "sell",
+          pos.amount,
+          signal.price
+        );
+        if (order.status === "closed") {
+          this.processFilledOrder(order, positionManager, processedOrderIds, signal.reason);
+        }
+      } catch {
+        this.logger.warn(`Failed to close spot position for ${signal.symbol}`);
+      }
+      return;
+    }
+
     const side = signal.action === "BUY" ? "buy" : "sell";
     const balance = await exchange.fetchBalance();
     const equity = exchange.getEquity(this.config.symbol);
@@ -191,20 +220,35 @@ export class BacktestEngine {
     // Determine amount
     let amount = signal.amount;
     if (!amount) {
-      amount = positionSizer.calculate(equity, candle.close, signal.stopLoss);
+      if (this.config.marketMode === "spot" && signal.action === "BUY") {
+        const freeQuote = balance.free[quote] ?? 0;
+        const feeRate =
+          signal.orderType === "limit" ? this.config.fees.maker : this.config.fees.taker;
+        const referencePrice = signal.price ?? candle.close;
+        const estimatedFillPrice =
+          referencePrice * (this.config.slippage.enabled ? 1 + this.config.slippage.percentage : 1);
+        amount = freeQuote / (estimatedFillPrice * (1 + feeRate));
+      } else {
+        amount = positionSizer.calculate(equity, candle.close, signal.stopLoss);
+      }
     }
+
+    if (amount <= 0) return;
 
     const orderCost = amount * candle.close;
 
     // Risk check
-    const riskCheck = riskManager.checkOrder(
-      orderCost,
-      equity,
-      positionManager.getPositions(),
-      balance,
-      quote,
-      candle.time
-    );
+    const riskCheck =
+      this.config.marketMode === "spot" && signal.action === "BUY"
+        ? { allowed: true }
+        : riskManager.checkOrder(
+            orderCost,
+            equity,
+            positionManager.getPositions(),
+            balance,
+            quote,
+            candle.time
+          );
 
     if (!riskCheck.allowed) {
       this.logger.debug(`Order rejected: ${riskCheck.reason}`);
@@ -220,11 +264,26 @@ export class BacktestEngine {
         signal.price
       );
       if (order.status === "closed") {
-        positionManager.processFilledOrder(order);
+        this.processFilledOrder(order, positionManager, processedOrderIds, signal.reason);
       }
     } catch {
       this.logger.warn(`Failed to create order for ${signal.symbol}`);
     }
+  }
+
+  private processFilledOrder(
+    order: Awaited<ReturnType<BacktestExchange["createOrder"]>>,
+    positionManager: PositionManager,
+    processedOrderIds: Set<string>,
+    reason?: string
+  ): void {
+    if (order.status !== "closed" || order.filled <= 0 || processedOrderIds.has(order.id)) {
+      return;
+    }
+
+    processedOrderIds.add(order.id);
+    const trade = positionManager.processFilledOrder(order);
+    if (trade && reason) trade.reason = reason;
   }
 }
 

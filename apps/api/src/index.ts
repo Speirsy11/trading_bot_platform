@@ -7,10 +7,7 @@ import IORedis from "ioredis";
 import { createApp } from "./app";
 import { createQueueSet } from "./queues/index";
 import { createExchangeManager } from "./services/exchangeManager";
-import {
-  createHarvesterMarketDataReader,
-  createLocalMarketDataReader,
-} from "./services/harvesterMarketData";
+import { createCanonicalMarketDataReader } from "./services/harvesterMarketData";
 import { assertEncryptionSecret, KeyVault } from "./services/keyVault";
 import { bootstrapStrategies } from "./services/strategyCatalog";
 import { assertDatabaseSchemaReady } from "./utils/databaseSchema";
@@ -58,10 +55,10 @@ async function start() {
     queues = createQueueSet(redis);
     const keyVault = new KeyVault(encryptionKey);
     const exchangeManager = createExchangeManager({ db, keyVault });
-    const signalHarvesterDatabaseUrl = process.env["SIGNAL_HARVESTER_DATABASE_URL"]?.trim();
-    const marketData = signalHarvesterDatabaseUrl
-      ? createHarvesterMarketDataReader(signalHarvesterDatabaseUrl)
-      : createLocalMarketDataReader(db);
+    const marketData = createCanonicalMarketDataReader({
+      db,
+      harvesterDatabaseUrl: process.env["SIGNAL_HARVESTER_DATABASE_URL"],
+    });
 
     bootstrapStrategies();
 

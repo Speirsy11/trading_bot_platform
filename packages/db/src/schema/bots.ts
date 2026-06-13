@@ -16,6 +16,7 @@ export const bots = pgTable("bots", {
   mode: text("mode").notNull().default("backtest"), // backtest, paper, live
   status: text("status").notNull().default("idle"), // idle, running, stopped, error
   riskConfig: jsonb("risk_config").default({}),
+  promotionEvidence: jsonb("promotion_evidence").default({}),
   currentBalance: numeric("current_balance", { precision: 20, scale: 8 }),
   totalPnl: numeric("total_pnl", { precision: 20, scale: 8 }),
   totalTrades: numeric("total_trades", { precision: 20, scale: 8 }),

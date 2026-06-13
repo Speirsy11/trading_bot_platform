@@ -55,6 +55,16 @@ export {
   type OrderAuditLogRow,
   type OrderAuditLogInsert,
 } from "./schema/orderAuditLog";
+export {
+  researchSweeps,
+  type ResearchSweepRow,
+  type ResearchSweepInsert,
+} from "./schema/researchSweeps";
+export {
+  researchResults,
+  type ResearchResultRow,
+  type ResearchResultInsert,
+} from "./schema/researchResults";
 export { webhooks, type WebhookRow, type WebhookInsert } from "./schema/webhooks";
 
 // Queries

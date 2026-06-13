@@ -26,6 +26,7 @@ export const ENV_VARS: EnvVar[] = [
   { name: "SEED_TESTING_DATA", required: false, defaultValue: "0" },
   { name: "SIGNAL_HARVESTER_URL", required: false },
   { name: "SIGNAL_HARVESTER_DATABASE_URL", required: false, redacted: true },
+  { name: "MARKET_DATA_ALLOW_LOCAL_FALLBACK", required: false, defaultValue: "false" },
   { name: "TRADING_ENABLED", required: false, defaultValue: "false" },
   { name: "NODE_ENV", required: false, defaultValue: "development" },
   { name: "BULL_BOARD_USERNAME", required: false },

@@ -1,14 +1,15 @@
 "use client";
 
-import { AlertTriangle, ArrowLeft, Bot, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Bot, CheckCircle2, GitBranch } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { CandlestickChart } from "@/components/charts/CandlestickChart";
 import { DrawdownChart } from "@/components/charts/DrawdownChart";
-import { EquityCurve } from "@/components/charts/EquityCurve";
+import { PerformanceChart } from "@/components/charts/PerformanceChart";
 import { MetricTooltip } from "@/components/ui/MetricTooltip";
-import { formatCurrency, formatPercent, pnlColor, formatDate } from "@/lib/format";
+import { formatCurrency, formatPercent, pnlColor, formatDate, formatDateShort } from "@/lib/format";
 import { trpc } from "@/lib/trpc";
 
 export default function BacktestResultsPage({
@@ -22,6 +23,20 @@ export default function BacktestResultsPage({
   const results = resultsQuery.data;
   const status = statusQuery.data;
   const isLoading = resultsQuery.isLoading || statusQuery.isLoading;
+  const chartQuery = trpc.market.getChartSnapshot.useQuery(
+    {
+      exchange: results?.exchange ?? "",
+      symbol: results?.symbol ?? "",
+      timeframe: results?.timeframe ?? "",
+      startTime: results ? Date.parse(results.startTime) : undefined,
+      endTime: results ? Date.parse(results.endTime) : undefined,
+      limit: 1200,
+    },
+    {
+      enabled: Boolean(results?.exchange && results.symbol && results.timeframe),
+      staleTime: 60_000,
+    }
+  );
 
   if (isLoading) {
     return (
@@ -36,6 +51,7 @@ export default function BacktestResultsPage({
   }
 
   if (status?.status === "running" || status?.status === "pending") {
+    const progressPercent = normalizeProgress(status?.progress);
     return (
       <div className="space-y-6">
         <div className="flex items-center gap-4">
@@ -59,13 +75,13 @@ export default function BacktestResultsPage({
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${(status?.progress ?? 0) * 100}%`,
+                width: `${progressPercent}%`,
                 background: "var(--accent)",
               }}
             />
           </div>
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>
-            {Math.round((status?.progress ?? 0) * 100)}% complete
+            {Math.round(progressPercent)}% complete
           </p>
         </div>
       </div>
@@ -87,6 +103,7 @@ export default function BacktestResultsPage({
   }
 
   const metrics = (results.metrics ?? {}) as Record<string, unknown>;
+  const sourceEvidence = parseSourceEvidence(metrics.sourceEvidence);
   const storedResult = (metrics.result ?? {}) as Record<string, unknown>;
   const equityCurve = (
     (storedResult.equityCurve ?? metrics.equityCurve ?? []) as {
@@ -100,7 +117,25 @@ export default function BacktestResultsPage({
       drawdown: number;
     }[]
   ).map((point) => ({ time: point.time, drawdown: point.drawdown }));
-  const trades = (storedResult.trades ?? metrics.trades ?? []) as Record<string, unknown>[];
+  const benchmark = parseBacktestBenchmark(storedResult.benchmark);
+  const benchmarkCurve =
+    benchmark?.equityCurve?.map((point) => ({ time: point.time, value: point.equity })) ?? [];
+  const performanceCurve = equityCurve.map((point) => ({ time: point.time, value: point.equity }));
+  const benchmarkReturn = readOptionalNumber(benchmark?.totalReturn);
+  const excessReturn =
+    readOptionalNumber(storedResult.excessReturn) ??
+    (benchmarkReturn === null ? null : (Number(results.totalPnlPercent) || 0) - benchmarkReturn);
+  const benchmarkDrawdown = readOptionalNumber(benchmark?.maxDrawdown);
+  const trades = (storedResult.trades ?? metrics.trades ?? results.trades ?? []) as Record<
+    string,
+    unknown
+  >[];
+  const orderFills = (storedResult.orderFills ?? metrics.orderFills ?? []) as Record<
+    string,
+    unknown
+  >[];
+  const tradeMarkers = buildTradeMarkers(orderFills.length > 0 ? orderFills : trades);
+  const chartCoverage = chartQuery.data?.coverage;
   const promotionHref = buildPromotionHref(backtestId, results);
   const readiness = getPromotionReadiness(results);
 
@@ -109,6 +144,19 @@ export default function BacktestResultsPage({
       label: "Total Return",
       value: formatPercent(Number(results.totalPnlPercent) || 0),
       color: pnlColor(Number(results.totalPnlPercent) || 0),
+    },
+    {
+      label: "Benchmark",
+      value: benchmarkReturn === null ? "n/a" : formatPercent(benchmarkReturn),
+      color: benchmarkReturn === null ? "var(--text-muted)" : pnlColor(benchmarkReturn),
+      tooltip:
+        "Buy-and-hold return for the same symbol, candle window, fees, and slippage assumptions.",
+    },
+    {
+      label: "Excess Return",
+      value: excessReturn === null ? "n/a" : formatPercent(excessReturn),
+      color: excessReturn === null ? "var(--text-muted)" : pnlColor(excessReturn),
+      tooltip: "Strategy return minus the same-window buy-and-hold benchmark return.",
     },
     {
       label: "Total PnL",
@@ -125,11 +173,12 @@ export default function BacktestResultsPage({
       label: "Max Drawdown",
       value: formatPercent(-(Number(results.maxDrawdown) || 0)),
       color: "var(--loss)",
+      detail: benchmarkDrawdown === null ? undefined : `Bench ${formatPercent(-benchmarkDrawdown)}`,
       tooltip: "Largest peak-to-trough decline. A measure of downside risk.",
     },
     {
       label: "Win Rate",
-      value: formatPercent((Number(results.winRate) || 0) * 100),
+      value: formatPercent(Number(results.winRate) || 0),
       tooltip: "Percentage of trades that were profitable.",
     },
     { label: "Total Trades", value: String(results.totalTrades ?? 0) },
@@ -155,6 +204,8 @@ export default function BacktestResultsPage({
           </p>
         </div>
       </div>
+
+      {sourceEvidence && <SourceEvidencePanel evidence={sourceEvidence} />}
 
       <div className="glass-panel p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -200,7 +251,7 @@ export default function BacktestResultsPage({
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         {metricsCards.map((m) => (
           <div key={m.label} className="glass-panel-sm p-4">
             <div className="text-xs mb-1 flex items-center" style={{ color: "var(--text-muted)" }}>
@@ -215,16 +266,61 @@ export default function BacktestResultsPage({
             >
               {m.value}
             </div>
+            {"detail" in m && m.detail && (
+              <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                {m.detail}
+              </div>
+            )}
           </div>
         ))}
       </div>
 
       {/* Charts */}
+      <ErrorBoundary>
+        <div className="glass-panel p-5">
+          <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-lg" style={{ color: "var(--text-primary)" }}>
+                Price Action and Trades
+              </h2>
+              <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                {chartQuery.isError
+                  ? chartQuery.error.message
+                  : `${chartQuery.data?.candles.length ?? 0} Harvester candles · ${tradeMarkers.length} trade markers`}
+              </p>
+            </div>
+            <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+              {chartCoverage?.earliest && chartCoverage.latest
+                ? `${formatDateShort(chartCoverage.earliest)} → ${formatDateShort(chartCoverage.latest)}`
+                : `${results.exchange} · ${results.timeframe}`}
+            </div>
+          </div>
+          <CandlestickChart
+            data={chartQuery.data?.candles ?? []}
+            height={460}
+            markers={tradeMarkers}
+            showVolume
+            showIndicatorControls
+            defaultIndicators={["SMA", "EMA"]}
+            indicators={{
+              sma: { period: 20, color: "#c8a55a" },
+              ema: { period: 50, color: "#5ab8c8" },
+            }}
+          />
+        </div>
+      </ErrorBoundary>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ErrorBoundary>
           <div className="glass-panel p-5">
-            <h2 className="text-lg mb-4">Equity Curve</h2>
-            <EquityCurve data={equityCurve} height={280} />
+            <h2 className="text-lg mb-4">Equity vs Buy-and-Hold</h2>
+            <PerformanceChart
+              data={performanceCurve}
+              comparisonData={benchmarkCurve}
+              seriesName="Strategy"
+              comparisonName="Buy and hold"
+              height={280}
+            />
           </div>
         </ErrorBoundary>
 
@@ -238,7 +334,7 @@ export default function BacktestResultsPage({
 
       {/* Trades */}
       <div className="glass-panel p-5">
-        <h2 className="text-lg mb-4">Trades</h2>
+        <h2 className="text-lg mb-4">Closed Trades</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -312,6 +408,57 @@ export default function BacktestResultsPage({
   );
 }
 
+type SourceEvidence = {
+  sourceType: "research";
+  sourceId: string;
+  sourceLabel?: string;
+  benchmarkStatus?: string;
+  qualified?: boolean;
+  alphaQualified?: boolean;
+  outOfSampleReturn?: number | null;
+  benchmarkReturn?: number | null;
+  excessReturn?: number | null;
+  verifiedAt?: number | null;
+};
+
+function SourceEvidencePanel({ evidence }: { evidence: SourceEvidence }) {
+  return (
+    <div
+      className="flex flex-col gap-3 rounded-xl p-4 text-sm lg:flex-row lg:items-center lg:justify-between"
+      style={{
+        background: "rgba(200, 165, 90, 0.10)",
+        color: "var(--text-secondary)",
+        border: "1px solid rgba(200, 165, 90, 0.24)",
+      }}
+    >
+      <div className="flex items-start gap-3">
+        <GitBranch size={18} style={{ color: "var(--accent)" }} />
+        <div>
+          <div style={{ color: "var(--text-primary)" }}>
+            Replayed from {evidence.sourceLabel ?? "research evidence"}
+          </div>
+          <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+            {formatBenchmarkStatus(evidence.benchmarkStatus)} · OOS{" "}
+            {formatOptionalPercent(evidence.outOfSampleReturn)} · Excess{" "}
+            {formatOptionalPercent(evidence.excessReturn)}
+          </div>
+        </div>
+      </div>
+      <Link
+        href={`/research/${evidence.sourceId}`}
+        className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs"
+        style={{
+          background: "var(--bg-input)",
+          color: "var(--text-primary)",
+          border: "1px solid var(--border)",
+        }}
+      >
+        Open source result
+      </Link>
+    </div>
+  );
+}
+
 type BacktestResultForPromotion = {
   name?: string | null;
   strategy: string;
@@ -326,6 +473,60 @@ type BacktestResultForPromotion = {
   totalTrades?: number | null;
   sharpeRatio?: number | null;
 };
+
+function parseSourceEvidence(value: unknown): SourceEvidence | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (record.sourceType !== "research" || typeof record.sourceId !== "string") return null;
+  return {
+    sourceType: "research",
+    sourceId: record.sourceId,
+    sourceLabel: typeof record.sourceLabel === "string" ? record.sourceLabel : undefined,
+    benchmarkStatus:
+      typeof record.benchmarkStatus === "string" ? record.benchmarkStatus : undefined,
+    qualified: typeof record.qualified === "boolean" ? record.qualified : undefined,
+    alphaQualified: typeof record.alphaQualified === "boolean" ? record.alphaQualified : undefined,
+    outOfSampleReturn: readOptionalNumber(record.outOfSampleReturn),
+    benchmarkReturn: readOptionalNumber(record.benchmarkReturn),
+    excessReturn: readOptionalNumber(record.excessReturn),
+    verifiedAt: readOptionalNumber(record.verifiedAt),
+  };
+}
+
+type BacktestBenchmark = {
+  totalReturn?: number;
+  maxDrawdown?: number;
+  finalBalance?: number;
+  equityCurve?: Array<{ time: number; equity: number }>;
+};
+
+function parseBacktestBenchmark(value: unknown): BacktestBenchmark | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as BacktestBenchmark;
+}
+
+function readOptionalNumber(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function formatOptionalPercent(value: number | null | undefined) {
+  return value == null ? "n/a" : formatPercent(value);
+}
+
+function formatBenchmarkStatus(value?: string) {
+  if (value === "alpha-qualified") return "Benchmark alpha";
+  if (value === "profit-only") return "Historical profit";
+  if (value === "benchmark-beater") return "Benchmark beater";
+  if (value === "research") return "Research";
+  return value ?? "Research";
+}
+
+function normalizeProgress(value: number | null | undefined) {
+  const progress = Number(value ?? 0);
+  if (!Number.isFinite(progress)) return 0;
+  const percent = progress <= 1 ? progress * 100 : progress;
+  return Math.min(Math.max(percent, 0), 100);
+}
 
 function buildPromotionHref(backtestId: string, results: BacktestResultForPromotion) {
   const params = new URLSearchParams({
@@ -365,4 +566,87 @@ function getPromotionReadiness(results: BacktestResultForPromotion) {
       `${sharpe.toFixed(2)} Sharpe`,
     ],
   };
+}
+
+type TradeMarker = {
+  time: number;
+  position: "aboveBar" | "belowBar";
+  color: string;
+  shape: "arrowUp" | "arrowDown" | "circle";
+  text: string;
+};
+
+function buildTradeMarkers(trades: Record<string, unknown>[]): TradeMarker[] {
+  return trades.flatMap((trade, index) => {
+    const side = String(trade.side ?? "").toLowerCase();
+    const entryTimestamp = timeFromTrade(trade.entryTimestamp);
+    const exitTimestamp = timeFromTrade(trade.timestamp ?? trade.executedAt);
+    const pnl = numberFromTrade(trade.pnl) ?? 0;
+    const entryPrice = numberFromTrade(trade.entryPrice);
+    const exitPrice = numberFromTrade(trade.exitPrice ?? trade.price);
+    const markers: TradeMarker[] = [];
+
+    if (entryTimestamp) {
+      markers.push({
+        time: entryTimestamp,
+        position: "belowBar",
+        color: "#6ee7a0",
+        shape: "arrowUp",
+        text: entryPrice ? `Entry ${formatCurrency(entryPrice, 2)}` : `Entry #${index + 1}`,
+      });
+    }
+
+    if (exitTimestamp) {
+      if (!entryTimestamp && side === "buy") {
+        markers.push({
+          time: exitTimestamp,
+          position: "belowBar",
+          color: "#6ee7a0",
+          shape: "arrowUp",
+          text: exitPrice ? `Buy ${formatCurrency(exitPrice, 2)}` : `Buy #${index + 1}`,
+        });
+        return markers;
+      }
+
+      if (!entryTimestamp && side === "sell") {
+        markers.push({
+          time: exitTimestamp,
+          position: "aboveBar",
+          color: "#f87171",
+          shape: "arrowDown",
+          text: exitPrice ? `Sell ${formatCurrency(exitPrice, 2)}` : `Sell #${index + 1}`,
+        });
+        return markers;
+      }
+
+      markers.push({
+        time: exitTimestamp,
+        position: pnl >= 0 ? "aboveBar" : "belowBar",
+        color: pnl >= 0 ? "#6ee7a0" : "#f87171",
+        shape: pnl >= 0 ? "arrowDown" : "circle",
+        text: `${pnl >= 0 ? "+" : ""}${formatCurrency(pnl, 2)}${exitPrice ? ` @ ${formatCurrency(exitPrice, 2)}` : ""}`,
+      });
+    }
+
+    return markers;
+  });
+}
+
+function numberFromTrade(value: unknown): number | null {
+  if (typeof value === "string" && value.trim()) {
+    const parsedNumber = Number(value);
+    return Number.isFinite(parsedNumber) ? parsedNumber : null;
+  }
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return null;
+}
+
+function timeFromTrade(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "string" && value.trim()) {
+    const parsedDate = Date.parse(value);
+    if (Number.isFinite(parsedDate)) return parsedDate;
+    return numberFromTrade(value);
+  }
+  return numberFromTrade(value);
 }

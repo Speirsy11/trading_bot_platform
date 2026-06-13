@@ -8,7 +8,9 @@ export async function assertDatabaseSchemaReady(client: DatabaseClient) {
     from (
       values
         ('settings', to_regclass('public.settings')),
-        ('order_audit_log', to_regclass('public.order_audit_log'))
+        ('order_audit_log', to_regclass('public.order_audit_log')),
+        ('research_sweeps', to_regclass('public.research_sweeps')),
+        ('research_results', to_regclass('public.research_results'))
     ) as required(relation_name, relation_ref)
     where relation_ref is null
   `);

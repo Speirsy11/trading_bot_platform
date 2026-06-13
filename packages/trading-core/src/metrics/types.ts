@@ -36,6 +36,7 @@ export interface BacktestResult {
   finalBalance: number;
   metrics: PerformanceMetrics;
   trades: TradeRecord[];
+  orderFills?: TradeRecord[];
   equityCurve: EquityPoint[];
   drawdownCurve: EquityPoint[];
 }

@@ -19,6 +19,8 @@ interface DrawdownChartProps {
 function DrawdownChartInner({ data, height = 200 }: DrawdownChartProps) {
   const option = useMemo(() => {
     const { textSecondary, grid, loss, bgCard, fontFamily } = getChartThemeTokens();
+    const maxDrawdown = Math.max(1, ...data.map((point) => point.drawdown));
+    const yAxisMax = Math.ceil(maxDrawdown * 1.1);
 
     return {
       tooltip: {
@@ -39,7 +41,8 @@ function DrawdownChartInner({ data, height = 200 }: DrawdownChartProps) {
         axisLine: { show: false },
         axisLabel: { color: textSecondary, fontSize: 10, formatter: "{value}%" },
         splitLine: { lineStyle: { color: grid } },
-        max: 0,
+        min: 0,
+        max: yAxisMax,
       },
       series: [
         {

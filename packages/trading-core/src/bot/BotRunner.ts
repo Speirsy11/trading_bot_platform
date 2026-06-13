@@ -5,7 +5,7 @@ import { timeframeToMs } from "../utils/timeframe";
 
 import type { Bot } from "./Bot";
 
-export type AfterCandleCallback = () => Promise<void>;
+export type AfterCandleCallback = (candle: Candle) => Promise<void>;
 export type CandleSource = (since: number | undefined, limit: number) => Promise<Candle[]>;
 
 export interface BotRunnerOptions {
@@ -101,7 +101,7 @@ export class BotRunner {
         await this.bot.processCandle(candle);
         this.lastCandleTime = candle.time;
         if (this.afterCandle) {
-          await this.afterCandle();
+          await this.afterCandle(candle);
         }
       }
 

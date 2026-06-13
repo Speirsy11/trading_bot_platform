@@ -13,9 +13,16 @@ interface BotControlPanelProps {
   status: string;
   mode?: string;
   botName?: string;
+  livePromotionLocked?: boolean;
 }
 
-export function BotControlPanel({ botId, status, mode, botName = "" }: BotControlPanelProps) {
+export function BotControlPanel({
+  botId,
+  status,
+  mode,
+  botName = "",
+  livePromotionLocked = false,
+}: BotControlPanelProps) {
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isStopConfirmOpen, setIsStopConfirmOpen] = useState(false);
   const utils = trpc.useUtils();
@@ -80,7 +87,23 @@ export function BotControlPanel({ botId, status, mode, botName = "" }: BotContro
         </span>
 
         <div className="flex gap-2 ml-auto">
-          {mode === "paper" && (
+          {mode === "paper" && livePromotionLocked && (
+            <button
+              type="button"
+              disabled
+              title="Research/backtest promoted bots stay in paper mode until a live promotion workflow is implemented."
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium opacity-60"
+              style={{
+                background: "var(--bg-input)",
+                color: "var(--text-muted)",
+                border: "1px solid var(--border)",
+              }}
+            >
+              <Zap size={12} /> Live locked
+            </button>
+          )}
+
+          {mode === "paper" && !livePromotionLocked && (
             <button
               onClick={() => setIsConfirmOpen(true)}
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"

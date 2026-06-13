@@ -7,12 +7,20 @@ import { useUiStore } from "@/stores/ui";
 export function MainContent({ children }: { children: React.ReactNode }) {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
+    const updateViewport = () => {
+      setMounted(true);
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    updateViewport();
+    window.addEventListener("resize", updateViewport);
+    return () => window.removeEventListener("resize", updateViewport);
   }, []);
 
-  const marginLeft = mounted ? (sidebarOpen ? 240 : 64) : 240;
+  const marginLeft = mounted ? (isMobile ? 0 : sidebarOpen ? 240 : 64) : 240;
 
   return (
     <div

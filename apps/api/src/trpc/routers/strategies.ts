@@ -41,7 +41,7 @@ const STRATEGY_PRESETS = [
     name: "Balanced RSI Reversion",
     strategy: "rsi-mean-reversion",
     description: "Buy oversold pullbacks and exit when momentum normalises.",
-    strategyParams: { period: 14, oversold: 30, overbought: 70 },
+    strategyParams: { rsiPeriod: 14, oversoldLevel: 30, overboughtLevel: 60 },
     riskConfig: {
       maxPositionSizePercent: 8,
       maxDrawdownPercent: 15,
@@ -55,10 +55,11 @@ const STRATEGY_PRESETS = [
   },
   {
     id: "bollinger-scalp-paper-first",
-    name: "Bollinger Bounce Paper-first",
-    strategy: "bollinger-bounce",
-    description: "Mean-reversion template intended to prove behaviour in paper mode first.",
-    strategyParams: { period: 20, stdDevMultiplier: 2 },
+    name: "Bollinger Long Bounce Paper-first",
+    strategy: "bollinger-long-bounce",
+    description:
+      "Spot long-only mean-reversion template intended to prove behaviour in paper mode first.",
+    strategyParams: { period: 20, stdDevMultiplier: 2, rsiOversold: 35, exitBand: "middle" },
     riskConfig: {
       maxPositionSizePercent: 3,
       maxDrawdownPercent: 8,
@@ -206,7 +207,9 @@ function buildConfigWarnings(
 }
 
 function validateStrategy(strategyKey: string) {
-  const exists = getStrategyCatalog().some((entry) => entry.key === strategyKey);
+  const exists = getStrategyCatalog({ includeLegacy: true }).some(
+    (entry) => entry.key === strategyKey
+  );
   if (!exists) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown strategy: ${strategyKey}` });
   }

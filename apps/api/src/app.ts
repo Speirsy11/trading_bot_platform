@@ -74,6 +74,9 @@ export async function createApp(options: CreateAppOptions) {
   const app = Fastify({
     logger: options.loggerOptions ?? true,
     genReqId: () => randomUUID(),
+    routerOptions: {
+      maxParamLength: 500,
+    },
   });
 
   const allowedOrigins = parseAllowedOrigins(process.env["CORS_ORIGINS"], process.env["NODE_ENV"]);
@@ -321,6 +324,7 @@ export async function createApp(options: CreateAppOptions) {
         queues: [
           new BullMQAdapter(options.queues.botExecutionQueue),
           new BullMQAdapter(options.queues.backtestQueue),
+          new BullMQAdapter(options.queues.researchQueue),
           new BullMQAdapter(options.queues.dataExportQueue),
         ],
         serverAdapter,

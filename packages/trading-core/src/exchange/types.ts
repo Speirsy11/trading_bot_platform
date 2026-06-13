@@ -41,6 +41,7 @@ export interface TradeRecord {
   pnl: number;
   entryPrice: number;
   exitPrice: number;
+  entryTimestamp?: number;
   timestamp: number;
   reason?: string;
 }

@@ -13,11 +13,29 @@ echarts.use([LineChart, TooltipComponent, GridComponent, CanvasRenderer]);
 
 interface PerformanceChartProps {
   data: Array<{ time: number; value: number }>;
+  comparisonData?: Array<{ time: number; value: number }>;
+  extraSeries?: Array<{
+    name: string;
+    data: Array<{ time: number; value: number }>;
+    color?: string;
+  }>;
   height?: number;
   color?: string;
+  comparisonColor?: string;
+  seriesName?: string;
+  comparisonName?: string;
 }
 
-function PerformanceChartInner({ data, height = 250, color }: PerformanceChartProps) {
+function PerformanceChartInner({
+  data,
+  comparisonData,
+  extraSeries,
+  height = 250,
+  color,
+  comparisonColor,
+  seriesName = "Strategy",
+  comparisonName = "Benchmark",
+}: PerformanceChartProps) {
   const option = useMemo(() => {
     const {
       textSecondary,
@@ -27,6 +45,7 @@ function PerformanceChartInner({ data, height = 250, color }: PerformanceChartPr
       fontFamily,
     } = getChartThemeTokens();
     const accent = color ?? defaultAccent;
+    const benchmarkColor = comparisonColor ?? textSecondary;
 
     return {
       tooltip: {
@@ -50,6 +69,7 @@ function PerformanceChartInner({ data, height = 250, color }: PerformanceChartPr
       },
       series: [
         {
+          name: seriesName,
           type: "line" as const,
           data: data.map((d) => [d.time, d.value]),
           smooth: true,
@@ -62,9 +82,32 @@ function PerformanceChartInner({ data, height = 250, color }: PerformanceChartPr
             ]),
           },
         },
+        ...(comparisonData?.length
+          ? [
+              {
+                name: comparisonName,
+                type: "line" as const,
+                data: comparisonData.map((d) => [d.time, d.value]),
+                smooth: true,
+                showSymbol: false,
+                lineStyle: { color: benchmarkColor, width: 1.5, type: "dashed" as const },
+              },
+            ]
+          : []),
+        ...(extraSeries ?? []).map((series) => ({
+          name: series.name,
+          type: "line" as const,
+          data: series.data.map((d) => [d.time, d.value]),
+          smooth: true,
+          showSymbol: false,
+          lineStyle: {
+            color: series.color ?? benchmarkColor,
+            width: 1.35,
+          },
+        })),
       ],
     };
-  }, [data, color]);
+  }, [comparisonData, comparisonName, data, color, comparisonColor, extraSeries, seriesName]);
 
   return (
     <ReactEChartsCore

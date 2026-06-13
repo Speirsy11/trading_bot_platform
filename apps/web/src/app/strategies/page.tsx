@@ -13,6 +13,16 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { toast } from "@/components/ui/Toaster";
+import {
+  coerceStrategyParamInput,
+  formatStrategyParamLabel,
+  formatStrategyParamType,
+  getDefaultStrategyParams,
+  isNumberStrategyParam,
+  mergeStrategyParamValue,
+  type StrategyParamDefinition,
+  type StrategyParams,
+} from "@/lib/strategyParams";
 import { trpc } from "@/lib/trpc";
 
 const DEFAULT_SYMBOL = "BTC/USDT";
@@ -27,8 +37,6 @@ const DEFAULT_RISK_CONFIG = {
   trailingStopEnabled: false,
   trailingStopPercent: 5,
 };
-
-type StrategyParams = Record<string, unknown>;
 
 export default function StrategiesPage() {
   const utils = trpc.useUtils();
@@ -56,6 +64,7 @@ export default function StrategiesPage() {
   const [timeframe, setTimeframe] = useState(DEFAULT_TIMEFRAME);
   const [notes, setNotes] = useState("");
   const [strategyParams, setStrategyParams] = useState<StrategyParams>({});
+  const [initializedStrategy, setInitializedStrategy] = useState<string | null>(null);
 
   const selected = useMemo(
     () => data?.strategies.find((strategy) => strategy.key === selectedStrategy),
@@ -63,17 +72,19 @@ export default function StrategiesPage() {
   );
 
   useEffect(() => {
-    if (!selected || Object.keys(strategyParams).length > 0) return;
-    const defaults = getDefaultParams(selected.params);
+    if (!selected || initializedStrategy === selected.key) return;
+    const defaults = getDefaultStrategyParams(selected.params);
     setStrategyParams(defaults);
     setDraftName(`${selected.name} draft`);
-  }, [selected, strategyParams]);
+    setInitializedStrategy(selected.key);
+  }, [initializedStrategy, selected]);
 
   const selectCatalogStrategy = (strategy: NonNullable<typeof data>["strategies"][number]) => {
     setSelectedStrategy(strategy.key);
-    setStrategyParams(getDefaultParams(strategy.params));
+    setStrategyParams(getDefaultStrategyParams(strategy.params));
     setDraftName(`${strategy.name} draft`);
     setNotes("");
+    setInitializedStrategy(strategy.key);
   };
 
   const saveCurrentDraft = () => {
@@ -208,12 +219,12 @@ export default function StrategiesPage() {
               {(selected?.params ?? []).map((param) => (
                 <StrategyParamField
                   key={param.name}
-                  name={param.name}
-                  type={String(param.type).replace("Zod", "")}
-                  defaultValue={param.defaultValue}
-                  value={strategyParams[param.name]}
+                  param={param}
+                  value={strategyParams[param.name] ?? param.defaultValue ?? ""}
                   onChange={(value) =>
-                    setStrategyParams((current) => ({ ...current, [param.name]: value }))
+                    setStrategyParams((current) =>
+                      mergeStrategyParamValue(current, param.name, value)
+                    )
                   }
                 />
               ))}
@@ -374,6 +385,7 @@ export default function StrategiesPage() {
                         setTimeframe(draft.timeframe);
                         setNotes(draft.notes ?? "");
                         setStrategyParams((draft.strategyParams as StrategyParams) ?? {});
+                        setInitializedStrategy(draft.strategy);
                       }}
                       className="rounded-lg px-3 py-1.5 text-xs"
                       style={{ background: "var(--accent-dim)", color: "var(--accent)" }}
@@ -415,29 +427,16 @@ export default function StrategiesPage() {
   );
 }
 
-function getDefaultParams(params: { name: string; defaultValue?: unknown }[]) {
-  return Object.fromEntries(
-    params
-      .map((param) => [param.name, param.defaultValue])
-      .filter(([, value]) => value !== undefined)
-  );
-}
-
 function StrategyParamField({
-  name,
-  type,
-  defaultValue,
+  param,
   value,
   onChange,
 }: {
-  name: string;
-  type: string;
-  defaultValue: unknown;
+  param: StrategyParamDefinition;
   value: unknown;
   onChange: (value: unknown) => void;
 }) {
-  const isBoolean = typeof defaultValue === "boolean";
-  const isNumber = typeof defaultValue === "number";
+  const fieldValue = value === null || value === undefined ? "" : String(value);
 
   return (
     <div
@@ -445,12 +444,25 @@ function StrategyParamField({
       style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
     >
       <label className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-        {name}
+        {formatStrategyParamLabel(param.name)}
       </label>
       <div className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-        {type} · default {defaultValue == null ? "—" : String(defaultValue)}
+        {formatStrategyParamType(param)} · default{" "}
+        {param.defaultValue == null ? "—" : String(param.defaultValue)}
       </div>
-      {isBoolean ? (
+      {param.inputType === "select" ? (
+        <Select
+          className="mt-3"
+          value={fieldValue}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {(param.options ?? []).map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </Select>
+      ) : param.inputType === "boolean" ? (
         <label
           className="mt-3 flex items-center gap-2 text-sm"
           style={{ color: "var(--text-secondary)" }}
@@ -462,13 +474,27 @@ function StrategyParamField({
           />
           Enabled
         </label>
+      ) : isNumberStrategyParam(param, value) ? (
+        <Input
+          className="mt-3"
+          type="number"
+          min={param.min ?? undefined}
+          max={param.max ?? undefined}
+          step={param.integer ? 1 : "any"}
+          value={fieldValue}
+          onChange={(event) => onChange(coerceStrategyParamInput(param, event.target.value))}
+        />
       ) : (
         <Input
           className="mt-3"
-          type={isNumber ? "number" : "text"}
-          value={value == null ? "" : String(value)}
-          onChange={(event) => onChange(isNumber ? Number(event.target.value) : event.target.value)}
+          value={fieldValue}
+          onChange={(event) => onChange(event.target.value)}
         />
+      )}
+      {param.description && (
+        <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+          {param.description}
+        </p>
       )}
     </div>
   );
@@ -486,6 +512,20 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function Input({ className = "", ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
+      className={`w-full rounded-xl px-3 py-2 text-sm outline-none ${className}`}
+      style={{
+        background: "var(--bg-input)",
+        border: "1px solid var(--border)",
+        color: "var(--text-primary)",
+      }}
+      {...props}
+    />
+  );
+}
+
+function Select({ className = "", ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <select
       className={`w-full rounded-xl px-3 py-2 text-sm outline-none ${className}`}
       style={{
         background: "var(--bg-input)",

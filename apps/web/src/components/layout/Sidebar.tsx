@@ -4,6 +4,7 @@ import {
   LayoutDashboard,
   Bot,
   FlaskConical,
+  Microscope,
   LineChart,
   Database,
   SlidersHorizontal,
@@ -15,12 +16,14 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { useUiStore } from "@/stores/ui";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/strategies", label: "Strategies", icon: SlidersHorizontal },
+  { href: "/research", label: "Research", icon: Microscope },
   { href: "/backtest", label: "Backtest", icon: FlaskConical },
   { href: "/bots", label: "Live Runs", icon: Bot },
   { href: "/trading", label: "Charts", icon: LineChart },
@@ -35,11 +38,21 @@ export function Sidebar() {
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
   const toggleSidebar = useUiStore((s) => s.toggleSidebar);
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, [setSidebarOpen]);
+
+  const visibleSidebarOpen = mounted ? sidebarOpen : true;
 
   return (
     <>
       {/* Mobile backdrop — closes sidebar on tap outside */}
-      {sidebarOpen && (
+      {visibleSidebarOpen && (
         <div
           className="fixed inset-0 z-30 bg-black/50 md:hidden"
           onClick={() => setSidebarOpen(false)}
@@ -49,14 +62,14 @@ export function Sidebar() {
 
       <aside
         className={[
-          "fixed left-0 top-0 z-40 flex h-full flex-col border-r",
+          "fixed left-0 top-0 z-40 flex h-full flex-col overflow-hidden border-r",
           // Mobile: translate off-screen when closed; desktop: width-based collapse
-          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
+          visibleSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0",
           "transition-transform duration-200 md:transition-[width,transform]",
         ].join(" ")}
         style={{
           // On mobile always 240px wide (overlay drawer); desktop uses sidebarOpen width
-          width: sidebarOpen ? 240 : 64,
+          width: visibleSidebarOpen ? 240 : 64,
           background: "var(--bg-secondary)",
           borderColor: "var(--border)",
         }}
@@ -72,7 +85,7 @@ export function Sidebar() {
           >
             OV
           </div>
-          {sidebarOpen && (
+          {visibleSidebarOpen && (
             <span
               className="text-lg tracking-wide"
               style={{ fontFamily: "var(--font-display), serif", color: "var(--accent)" }}
@@ -87,9 +100,9 @@ export function Sidebar() {
             style={{ color: "var(--text-muted)" }}
             onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")}
             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-            aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+            aria-label={visibleSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
           >
-            {sidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
+            {visibleSidebarOpen ? <ChevronLeft size={16} /> : <ChevronRight size={16} />}
           </button>
         </div>
 
@@ -119,7 +132,7 @@ export function Sidebar() {
               >
                 <item.icon size={18} />
                 {/* Always shown on mobile; on desktop only when expanded */}
-                <span className={sidebarOpen ? "inline" : "md:hidden"}>{item.label}</span>
+                <span className={visibleSidebarOpen ? "inline" : "md:hidden"}>{item.label}</span>
               </Link>
             );
           })}
@@ -127,7 +140,7 @@ export function Sidebar() {
 
         {/* Footer */}
         <div className="px-4 py-4 border-t" style={{ borderColor: "var(--border)" }}>
-          {sidebarOpen ? (
+          {visibleSidebarOpen ? (
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>
               ◈ Obsidian Vault v1.0
             </div>

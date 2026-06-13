@@ -16,6 +16,8 @@ import * as marketTradesSchema from "./schema/marketTrades";
 import * as ohlcvSchema from "./schema/ohlcv";
 import * as orderAuditLogSchema from "./schema/orderAuditLog";
 import * as orderBookSnapshotsSchema from "./schema/orderBookSnapshots";
+import * as researchResultsSchema from "./schema/researchResults";
+import * as researchSweepsSchema from "./schema/researchSweeps";
 import * as settingsSchema from "./schema/settings";
 import * as strategyDraftsSchema from "./schema/strategyDrafts";
 import * as webhooksSchema from "./schema/webhooks";
@@ -25,6 +27,8 @@ const schema = {
   ...marketTradesSchema,
   ...marketTickersSchema,
   ...orderBookSnapshotsSchema,
+  ...researchSweepsSchema,
+  ...researchResultsSchema,
   ...ingestionEventsSchema,
   ...ingestionHealthSchema,
   ...dataCollectionSchema,

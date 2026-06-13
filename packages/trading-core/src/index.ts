@@ -27,6 +27,9 @@ export { SignalHarvesterContextProvider } from "./context/SignalHarvesterContext
 export { SMACrossover } from "./strategy/strategies/SMACrossover";
 export { RSIMeanReversion } from "./strategy/strategies/RSIMeanReversion";
 export { BollingerBounce } from "./strategy/strategies/BollingerBounce";
+export { BollingerLongBounce } from "./strategy/strategies/BollingerLongBounce";
+export { DonchianBreakout } from "./strategy/strategies/DonchianBreakout";
+export { EMAATRTrend } from "./strategy/strategies/EMAATRTrend";
 export { SentimentAwareSMACrossover } from "./strategy/strategies/SentimentAwareSMACrossover";
 
 // Backtest
@@ -53,7 +56,7 @@ export { PerformanceTracker } from "./metrics/PerformanceTracker";
 export type { PerformanceMetrics, EquityPoint, BacktestResult } from "./metrics/types";
 
 // Bot
-export { Bot, type BotConfig } from "./bot/Bot";
+export { Bot, type BotConfig, type BotOrderFill } from "./bot/Bot";
 export { BotStateMachine, type BotState } from "./bot/BotStateMachine";
 export { BotRunner } from "./bot/BotRunner";
 

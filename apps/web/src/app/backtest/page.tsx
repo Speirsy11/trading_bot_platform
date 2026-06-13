@@ -1,12 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { BarChart2, Bot, Database, ShieldCheck } from "lucide-react";
+import { BarChart2, Bot, Database, GitCompare, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
   useMemo,
+  useState,
   type InputHTMLAttributes,
   type ReactNode,
   type SelectHTMLAttributes,
@@ -14,7 +15,17 @@ import {
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { PerformanceChart } from "@/components/charts/PerformanceChart";
 import { toast } from "@/components/ui/Toaster";
+import { formatCurrency, formatPercent, pnlColor } from "@/lib/format";
+import {
+  coerceStrategyParamInput,
+  formatStrategyParamLabel,
+  getDefaultStrategyParams,
+  isNumberStrategyParam,
+  mergeStrategyParamValue,
+  type StrategyParamDefinition,
+} from "@/lib/strategyParams";
 import { trpc } from "@/lib/trpc";
 
 const backtestSchema = z
@@ -25,6 +36,7 @@ const backtestSchema = z
     exchange: z.string().min(1),
     symbol: z.string().min(3),
     timeframe: z.string().min(1),
+    sourceResearch: z.string().uuid().optional(),
     startTime: z.number().int().positive(),
     endTime: z.number().int().positive(),
     initialBalance: z.number().positive(),
@@ -66,9 +78,16 @@ function parseJsonParam<T>(value: string | null): T | undefined {
   }
 }
 
+function parseOptionalNumber(value: string | null) {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
 export default function BacktestPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [compareIds, setCompareIds] = useState<string[]>([]);
   const strategies = trpc.strategies.catalog.useQuery();
   const drafts = trpc.strategies.listDrafts.useQuery({});
   const {
@@ -76,26 +95,41 @@ export default function BacktestPage() {
     isError: isBacktestsError,
     refetch: refetchBacktests,
   } = trpc.backtest.list.useQuery({ limit: 20 });
+  const compareQuery = trpc.backtest.compare.useQuery(
+    { backtestIds: compareIds },
+    { enabled: compareIds.length >= 2, staleTime: 30_000 }
+  );
 
   const initialStrategy = searchParams.get("strategy") ?? "sma-crossover";
   const initialStrategyParams = parseJsonParam<Record<string, unknown>>(
     searchParams.get("strategyParams")
   );
+  const sourceResearch = searchParams.get("sourceResearch");
+  const now = Date.now();
+  const initialStartTime = parseOptionalNumber(searchParams.get("startTime"));
+  const initialEndTime = parseOptionalNumber(searchParams.get("endTime"));
   const form = useForm<BacktestFormData>({
     resolver: zodResolver(backtestSchema),
     defaultValues: {
-      name: `${initialStrategy} research run`,
+      name: searchParams.get("name") ?? `${initialStrategy} research run`,
       strategy: initialStrategy,
       strategyParams: initialStrategyParams ?? {},
       exchange: searchParams.get("exchange") ?? "binance",
       symbol: searchParams.get("symbol") ?? "BTC/USDT",
       timeframe: searchParams.get("timeframe") ?? "1h",
-      startTime: Date.now() - 180 * 24 * 60 * 60 * 1000,
-      endTime: Date.now(),
-      initialBalance: 10000,
+      sourceResearch: sourceResearch ?? undefined,
+      startTime: initialStartTime ?? now - 180 * 24 * 60 * 60 * 1000,
+      endTime: initialEndTime ?? now,
+      initialBalance: parseOptionalNumber(searchParams.get("initialBalance")) ?? 10000,
       riskConfig: defaultRisk,
-      fees: { maker: 0.001, taker: 0.001 },
-      slippage: { enabled: true, percentage: 0.0005 },
+      fees: {
+        maker: parseOptionalNumber(searchParams.get("makerFee")) ?? 0.001,
+        taker: parseOptionalNumber(searchParams.get("takerFee")) ?? 0.001,
+      },
+      slippage: {
+        enabled: true,
+        percentage: parseOptionalNumber(searchParams.get("slippagePct")) ?? 0.0005,
+      },
     },
   });
 
@@ -107,7 +141,11 @@ export default function BacktestPage() {
     () => strategies.data?.strategies.find((strategy) => strategy.key === selectedStrategyKey),
     [selectedStrategyKey, strategies.data?.strategies]
   );
-  const strategyParams = form.watch("strategyParams");
+  const strategyParams = form.watch("strategyParams") ?? {};
+  const compareSeries = useMemo(
+    () => buildCompareSeries(compareQuery.data ?? []),
+    [compareQuery.data]
+  );
 
   const coverage = trpc.market.getDataCoverage.useQuery(
     { exchange, symbol, timeframe },
@@ -116,14 +154,21 @@ export default function BacktestPage() {
 
   useEffect(() => {
     if (!selectedStrategy) return;
-    const defaults = Object.fromEntries(
-      selectedStrategy.params
-        .map((param) => [param.name, param.defaultValue])
-        .filter(([, value]) => value !== undefined)
-    );
+    const defaults = getDefaultStrategyParams(selectedStrategy.params);
     if (!initialStrategyParams) form.setValue("strategyParams", defaults);
     if (!form.getValues("name")) form.setValue("name", `${selectedStrategy.name} research run`);
   }, [form, initialStrategyParams, selectedStrategy]);
+
+  const setStrategyParam = (name: string, value: unknown) => {
+    form.setValue(
+      "strategyParams",
+      mergeStrategyParamValue(form.getValues("strategyParams"), name, value),
+      {
+        shouldDirty: true,
+        shouldValidate: true,
+      }
+    );
+  };
 
   const validateConfig = trpc.strategies.validateBacktestConfig.useMutation();
   const runBacktest = trpc.backtest.run.useMutation({
@@ -153,6 +198,17 @@ export default function BacktestPage() {
     runBacktest.mutate(data);
   };
 
+  const toggleCompareId = (backtestId: string) => {
+    setCompareIds((current) => {
+      if (current.includes(backtestId)) return current.filter((id) => id !== backtestId);
+      if (current.length >= 4) {
+        toast.info("Compare up to 4 backtests at once");
+        return current;
+      }
+      return [...current, backtestId];
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -180,6 +236,17 @@ export default function BacktestPage() {
           Strategy workbench
         </Link>
       </div>
+
+      {sourceResearch && (
+        <div
+          className="rounded-xl p-4 text-sm"
+          style={{ background: "var(--accent-dim)", color: "var(--text-primary)" }}
+        >
+          Prefilled from research result {sourceResearch.slice(0, 8)} with the same strategy
+          parameters, timeframe, starting balance, fees and slippage. Run the symbol-level backtest
+          before promoting to paper mode.
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <InfoCard
@@ -243,7 +310,12 @@ export default function BacktestPage() {
               <Input {...form.register("name")} placeholder="BTC trend test" />
             </Field>
             <Field label="Strategy">
-              <Select {...form.register("strategy")}>
+              <Select
+                value={selectedStrategyKey}
+                onChange={(event) =>
+                  form.setValue("strategy", event.target.value, { shouldValidate: true })
+                }
+              >
                 {(strategies.data?.strategies ?? []).map((strategy) => (
                   <option key={strategy.key} value={strategy.key}>
                     {strategy.name}
@@ -265,20 +337,12 @@ export default function BacktestPage() {
             </p>
             <div className="mt-4 grid gap-3 md:grid-cols-2">
               {(selectedStrategy?.params ?? []).map((param) => (
-                <Field key={param.name} label={param.name}>
-                  <Input
-                    type="number"
-                    step="1"
-                    value={String(strategyParams[param.name] ?? param.defaultValue ?? "")}
-                    onChange={(event) => {
-                      const current = form.getValues("strategyParams");
-                      form.setValue("strategyParams", {
-                        ...current,
-                        [param.name]: Number(event.target.value),
-                      });
-                    }}
-                  />
-                </Field>
+                <StrategyParamField
+                  key={param.name}
+                  param={param}
+                  value={strategyParams[param.name] ?? param.defaultValue ?? ""}
+                  onChange={(value) => setStrategyParam(param.name, value)}
+                />
               ))}
             </div>
           </div>
@@ -381,9 +445,127 @@ export default function BacktestPage() {
         </form>
 
         <div className="glass-panel p-5">
-          <h2 className="mb-4 text-lg" style={{ color: "var(--text-primary)" }}>
-            Backtest history
-          </h2>
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="text-lg" style={{ color: "var(--text-primary)" }}>
+                Backtest history
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                Select 2-4 completed runs to compare normalized return curves.
+              </p>
+            </div>
+            {compareIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setCompareIds([])}
+                className="inline-flex items-center justify-center rounded-lg px-3 py-1.5 text-xs"
+                style={{
+                  background: "var(--bg-input)",
+                  color: "var(--text-secondary)",
+                  border: "1px solid var(--border)",
+                }}
+              >
+                Clear compare
+              </button>
+            )}
+          </div>
+
+          {compareIds.length > 0 && (
+            <div
+              className="mb-4 rounded-xl p-3"
+              style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div
+                  className="flex items-center gap-2 text-sm"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  <GitCompare size={15} style={{ color: "var(--accent)" }} />
+                  {compareIds.length < 2
+                    ? "Pick one more completed run"
+                    : `${compareIds.length} runs selected`}
+                </div>
+                {compareQuery.isFetching && (
+                  <span className="text-xs" style={{ color: "var(--text-muted)" }}>
+                    Loading…
+                  </span>
+                )}
+              </div>
+
+              {compareQuery.isError && (
+                <p className="mt-3 text-xs" style={{ color: "var(--loss)" }}>
+                  {compareQuery.error.message}
+                </p>
+              )}
+
+              {compareSeries.length >= 2 && (
+                <div className="mt-3 space-y-3">
+                  <PerformanceChart
+                    data={compareSeries[0]?.data ?? []}
+                    comparisonData={compareSeries[1]?.data}
+                    extraSeries={compareSeries.slice(2)}
+                    height={220}
+                    color={compareSeries[0]?.color}
+                    comparisonColor={compareSeries[1]?.color}
+                    seriesName={compareSeries[0]?.name ?? "Run 1"}
+                    comparisonName={compareSeries[1]?.name ?? "Run 2"}
+                  />
+                  <div className="space-y-2">
+                    {compareSeries.map((series) => (
+                      <div
+                        key={series.id}
+                        className="grid grid-cols-[1fr,auto] items-center gap-3 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ background: series.color }}
+                            />
+                            <span
+                              className="truncate"
+                              style={{ color: "var(--text-secondary)" }}
+                              title={series.name}
+                            >
+                              {series.name}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 truncate" style={{ color: "var(--text-muted)" }}>
+                            {formatCurrency(series.finalBalance)} final equity
+                            {series.benchmarkReturn !== null && (
+                              <> · bench {formatPercent(series.benchmarkReturn)}</>
+                            )}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div
+                            className="tabular-nums"
+                            style={{ color: pnlColor(series.totalReturn) }}
+                          >
+                            {formatPercent(series.totalReturn)}
+                          </div>
+                          <div
+                            className="tabular-nums"
+                            style={{
+                              color:
+                                series.excessReturn === null
+                                  ? "var(--text-muted)"
+                                  : pnlColor(series.excessReturn),
+                            }}
+                          >
+                            {series.excessReturn === null
+                              ? "excess n/a"
+                              : `${formatPercent(series.excessReturn)} excess`}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {isBacktestsError ? (
             <div className="flex flex-col items-center gap-3 py-12">
               <p className="text-sm" style={{ color: "var(--loss)" }}>
@@ -414,26 +596,58 @@ export default function BacktestPage() {
           ) : (
             <div className="space-y-2">
               {backtests.map((bt) => (
-                <Link
+                <div
                   key={bt.id}
-                  href={`/backtest/${bt.id}`}
-                  className="block rounded-lg p-3 transition-colors"
+                  className="rounded-lg p-3 transition-colors"
                   style={{ background: "var(--bg-input)", border: "1px solid var(--border)" }}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => toggleCompareId(bt.id)}
+                      disabled={bt.status !== "completed"}
+                      aria-pressed={compareIds.includes(bt.id)}
+                      aria-label={`Compare ${bt.name}`}
+                      title={
+                        bt.status === "completed"
+                          ? "Add to comparison"
+                          : "Only completed backtests can be compared"
+                      }
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs disabled:cursor-not-allowed disabled:opacity-40"
+                      style={{
+                        background: compareIds.includes(bt.id)
+                          ? "var(--accent)"
+                          : "rgba(255,255,255,0.03)",
+                        color: compareIds.includes(bt.id)
+                          ? "var(--primary-foreground)"
+                          : "var(--text-muted)",
+                        border: "1px solid var(--border)",
+                      }}
+                    >
+                      <GitCompare size={14} />
+                    </button>
+                    <Link href={`/backtest/${bt.id}`} className="min-w-0 flex-1">
                       <div className="text-sm" style={{ color: "var(--text-primary)" }}>
                         {bt.name}
                       </div>
                       <div className="text-xs" style={{ color: "var(--text-muted)" }}>
                         {bt.strategy} · {bt.symbol}
                       </div>
-                    </div>
-                    <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-                      {bt.status}
+                    </Link>
+                    <div
+                      className="text-right text-xs tabular-nums"
+                      style={{
+                        color:
+                          bt.status === "completed"
+                            ? pnlColor(bt.totalPnlPercent)
+                            : "var(--text-muted)",
+                      }}
+                    >
+                      <div>{bt.status}</div>
+                      {bt.status === "completed" && <div>{formatPercent(bt.totalPnlPercent)}</div>}
                     </div>
                   </div>
-                </Link>
+                </div>
               ))}
             </div>
           )}
@@ -476,6 +690,73 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+function StrategyParamField({
+  param,
+  value,
+  onChange,
+}: {
+  param: StrategyParamDefinition;
+  value: unknown;
+  onChange: (value: unknown) => void;
+}) {
+  const fieldId = `backtest-param-${param.name}`;
+  const fieldValue = value === null || value === undefined ? "" : String(value);
+
+  return (
+    <Field label={formatStrategyParamLabel(param.name)}>
+      <div className="space-y-1.5">
+        {param.inputType === "select" ? (
+          <Select
+            id={fieldId}
+            value={fieldValue}
+            onChange={(event) => onChange(event.target.value)}
+          >
+            {(param.options ?? []).map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </Select>
+        ) : param.inputType === "boolean" ? (
+          <div
+            className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm"
+            style={{ background: "var(--bg-input)", color: "var(--text-primary)" }}
+          >
+            <input
+              id={fieldId}
+              type="checkbox"
+              checked={Boolean(value)}
+              onChange={(event) => onChange(event.target.checked)}
+            />
+            <span>Enabled</span>
+          </div>
+        ) : isNumberStrategyParam(param, value) ? (
+          <Input
+            id={fieldId}
+            type="number"
+            min={param.min ?? undefined}
+            max={param.max ?? undefined}
+            step={param.integer ? 1 : "any"}
+            value={fieldValue}
+            onChange={(event) => onChange(coerceStrategyParamInput(param, event.target.value))}
+          />
+        ) : (
+          <Input
+            id={fieldId}
+            value={fieldValue}
+            onChange={(event) => onChange(event.target.value)}
+          />
+        )}
+        {param.description && (
+          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+            {param.description}
+          </p>
+        )}
+      </div>
+    </Field>
+  );
+}
+
 function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
@@ -508,4 +789,76 @@ function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
 
 function toDateInput(timestamp: number) {
   return new Date(timestamp).toISOString().slice(0, 10);
+}
+
+type CompareRun = {
+  backtestId: string;
+  name: string;
+  strategy: string;
+  symbol: string;
+  timeframe?: string;
+  initialBalance: number;
+  finalBalance: number;
+  totalReturn?: number;
+  maxDrawdown?: number;
+  profitFactor?: number;
+  benchmarkReturn?: number | null;
+  excessReturn?: number | null;
+  equityCurve: Array<{ t: string; balance: number }>;
+};
+
+const COMPARE_COLORS = ["#c8a55a", "#5ab8c8", "#6ee7a0", "#f87171"];
+
+function buildCompareSeries(runs: CompareRun[]) {
+  return runs.map((run, index) => {
+    const firstBalance = run.equityCurve[0]?.balance;
+    const initialBalance =
+      Number.isFinite(run.initialBalance) && run.initialBalance > 0
+        ? run.initialBalance
+        : Number(firstBalance) > 0
+          ? Number(firstBalance)
+          : 1;
+    const color = COMPARE_COLORS[index % COMPARE_COLORS.length] ?? COMPARE_COLORS[0]!;
+    const data = run.equityCurve
+      .map((point) => ({
+        time: Date.parse(point.t),
+        value: ((Number(point.balance) - initialBalance) / initialBalance) * 100,
+      }))
+      .filter((point) => Number.isFinite(point.time) && Number.isFinite(point.value));
+    const finalBalance = Number.isFinite(run.finalBalance)
+      ? run.finalBalance
+      : (run.equityCurve.at(-1)?.balance ?? initialBalance);
+    const totalReturn = Number.isFinite(run.totalReturn)
+      ? Number(run.totalReturn)
+      : ((finalBalance - initialBalance) / initialBalance) * 100;
+    const benchmarkReturn =
+      typeof run.benchmarkReturn === "number" && Number.isFinite(run.benchmarkReturn)
+        ? run.benchmarkReturn
+        : null;
+    const excessReturn =
+      typeof run.excessReturn === "number" && Number.isFinite(run.excessReturn)
+        ? run.excessReturn
+        : benchmarkReturn === null
+          ? null
+          : totalReturn - benchmarkReturn;
+
+    return {
+      id: run.backtestId,
+      name: `${run.name} · ${run.symbol}${run.timeframe ? ` · ${run.timeframe}` : ""}`,
+      color,
+      finalBalance,
+      totalReturn,
+      benchmarkReturn,
+      excessReturn,
+      maxDrawdown:
+        typeof run.maxDrawdown === "number" && Number.isFinite(run.maxDrawdown)
+          ? run.maxDrawdown
+          : null,
+      profitFactor:
+        typeof run.profitFactor === "number" && Number.isFinite(run.profitFactor)
+          ? run.profitFactor
+          : null,
+      data,
+    };
+  });
 }

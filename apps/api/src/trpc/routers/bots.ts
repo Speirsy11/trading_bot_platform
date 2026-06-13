@@ -1,9 +1,16 @@
-import { botLogs, botTrades, bots, type Database } from "@tb/db";
+import { backtests, botLogs, botTrades, bots, researchResults, type Database } from "@tb/db";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq, isNull, lt } from "drizzle-orm";
 import { z } from "zod";
 
 import { BOT_JOB_NAMES } from "../../queues/types";
+import { RESEARCH_EXECUTION_ASSUMPTIONS } from "../../services/researchEngine";
+import {
+  assertBacktestReplayConfigMatches,
+  assertResearchReplayConfigMatches,
+  canonicalJsonEqual,
+  type ResearchReplayConfig,
+} from "../../services/researchProvenance";
 import { getStrategyCatalog } from "../../services/strategyCatalog";
 import { AppErrorCode } from "../../utils/errors";
 import { jobEnqueuedCounter } from "../../utils/metrics";
@@ -15,6 +22,19 @@ const botStatusFilterSchema = z.object({
   status: z.enum(["all", "running", "paused", "stopped", "starting", "idle", "error"]).optional(),
   exchange: z.string().optional(),
 });
+
+type PromotionExecutionAssumptions = {
+  marketMode: string;
+  initialBalance: number;
+  fees: {
+    maker: number;
+    taker: number;
+  };
+  slippage: {
+    enabled: boolean;
+    percentage: number;
+  };
+};
 
 export const botsRouter = createTrpcRouter({
   list: publicProcedure.input(botStatusFilterSchema.default({})).query(async ({ ctx, input }) => {
@@ -44,6 +64,13 @@ export const botsRouter = createTrpcRouter({
 
   create: protectedProcedure.input(botConfigSchema).mutation(async ({ ctx, input }) => {
     validateStrategy(input.strategy);
+    const promotionEvidence = await resolvePromotionEvidence(
+      ctx.db,
+      input.promotionEvidence,
+      input.mode,
+      input
+    );
+    const currentBalance = evidenceInitialBalance(promotionEvidence) ?? input.currentBalance;
 
     const inserted = await ctx.db
       .insert(bots)
@@ -56,7 +83,8 @@ export const botsRouter = createTrpcRouter({
         timeframe: input.timeframe,
         mode: input.mode,
         riskConfig: input.riskConfig,
-        currentBalance: input.currentBalance?.toString(),
+        promotionEvidence: promotionEvidence ?? {},
+        currentBalance: currentBalance?.toString(),
         status: "idle",
       })
       .returning();
@@ -74,6 +102,33 @@ export const botsRouter = createTrpcRouter({
         validateStrategy(input.config.strategy);
       }
 
+      if (input.config.mode === "live" && hasPromotionSource(row.promotionEvidence)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Evidence-promoted bots must remain in paper mode until a live promotion workflow is implemented",
+        });
+      }
+
+      if (!input.config.promotionEvidence && hasPromotionSource(row.promotionEvidence)) {
+        assertEvidenceBoundConfigUnchanged(row, input.config);
+      }
+
+      const promotionEvidence = input.config.promotionEvidence
+        ? await resolvePromotionEvidence(
+            ctx.db,
+            input.config.promotionEvidence,
+            input.config.mode ?? row.mode,
+            {
+              exchange: input.config.exchange ?? row.exchange,
+              strategy: input.config.strategy ?? row.strategy,
+              strategyParams: input.config.strategyParams ?? parseJsonValue(row.strategyParams, {}),
+              symbol: input.config.symbol ?? row.symbol,
+              timeframe: input.config.timeframe ?? row.timeframe,
+            }
+          )
+        : undefined;
+
       const updated = await ctx.db
         .update(bots)
         .set({
@@ -86,6 +141,7 @@ export const botsRouter = createTrpcRouter({
           mode: input.config.mode ?? row.mode,
           riskConfig:
             input.config.riskConfig ?? parseJsonValue(row.riskConfig, riskConfigSchema.parse({})),
+          promotionEvidence: promotionEvidence ?? row.promotionEvidence,
           currentBalance:
             input.config.currentBalance != null
               ? input.config.currentBalance.toString()
@@ -144,24 +200,20 @@ export const botsRouter = createTrpcRouter({
         return { success: true, jobId: "testing-mode" };
       }
 
+      const jobId = `bot-${input.botId}-start-${Date.now()}`;
+      let queuedJobId: string | undefined;
       try {
         const job = await ctx.queues.botExecutionQueue.add(
           BOT_JOB_NAMES.START,
           { botId: input.botId },
           {
-            jobId: `bot-${input.botId}-start-${Date.now()}`,
+            jobId,
             removeOnFail: false,
             removeOnComplete: false,
           }
         );
+        queuedJobId = job.id;
         jobEnqueuedCounter.inc({ queue: "botExecution" });
-
-        await ctx.redis.publish(
-          "bot:status",
-          JSON.stringify({ botId: input.botId, status: "starting", timestamp: Date.now() })
-        );
-
-        return { success: true, jobId: job.id };
       } catch (error) {
         await ctx.db
           .update(bots)
@@ -172,8 +224,25 @@ export const botsRouter = createTrpcRouter({
             updatedAt: new Date(),
           })
           .where(eq(bots.id, input.botId));
-        throw error;
+        const job = await ctx.queues.botExecutionQueue.getJob(jobId).catch(() => null);
+        await job?.remove().catch(() => undefined);
+        throw new TRPCError({
+          code: "BAD_GATEWAY",
+          message: "Failed to enqueue bot start job",
+          cause: error,
+        });
       }
+
+      await ctx.redis
+        .publish(
+          "bot:status",
+          JSON.stringify({ botId: input.botId, status: "starting", timestamp: Date.now() })
+        )
+        .catch((error) => {
+          ctx.logger.warn({ err: error, botId: input.botId, status: "starting" }, "bot status");
+        });
+
+      return { success: true, jobId: queuedJobId };
     }),
 
   pause: protectedProcedure
@@ -187,22 +256,47 @@ export const botsRouter = createTrpcRouter({
         });
       }
 
-      await ctx.db
+      const updated = await ctx.db
         .update(bots)
         .set({ status: "paused", updatedAt: new Date() })
-        .where(eq(bots.id, input.botId));
-      if (process.env["APP_MODE"] !== "testing") {
-        await ctx.queues.botExecutionQueue.add(
-          BOT_JOB_NAMES.PAUSE,
-          { botId: input.botId },
-          { jobId: `bot-${input.botId}-pause-${Date.now()}` }
-        );
-        jobEnqueuedCounter.inc({ queue: "botExecution" });
+        .where(and(eq(bots.id, input.botId), eq(bots.status, row.status)))
+        .returning();
+      if (updated.length === 0) {
+        throw new TRPCError({ code: "CONFLICT", message: "Bot state changed before pause" });
       }
-      await ctx.redis.publish(
-        "bot:status",
-        JSON.stringify({ botId: input.botId, status: "paused", timestamp: Date.now() })
-      );
+
+      if (process.env["APP_MODE"] !== "testing") {
+        const jobId = `bot-${input.botId}-pause-${Date.now()}`;
+        try {
+          await ctx.queues.botExecutionQueue.add(
+            BOT_JOB_NAMES.PAUSE,
+            { botId: input.botId },
+            { jobId }
+          );
+          jobEnqueuedCounter.inc({ queue: "botExecution" });
+        } catch (error) {
+          await ctx.db
+            .update(bots)
+            .set({ status: row.status, updatedAt: new Date() })
+            .where(eq(bots.id, input.botId));
+          const job = await ctx.queues.botExecutionQueue.getJob(jobId).catch(() => null);
+          await job?.remove().catch(() => undefined);
+          throw new TRPCError({
+            code: "BAD_GATEWAY",
+            message: "Failed to enqueue bot pause job",
+            cause: error,
+          });
+        }
+      }
+
+      await ctx.redis
+        .publish(
+          "bot:status",
+          JSON.stringify({ botId: input.botId, status: "paused", timestamp: Date.now() })
+        )
+        .catch((error) => {
+          ctx.logger.warn({ err: error, botId: input.botId, status: "paused" }, "bot status");
+        });
 
       return { success: true };
     }),
@@ -218,22 +312,47 @@ export const botsRouter = createTrpcRouter({
         });
       }
 
-      await ctx.db
+      const updated = await ctx.db
         .update(bots)
         .set({ status: "stopped", stoppedAt: new Date(), updatedAt: new Date() })
-        .where(eq(bots.id, input.botId));
-      if (process.env["APP_MODE"] !== "testing") {
-        await ctx.queues.botExecutionQueue.add(
-          BOT_JOB_NAMES.STOP,
-          { botId: input.botId },
-          { jobId: `bot-${input.botId}-stop-${Date.now()}` }
-        );
-        jobEnqueuedCounter.inc({ queue: "botExecution" });
+        .where(and(eq(bots.id, input.botId), eq(bots.status, row.status)))
+        .returning();
+      if (updated.length === 0) {
+        throw new TRPCError({ code: "CONFLICT", message: "Bot state changed before stop" });
       }
-      await ctx.redis.publish(
-        "bot:status",
-        JSON.stringify({ botId: input.botId, status: "stopped", timestamp: Date.now() })
-      );
+
+      if (process.env["APP_MODE"] !== "testing") {
+        const jobId = `bot-${input.botId}-stop-${Date.now()}`;
+        try {
+          await ctx.queues.botExecutionQueue.add(
+            BOT_JOB_NAMES.STOP,
+            { botId: input.botId },
+            { jobId }
+          );
+          jobEnqueuedCounter.inc({ queue: "botExecution" });
+        } catch (error) {
+          await ctx.db
+            .update(bots)
+            .set({ status: row.status, stoppedAt: row.stoppedAt, updatedAt: new Date() })
+            .where(eq(bots.id, input.botId));
+          const job = await ctx.queues.botExecutionQueue.getJob(jobId).catch(() => null);
+          await job?.remove().catch(() => undefined);
+          throw new TRPCError({
+            code: "BAD_GATEWAY",
+            message: "Failed to enqueue bot stop job",
+            cause: error,
+          });
+        }
+      }
+
+      await ctx.redis
+        .publish(
+          "bot:status",
+          JSON.stringify({ botId: input.botId, status: "stopped", timestamp: Date.now() })
+        )
+        .catch((error) => {
+          ctx.logger.warn({ err: error, botId: input.botId, status: "stopped" }, "bot status");
+        });
 
       return { success: true };
     }),
@@ -256,24 +375,12 @@ export const botsRouter = createTrpcRouter({
         .from(botTrades)
         .where(eq(botTrades.botId, input.botId))
         .orderBy(desc(botTrades.executedAt));
-      const totalTrades = trades.length;
-      const wins = trades.filter((trade) => toNumber(trade.pnl) > 0).length;
-      const losses = trades.filter((trade) => toNumber(trade.pnl) < 0).length;
-      const averageTradePnl =
-        totalTrades > 0
-          ? trades.reduce((sum, trade) => sum + toNumber(trade.pnl), 0) / totalTrades
-          : 0;
+      const performance = buildBotPerformanceMetrics(row, trades);
 
       return {
         botId: row.id,
         status: row.status,
-        currentBalance: toNumber(row.currentBalance),
-        totalPnl: toNumber(row.totalPnl),
-        totalTrades,
-        wins,
-        losses,
-        winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
-        averageTradePnl,
+        ...performance,
         startedAt: row.startedAt?.toISOString() ?? null,
         lastTradeAt: trades[0]?.executedAt.toISOString() ?? null,
       };
@@ -394,7 +501,7 @@ function ensureEditable(status: string) {
 }
 
 function validateStrategy(strategy: string) {
-  const valid = getStrategyCatalog().some((entry) => entry.key === strategy);
+  const valid = getStrategyCatalog({ includeLegacy: true }).some((entry) => entry.key === strategy);
   if (!valid) {
     throw new TRPCError({ code: "BAD_REQUEST", message: `Unknown strategy: ${strategy}` });
   }
@@ -408,9 +515,315 @@ function serializeBot(row: typeof bots.$inferSelect) {
     totalTrades: toNumber(row.totalTrades),
     winRate: toNumber(row.winRate),
     riskConfig: parseJsonValue(row.riskConfig, riskConfigSchema.parse({})),
+    promotionEvidence: parseJsonValue(row.promotionEvidence, {}),
     createdAt: row.createdAt?.toISOString() ?? null,
     updatedAt: row.updatedAt?.toISOString() ?? null,
     startedAt: row.startedAt?.toISOString() ?? null,
     stoppedAt: row.stoppedAt?.toISOString() ?? null,
   };
+}
+
+function buildBotPerformanceMetrics(
+  row: typeof bots.$inferSelect,
+  trades: (typeof botTrades.$inferSelect)[]
+) {
+  const chronologicalTrades = [...trades].reverse();
+  const realizedPnl = chronologicalTrades.reduce((sum, trade) => sum + toNumber(trade.pnl), 0);
+  const storedPnl = toNumber(row.totalPnl);
+  const totalPnl = chronologicalTrades.length > 0 ? realizedPnl : storedPnl;
+  const currentBalance = toNumber(row.currentBalance);
+  const startingBalance = Math.max(currentBalance - totalPnl, 0);
+  const totalTrades = chronologicalTrades.length;
+  const wins = chronologicalTrades.filter((trade) => toNumber(trade.pnl) > 0).length;
+  const losses = chronologicalTrades.filter((trade) => toNumber(trade.pnl) < 0).length;
+  const grossProfit = chronologicalTrades.reduce(
+    (sum, trade) => sum + Math.max(toNumber(trade.pnl), 0),
+    0
+  );
+  const grossLoss = Math.abs(
+    chronologicalTrades.reduce((sum, trade) => sum + Math.min(toNumber(trade.pnl), 0), 0)
+  );
+  const averageTradePnl = totalTrades > 0 ? totalPnl / totalTrades : 0;
+  const equityCurve = buildBotEquityCurve(row, chronologicalTrades, startingBalance);
+  const drawdownCurve = buildBotDrawdownCurve(equityCurve);
+  const maxDrawdown = drawdownCurve.reduce((max, point) => Math.max(max, point.drawdown), 0);
+
+  return {
+    currentBalance,
+    startingBalance,
+    totalPnl,
+    totalPnlPercent: startingBalance > 0 ? (totalPnl / startingBalance) * 100 : 0,
+    totalTrades,
+    wins,
+    losses,
+    winRate: totalTrades > 0 ? (wins / totalTrades) * 100 : 0,
+    averageTradePnl,
+    grossProfit,
+    grossLoss,
+    profitFactor: grossLoss > 0 ? grossProfit / grossLoss : wins > 0 ? null : 0,
+    maxDrawdown,
+    equityCurve,
+    drawdownCurve,
+  };
+}
+
+function buildBotEquityCurve(
+  row: typeof bots.$inferSelect,
+  trades: (typeof botTrades.$inferSelect)[],
+  startingBalance: number
+) {
+  const startedAt = row.startedAt ?? row.createdAt ?? new Date();
+  let runningBalance = startingBalance;
+  const points = [{ time: startedAt.getTime(), equity: runningBalance }];
+
+  for (const trade of trades) {
+    runningBalance += toNumber(trade.pnl);
+    points.push({
+      time: trade.executedAt.getTime(),
+      equity: runningBalance,
+    });
+  }
+
+  return points;
+}
+
+function buildBotDrawdownCurve(equityCurve: { time: number; equity: number }[]) {
+  let peak = equityCurve[0]?.equity ?? 0;
+  return equityCurve.map((point) => {
+    peak = Math.max(peak, point.equity);
+    const drawdown = peak > 0 ? ((peak - point.equity) / peak) * 100 : 0;
+    return { time: point.time, drawdown };
+  });
+}
+
+async function resolvePromotionEvidence(
+  db: Database,
+  evidence: z.infer<typeof botConfigSchema>["promotionEvidence"],
+  mode: string,
+  config: ResearchReplayConfig
+) {
+  if (!evidence) return;
+
+  if (mode !== "paper") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Promoted research/backtest configs must start as paper bots",
+    });
+  }
+
+  if (evidence.sourceType === "research") {
+    const rows = await db
+      .select()
+      .from(researchResults)
+      .where(eq(researchResults.id, evidence.sourceId))
+      .limit(1);
+    const row = rows[0];
+    if (!row) {
+      throw new TRPCError({ code: "NOT_FOUND", message: "Source research result not found" });
+    }
+
+    if (!row.qualified) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Research result is not historically profitable enough for paper bot promotion",
+      });
+    }
+    assertResearchReplayConfigMatches(row, config);
+    return buildResearchPromotionEvidence(row);
+  }
+
+  const rows = await db
+    .select()
+    .from(backtests)
+    .where(and(eq(backtests.id, evidence.sourceId), isNull(backtests.deletedAt)))
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Source backtest not found" });
+  }
+  if (row.status !== "completed") {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Only completed backtests can be promoted to paper bots",
+    });
+  }
+  assertBacktestReplayConfigMatches(row, config);
+  return buildBacktestPromotionEvidence(row);
+}
+
+function buildResearchPromotionEvidence(row: typeof researchResults.$inferSelect) {
+  const testMetrics = parseJsonValue<Record<string, unknown>>(row.testMetrics, {});
+  const benchmark = parseJsonValue<Record<string, unknown>>(testMetrics["benchmark"], {});
+  const benchmarkReturn = numberMetric(benchmark["totalReturn"]);
+  const excessReturn = numberMetric(testMetrics["excessReturn"]);
+  const benchmarkBeat = excessReturn !== null && excessReturn > 0;
+  const alphaQualified = Boolean(row.qualified && benchmarkBeat);
+  const executionAssumptions = readExecutionAssumptions(
+    testMetrics["executionAssumptions"],
+    row.marketMode
+  );
+
+  return {
+    sourceType: "research" as const,
+    sourceId: row.id,
+    sourceSweepId: row.sweepId,
+    sourceLabel: `${row.strategyName} · ${row.timeframe}`,
+    benchmarkStatus: alphaQualified
+      ? "alpha-qualified"
+      : row.qualified
+        ? "profit-only"
+        : benchmarkBeat
+          ? "benchmark-beater"
+          : "research",
+    alphaQualified,
+    paperBotEligible: row.qualified,
+    executionAssumptions,
+    outOfSampleReturn: toNumber(row.outOfSampleReturn),
+    benchmarkReturn: benchmarkReturn ?? undefined,
+    excessReturn: excessReturn ?? undefined,
+    maxDrawdown: toNumber(row.maxDrawdown),
+    sharpeRatio: toNumber(row.sharpeRatio),
+    profitFactor: toNumber(row.profitFactor),
+    totalTrades: toNumber(row.totalTrades),
+    verifiedAt: Date.now(),
+  };
+}
+
+function buildBacktestPromotionEvidence(row: typeof backtests.$inferSelect) {
+  const metrics = parseJsonValue<Record<string, unknown>>(row.metrics, {});
+  const result = parseJsonValue<Record<string, unknown>>(metrics["result"], {});
+  const benchmark = parseJsonValue<Record<string, unknown>>(result["benchmark"], {});
+  const benchmarkReturn = numberMetric(benchmark["totalReturn"]);
+  const excessReturn = numberMetric(result["excessReturn"]);
+  const benchmarkBeat = excessReturn !== null && excessReturn > 0;
+  const executionAssumptions = readBacktestExecutionAssumptions(row, metrics);
+
+  return {
+    sourceType: "backtest" as const,
+    sourceId: row.id,
+    sourceLabel: `${row.strategy} · ${row.symbol} · ${row.timeframe}`,
+    benchmarkStatus: benchmarkBeat ? "benchmark-beater" : "research",
+    executionAssumptions,
+    outOfSampleReturn: toNumber(row.totalPnlPercent),
+    benchmarkReturn: benchmarkReturn ?? undefined,
+    excessReturn: excessReturn ?? undefined,
+    maxDrawdown: toNumber(row.maxDrawdown),
+    sharpeRatio: toNumber(row.sharpeRatio),
+    profitFactor: toNumber(row.profitFactor),
+    totalTrades: row.totalTrades ?? 0,
+    verifiedAt: Date.now(),
+  };
+}
+
+function numberMetric(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function evidenceInitialBalance(evidence: unknown) {
+  const record = parseJsonValue<{ executionAssumptions?: { initialBalance?: unknown } }>(
+    evidence,
+    {}
+  );
+  return numberMetric(record.executionAssumptions?.initialBalance);
+}
+
+function readExecutionAssumptions(
+  value: unknown,
+  fallbackMarketMode: string = RESEARCH_EXECUTION_ASSUMPTIONS.marketMode
+): PromotionExecutionAssumptions {
+  const record = parseJsonValue<Record<string, unknown>>(value, {});
+  const fees = parseJsonValue<Record<string, unknown>>(record["fees"], {});
+  const slippage = parseJsonValue<Record<string, unknown>>(record["slippage"], {});
+  const marketMode =
+    typeof record["marketMode"] === "string" && record["marketMode"].trim().length > 0
+      ? record["marketMode"]
+      : fallbackMarketMode;
+
+  return {
+    marketMode,
+    initialBalance:
+      numberMetric(record["initialBalance"]) ?? RESEARCH_EXECUTION_ASSUMPTIONS.initialBalance,
+    fees: {
+      maker: numberMetric(fees["maker"]) ?? RESEARCH_EXECUTION_ASSUMPTIONS.fees.maker,
+      taker: numberMetric(fees["taker"]) ?? RESEARCH_EXECUTION_ASSUMPTIONS.fees.taker,
+    },
+    slippage: {
+      enabled:
+        typeof slippage["enabled"] === "boolean"
+          ? slippage["enabled"]
+          : RESEARCH_EXECUTION_ASSUMPTIONS.slippage.enabled,
+      percentage:
+        numberMetric(slippage["percentage"]) ?? RESEARCH_EXECUTION_ASSUMPTIONS.slippage.percentage,
+    },
+  };
+}
+
+function readBacktestExecutionAssumptions(
+  row: typeof backtests.$inferSelect,
+  metrics: Record<string, unknown>
+): PromotionExecutionAssumptions {
+  const fees = parseJsonValue<Record<string, unknown>>(metrics["fees"], {});
+  const slippage = parseJsonValue<Record<string, unknown>>(metrics["slippage"], {});
+
+  return {
+    marketMode: RESEARCH_EXECUTION_ASSUMPTIONS.marketMode,
+    initialBalance: toNumber(row.initialBalance, RESEARCH_EXECUTION_ASSUMPTIONS.initialBalance),
+    fees: {
+      maker: numberMetric(fees["maker"]) ?? RESEARCH_EXECUTION_ASSUMPTIONS.fees.maker,
+      taker: numberMetric(fees["taker"]) ?? RESEARCH_EXECUTION_ASSUMPTIONS.fees.taker,
+    },
+    slippage: {
+      enabled:
+        typeof slippage["enabled"] === "boolean"
+          ? slippage["enabled"]
+          : RESEARCH_EXECUTION_ASSUMPTIONS.slippage.enabled,
+      percentage:
+        numberMetric(slippage["percentage"]) ?? RESEARCH_EXECUTION_ASSUMPTIONS.slippage.percentage,
+    },
+  };
+}
+
+function hasPromotionSource(value: unknown) {
+  const evidence = parseJsonValue<{ sourceType?: unknown; sourceId?: unknown }>(value, {});
+  return (
+    (evidence.sourceType === "research" || evidence.sourceType === "backtest") &&
+    typeof evidence.sourceId === "string"
+  );
+}
+
+function assertEvidenceBoundConfigUnchanged(
+  row: typeof bots.$inferSelect,
+  config: Partial<z.infer<typeof botConfigSchema>>
+) {
+  const changedFields: string[] = [];
+
+  if (config.exchange !== undefined && config.exchange !== row.exchange) {
+    changedFields.push("exchange");
+  }
+
+  if (config.strategy !== undefined && config.strategy !== row.strategy) {
+    changedFields.push("strategy");
+  }
+
+  if (config.symbol !== undefined && config.symbol !== row.symbol) {
+    changedFields.push("symbol");
+  }
+
+  if (config.timeframe !== undefined && config.timeframe !== row.timeframe) {
+    changedFields.push("timeframe");
+  }
+
+  if (
+    config.strategyParams !== undefined &&
+    !canonicalJsonEqual(config.strategyParams, parseJsonValue(row.strategyParams, {}))
+  ) {
+    changedFields.push("strategyParams");
+  }
+
+  if (changedFields.length > 0) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: `Evidence-promoted bots cannot change evidence-bound config without validated new promotion evidence: ${changedFields.join(", ")}`,
+    });
+  }
 }

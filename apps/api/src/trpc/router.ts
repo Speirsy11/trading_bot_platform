@@ -5,6 +5,7 @@ import { dataExportRouter } from "./routers/dataExport";
 import { exchangesRouter } from "./routers/exchanges";
 import { marketRouter } from "./routers/market";
 import { portfolioRouter } from "./routers/portfolio";
+import { researchRouter } from "./routers/research";
 import { strategiesRouter } from "./routers/strategies";
 import { tradingRouter } from "./routers/trading";
 import { webhooksRouter } from "./routers/webhooks";
@@ -12,6 +13,7 @@ import { createTrpcRouter, createCallerFactory } from "./trpc";
 
 export const appRouter = createTrpcRouter({
   portfolio: portfolioRouter,
+  research: researchRouter,
   bots: botsRouter,
   backtest: backtestRouter,
   strategies: strategiesRouter,

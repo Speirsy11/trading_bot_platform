@@ -14,6 +14,10 @@ export function SidebarMarginSync() {
 
     // On mobile (< 768px) sidebar is an overlay — no margin shift needed
     if (window.innerWidth < 768) {
+      const el = document.getElementById("main-content");
+      if (el) {
+        el.style.marginLeft = "0px";
+      }
       return;
     }
 

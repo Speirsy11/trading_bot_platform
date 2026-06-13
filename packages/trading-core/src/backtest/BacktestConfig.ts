@@ -20,6 +20,8 @@ export interface BacktestConfig {
   endDate: number;
   /** Starting portfolio balance in quote currency. */
   initialBalance: number;
+  /** Market model. V1 research uses spot long/flat only. */
+  marketMode?: "spot" | "margin";
   /** Trading fee configuration. */
   fees: {
     /** Fee rate for limit (maker) orders. */

@@ -3,6 +3,7 @@
 /* global clearTimeout, console, process, setTimeout */
 
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -90,7 +91,13 @@ function fileNameForRoute(route) {
   const pathPart = pathname.replace(/^\/+|\/+$/g, "").replace(/\//g, "--");
   const queryPart = queryString ? `--${sanitizeSegment(queryString)}` : "";
 
-  return `${sanitizeSegment(pathPart)}${queryPart}`;
+  const fileName = `${sanitizeSegment(pathPart)}${queryPart}`;
+  if (fileName.length <= 120) {
+    return fileName;
+  }
+
+  const hash = createHash("sha256").update(route).digest("hex").slice(0, 12);
+  return `${sanitizeSegment(pathPart).slice(0, 80)}--${hash}`;
 }
 
 async function isUrlReady(url) {

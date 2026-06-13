@@ -126,6 +126,7 @@ export class PositionManager {
       pnl: roundTo(pnl, 8),
       entryPrice: position.entryPrice,
       exitPrice,
+      entryTimestamp: position.timestamp,
       timestamp: order.timestamp,
       reason: "strategy",
     };

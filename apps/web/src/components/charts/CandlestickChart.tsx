@@ -6,17 +6,19 @@ import {
   createChart,
   createSeriesMarkers,
   CandlestickSeries,
+  HistogramSeries,
   LineSeries,
   type IChartApi,
   type ISeriesApi,
   type CandlestickData,
+  type HistogramData,
   type LineData,
   type Time,
   ColorType,
 } from "lightweight-charts";
 import { useEffect, useRef, memo, useCallback, useState } from "react";
 
-import { getChartThemeTokens } from "@/lib/chartTheme";
+import { getChartThemeTokens, withAlpha } from "@/lib/chartTheme";
 
 export interface IndicatorConfig {
   sma?: { period?: number; color?: string };
@@ -43,7 +45,9 @@ interface CandlestickChartProps {
   }>;
   onCrosshairMove?: (price: number | null, time: number | null) => void;
   showIndicatorControls?: boolean;
+  showVolume?: boolean;
   indicators?: IndicatorConfig;
+  defaultIndicators?: IndicatorKey[];
 }
 
 interface OHLCTooltip {
@@ -80,11 +84,14 @@ function CandlestickChartInner({
   markers,
   onCrosshairMove,
   showIndicatorControls = false,
+  showVolume = false,
   indicators,
+  defaultIndicators = [],
 }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
 
   // Indicator series refs
   const smaSeriesRef = useRef<ISeriesApi<"Line"> | null>(null);
@@ -93,7 +100,9 @@ function CandlestickChartInner({
   const bbMidRef = useRef<ISeriesApi<"Line"> | null>(null);
   const bbLowerRef = useRef<ISeriesApi<"Line"> | null>(null);
 
-  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorKey>>(new Set());
+  const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorKey>>(
+    () => new Set(defaultIndicators)
+  );
   const [crosshairData, setCrosshairData] = useState<OHLCTooltip | null>(null);
   const [currentRsi, setCurrentRsi] = useState<number | null>(null);
 
@@ -122,6 +131,19 @@ function CandlestickChartInner({
 
     seriesRef.current.setData(formatted);
 
+    if (volumeSeriesRef.current) {
+      const colors = getChartThemeTokens();
+      const volumeData: HistogramData[] = showVolume
+        ? data.map((c) => ({
+            time: (c.time / 1000) as Time,
+            value: c.volume,
+            color:
+              c.close >= c.open ? withAlpha(colors.profit, 0.34) : withAlpha(colors.loss, 0.34),
+          }))
+        : [];
+      volumeSeriesRef.current.setData(volumeData);
+    }
+
     if (markers?.length) {
       createSeriesMarkers(
         seriesRef.current,
@@ -133,7 +155,7 @@ function CandlestickChartInner({
     }
 
     chartRef.current?.timeScale().fitContent();
-  }, [data, markers]);
+  }, [data, markers, showVolume]);
 
   // Apply indicator data whenever active set or data changes
   const applyIndicatorData = useCallback(() => {
@@ -239,7 +261,7 @@ function CandlestickChartInner({
       },
       rightPriceScale: {
         borderColor: colors.border,
-        scaleMargins: { top: 0.1, bottom: 0.1 },
+        scaleMargins: { top: 0.08, bottom: showVolume ? 0.26 : 0.1 },
       },
       timeScale: {
         borderColor: colors.border,
@@ -256,6 +278,21 @@ function CandlestickChartInner({
       borderUpColor: colors.profit,
       wickDownColor: colors.loss,
       wickUpColor: colors.profit,
+    });
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceLineVisible: false,
+      lastValueVisible: false,
+      priceScaleId: "volume",
+    });
+    chart.priceScale("volume").applyOptions({
+      borderVisible: false,
+      scaleMargins: {
+        top: 0.78,
+        bottom: 0,
+      },
+      visible: false,
     });
 
     // Add indicator line series
@@ -297,6 +334,7 @@ function CandlestickChartInner({
 
     chartRef.current = chart;
     seriesRef.current = series;
+    volumeSeriesRef.current = volumeSeries;
     smaSeriesRef.current = smaSeries;
     emaSeriesRef.current = emaSeries;
     bbUpperRef.current = bbUpper;
@@ -339,6 +377,7 @@ function CandlestickChartInner({
       resizeObserver.disconnect();
       chartRef.current = null;
       seriesRef.current = null;
+      volumeSeriesRef.current = null;
       smaSeriesRef.current = null;
       emaSeriesRef.current = null;
       bbUpperRef.current = null;
@@ -346,7 +385,7 @@ function CandlestickChartInner({
       bbLowerRef.current = null;
       chart.remove();
     };
-  }, [height, onCrosshairMove, applySeriesData, indicators]);
+  }, [height, onCrosshairMove, applySeriesData, indicators, showVolume]);
 
   useEffect(() => {
     const cleanup = createChartInstance();
@@ -387,6 +426,7 @@ function CandlestickChartInner({
         wickDownColor: colors.loss,
         wickUpColor: colors.profit,
       });
+      applySeriesData();
     });
 
     observer.observe(document.documentElement, {
@@ -395,7 +435,7 @@ function CandlestickChartInner({
     });
 
     return () => observer.disconnect();
-  }, []);
+  }, [applySeriesData]);
 
   const ALL_INDICATORS: IndicatorKey[] = ["SMA", "EMA", "BBands", "RSI"];
 

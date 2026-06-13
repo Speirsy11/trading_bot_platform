@@ -34,22 +34,31 @@ export const dataExportRouter = createTrpcRouter({
       });
     }
 
-    await ctx.queues.dataExportQueue.add(
-      "export-data",
-      {
-        exportId: row.id,
-        exchange: row.exchange,
-        symbols: row.symbols,
-        timeframe: row.timeframe,
-        startTime: row.startTime.toISOString(),
-        endTime: row.endTime.toISOString(),
-        format: row.format,
-        compressed: row.compressed ?? true,
-        compressionFormat: input.compressionFormat,
-        outputDir: ctx.exportsDir,
-      },
-      { jobId: `export-${row.id}`, removeOnComplete: false, removeOnFail: false }
-    );
+    try {
+      await ctx.queues.dataExportQueue.add(
+        "export-data",
+        {
+          exportId: row.id,
+          exchange: row.exchange,
+          symbols: row.symbols,
+          timeframe: row.timeframe,
+          startTime: row.startTime.toISOString(),
+          endTime: row.endTime.toISOString(),
+          format: row.format,
+          compressed: row.compressed ?? true,
+          compressionFormat: input.compressionFormat,
+          outputDir: ctx.exportsDir,
+        },
+        { jobId: `export-${row.id}`, removeOnComplete: false, removeOnFail: false }
+      );
+    } catch (error) {
+      await ctx.db.delete(dataExports).where(eq(dataExports.id, row.id));
+      throw new TRPCError({
+        code: "BAD_GATEWAY",
+        message: "Failed to enqueue data export job",
+        cause: error,
+      });
+    }
 
     return { exportId: row.id };
   }),

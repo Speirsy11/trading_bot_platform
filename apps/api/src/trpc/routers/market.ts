@@ -3,6 +3,7 @@ import { timeframeToMs } from "@tb/trading-core";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
+import type { MarketCoverage } from "../../services/harvesterMarketData";
 import { getStrategyCatalog } from "../../services/strategyCatalog";
 import { mapExchangeError } from "../../utils/errors";
 import { toNumber } from "../../utils/serialization";
@@ -59,6 +60,62 @@ export const marketRouter = createTrpcRouter({
         limit: input.limit,
       });
       return rows.map(serializeCandleRow);
+    }),
+
+  getChartSnapshot: publicProcedure
+    .input(
+      z.object({
+        exchange: z.string(),
+        symbol: z.string(),
+        timeframe: z.string(),
+        compareSymbol: z.string().optional(),
+        startTime: z.number().optional(),
+        endTime: z.number().optional(),
+        limit: z.number().min(50).max(1500).default(700),
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const candleRequest = {
+        exchange: input.exchange,
+        timeframe: input.timeframe,
+        startTime: input.startTime ? new Date(input.startTime) : undefined,
+        endTime: input.endTime ? new Date(input.endTime) : undefined,
+        limit: input.limit,
+      };
+
+      const [rows, coverage, compareRows, compareCoverage] = await Promise.all([
+        ctx.marketData.getCandles({ ...candleRequest, symbol: input.symbol }),
+        ctx.marketData.getCoverage(input.exchange, input.symbol, input.timeframe),
+        input.compareSymbol
+          ? ctx.marketData.getCandles({ ...candleRequest, symbol: input.compareSymbol })
+          : Promise.resolve([]),
+        input.compareSymbol
+          ? ctx.marketData.getCoverage(input.exchange, input.compareSymbol, input.timeframe)
+          : Promise.resolve(null),
+      ]);
+
+      const candles = rows.map(serializeCandleRow);
+      const compareCandles = compareRows.map(serializeCandleRow);
+      const nowMs = Date.now();
+
+      return {
+        exchange: input.exchange,
+        symbol: input.symbol,
+        timeframe: input.timeframe,
+        candles,
+        coverage: serializeCoverage(coverage, input.timeframe, nowMs),
+        summary: summarizeChartCandles(candles, nowMs),
+        relativePerformance: buildRelativePerformance(candles),
+        compare: input.compareSymbol
+          ? {
+              symbol: input.compareSymbol,
+              candles: compareCandles,
+              coverage: serializeCoverage(compareCoverage!, input.timeframe, nowMs),
+              summary: summarizeChartCandles(compareCandles, nowMs),
+              relativePerformance: buildRelativePerformance(compareCandles),
+            }
+          : null,
+      };
     }),
 
   getOrderBook: publicProcedure
@@ -181,6 +238,8 @@ type CandleLike = {
   tradesCount?: number | null;
 };
 
+export type SerializedCandleRow = ReturnType<typeof serializeCandleRow>;
+
 function serializeCandleRow(row: CandleLike) {
   return {
     time: row.time.getTime(),
@@ -191,4 +250,101 @@ function serializeCandleRow(row: CandleLike) {
     volume: toNumber(row.volume),
     tradesCount: row.tradesCount ?? 0,
   };
+}
+
+export function serializeCoverage(row: MarketCoverage, timeframe: string, nowMs: number) {
+  if (!row.earliest || !row.latest) {
+    return {
+      earliest: null,
+      latest: null,
+      gapCount: 0,
+      completeness: 0,
+      totalCandles: 0,
+      latestCandleAgeMs: null,
+    };
+  }
+
+  const intervalMs = timeframeToMs(timeframe);
+  const expected = Math.max(
+    Math.floor((row.latest.getTime() - row.earliest.getTime()) / intervalMs) + 1,
+    0
+  );
+  const totalCandles = row.totalCandles ?? 0;
+
+  return {
+    earliest: row.earliest.toISOString(),
+    latest: row.latest.toISOString(),
+    gapCount: row.gapCount ?? 0,
+    completeness: expected > 0 ? (totalCandles / expected) * 100 : 0,
+    totalCandles,
+    latestCandleAgeMs: Math.max(nowMs - row.latest.getTime(), 0),
+  };
+}
+
+export function summarizeChartCandles(candles: SerializedCandleRow[], nowMs = Date.now()) {
+  const first = candles[0];
+  const last = candles[candles.length - 1];
+  if (!first || !last) {
+    return {
+      candleCount: 0,
+      firstTime: null,
+      lastTime: null,
+      latestPrice: null,
+      returnPct: null,
+      high: null,
+      low: null,
+      rangePct: null,
+      totalVolume: 0,
+      averageVolume: 0,
+      latestVolume: null,
+      latestCandleAgeMs: null,
+      volatilityPct: null,
+    };
+  }
+
+  const high = candles.reduce(
+    (max, candle) => Math.max(max, candle.high),
+    Number.NEGATIVE_INFINITY
+  );
+  const low = candles.reduce((min, candle) => Math.min(min, candle.low), Number.POSITIVE_INFINITY);
+  const totalVolume = candles.reduce((sum, candle) => sum + candle.volume, 0);
+  const logReturns = candles.slice(1).map((candle, index) => {
+    const previous = candles[index]?.close ?? candle.open;
+    return previous > 0 ? Math.log(candle.close / previous) : 0;
+  });
+  const meanLogReturn =
+    logReturns.length > 0
+      ? logReturns.reduce((sum, value) => sum + value, 0) / logReturns.length
+      : 0;
+  const variance =
+    logReturns.length > 1
+      ? logReturns.reduce((sum, value) => sum + (value - meanLogReturn) ** 2, 0) /
+        (logReturns.length - 1)
+      : 0;
+
+  return {
+    candleCount: candles.length,
+    firstTime: first.time,
+    lastTime: last.time,
+    latestPrice: last.close,
+    returnPct: first.open > 0 ? ((last.close - first.open) / first.open) * 100 : null,
+    high,
+    low,
+    rangePct: first.open > 0 ? ((high - low) / first.open) * 100 : null,
+    totalVolume,
+    averageVolume: totalVolume / candles.length,
+    latestVolume: last.volume,
+    latestCandleAgeMs: Math.max(nowMs - last.time, 0),
+    volatilityPct: Math.sqrt(variance) * 100,
+  };
+}
+
+export function buildRelativePerformance(candles: SerializedCandleRow[]) {
+  const first = candles.find((candle) => candle.close > 0);
+  if (!first) return [];
+
+  return candles.map((candle) => ({
+    time: candle.time,
+    value: ((candle.close - first.close) / first.close) * 100,
+  }));
 }

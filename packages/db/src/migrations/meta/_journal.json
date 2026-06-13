@@ -29,6 +29,20 @@
       "when": 1779395147445,
       "tag": "0003_pink_union_jack",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1780145437581,
+      "tag": "0004_lethal_hiroim",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1780162346873,
+      "tag": "0005_parallel_risque",
+      "breakpoints": true
     }
   ]
 }

@@ -1,10 +1,13 @@
 import {
   BollingerBounce,
   BollingerLongBounce,
+  ChandelierTrend,
   DonchianBreakout,
   EMAATRTrend,
+  MACDMomentum,
   type IStrategy,
   RSIMeanReversion,
+  SMAChandelierTrend,
   SentimentAwareSMACrossover,
   SMACrossover,
   StrategyRegistry,
@@ -29,6 +32,12 @@ export type StrategyCatalogOptions = {
 const STRATEGIES: Record<string, StrategyCatalogDefinition> = {
   "sma-crossover": {
     factory: () => new SMACrossover(),
+    visibility: "launchable",
+    marketMode: "spot",
+    researchBacked: true,
+  },
+  "sma-chandelier-trend": {
+    factory: () => new SMAChandelierTrend(),
     visibility: "launchable",
     marketMode: "spot",
     researchBacked: true,
@@ -65,6 +74,18 @@ const STRATEGIES: Record<string, StrategyCatalogDefinition> = {
   },
   "ema-atr-trend": {
     factory: () => new EMAATRTrend(),
+    visibility: "launchable",
+    marketMode: "spot",
+    researchBacked: true,
+  },
+  "macd-momentum": {
+    factory: () => new MACDMomentum(),
+    visibility: "launchable",
+    marketMode: "spot",
+    researchBacked: true,
+  },
+  "chandelier-trend": {
+    factory: () => new ChandelierTrend(),
     visibility: "launchable",
     marketMode: "spot",
     researchBacked: true,

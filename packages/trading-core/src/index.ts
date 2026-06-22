@@ -25,11 +25,14 @@ export type {
 export { InMemoryStrategyContextProvider, NullStrategyContextProvider } from "./context/types";
 export { SignalHarvesterContextProvider } from "./context/SignalHarvesterContextProvider";
 export { SMACrossover } from "./strategy/strategies/SMACrossover";
+export { SMAChandelierTrend } from "./strategy/strategies/SMAChandelierTrend";
 export { RSIMeanReversion } from "./strategy/strategies/RSIMeanReversion";
 export { BollingerBounce } from "./strategy/strategies/BollingerBounce";
 export { BollingerLongBounce } from "./strategy/strategies/BollingerLongBounce";
 export { DonchianBreakout } from "./strategy/strategies/DonchianBreakout";
 export { EMAATRTrend } from "./strategy/strategies/EMAATRTrend";
+export { MACDMomentum } from "./strategy/strategies/MACDMomentum";
+export { ChandelierTrend } from "./strategy/strategies/ChandelierTrend";
 export { SentimentAwareSMACrossover } from "./strategy/strategies/SentimentAwareSMACrossover";
 
 // Backtest

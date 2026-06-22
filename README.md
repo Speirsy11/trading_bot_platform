@@ -1,224 +1,164 @@
 # Crypto Trading Bot Platform
 
-A focused crypto trading bot platform for creating strategies, backtesting them on collected candle data, and running them as paper or live crypto bots.
+A crypto trading bot platform for building strategies, backtesting them against
+historical candle data, and running them as paper or live bots. Built as a
+TypeScript monorepo with a typed end-to-end stack (Next.js + tRPC + Drizzle +
+TimescaleDB + BullMQ).
 
-## Quick Start
-
-```bash
-cp .env.example .env
-pnpm install
-pnpm docker:up        # Start Postgres + Redis
-pnpm db:migrate       # Run database migrations
-pnpm db:seed          # Seed default collection config
-pnpm dev              # Start all apps
-```
-
-To run background data collection in Docker without keeping a terminal open:
-
-```bash
-pnpm docker:ingest:up
-```
-
-To run workers directly on the host instead:
-
-```bash
-pnpm --filter api dev:workers
-```
+> **Status:** functional locally — backtesting, paper trading, research sweeps,
+> and market-data browsing all work against a populated database. Live trading
+> is gated behind safeguards and should be treated as experimental. See
+> [docs/plans/CURRENT_STATE_AND_ROADMAP.md](docs/plans/CURRENT_STATE_AND_ROADMAP.md).
 
 ## Product Focus
 
 The app is centred on three workflows:
 
-1. **Strategies** — browse templates, edit parameters and risk presets, then launch research or bot runs.
-2. **Backtesting** — validate the exact strategy config against collected OHLCV candles before risking capital.
-3. **Live Runs** — run algorithms in paper mode first, then real crypto mode through configured exchange credentials.
+1. **Strategies** — browse templates, edit parameters and risk presets, then
+   launch research or bot runs.
+2. **Backtesting** — validate the exact strategy config against historical
+   OHLCV candles before risking capital.
+3. **Live Runs** — run algorithms in paper mode first, then real crypto mode
+   through configured exchange credentials.
 
-See [docs/TRADING_PLATFORM_FOCUS.md](docs/TRADING_PLATFORM_FOCUS.md) for the competitive baseline and product direction.
+See [docs/TRADING_PLATFORM_FOCUS.md](docs/TRADING_PLATFORM_FOCUS.md) for the
+competitive baseline and product direction.
 
 ## Architecture
 
-See [docs/plans/00-ARCHITECTURE.md](docs/plans/00-ARCHITECTURE.md) for full details.
+A pnpm + Turborepo monorepo.
+
+```
+apps/
+  web        Next.js dashboard (strategies, backtests, bots, research, market data)
+  api        Fastify + tRPC API and BullMQ worker process
+  db-ui      Lightweight database inspector
+
+packages/
+  trading-core   Strategies, backtest engine, bot runtime, risk + order management
+  indicators     Technical indicators (SMA/EMA/RSI/MACD/ATR/Bollinger/…) with fixtures
+  data-pipeline  Market-data validation, export (CSV/SQLite), repair utilities
+  db             Drizzle schema, migrations, seeds, queries (TimescaleDB hypertables)
+  types          Shared domain types
+  utils          Shared utilities
+  config         Runtime configuration
+  sdk            Generated client SDK
+  tbp-cli        Command-line tool
+```
+
+See [docs/plans/00-ARCHITECTURE.md](docs/plans/00-ARCHITECTURE.md) for full
+details.
+
+## Quick Start
+
+```bash
+cp .env.example .env   # then fill in the required values (see Configuration)
+pnpm install
+pnpm docker:up         # Start Postgres + Redis
+pnpm db:migrate        # Run database migrations
+pnpm dev               # Start all apps
+```
+
+The web app runs on <http://localhost:3000> and the API on <http://localhost:3001>.
+
+### Configuration
+
+The required environment variables are documented in [`.env.example`](.env.example).
+The two you must set before anything works:
+
+| Variable                        | Purpose                                                              |
+| ------------------------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL`                  | Platform Postgres/TimescaleDB (bots, backtests, research, settings). |
+| `SIGNAL_HARVESTER_DATABASE_URL` | Read-only market-data source (see **Market Data** below).            |
+| `ENCRYPTION_KEY`                | 32-byte hex key used to encrypt stored exchange API credentials.     |
+
+Generate an encryption key with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+## Market Data
+
+The platform is **read-only for market data**. It does not collect or own OHLCV
+candles itself — it reads canonical candle data from an external **Signal
+Harvester** Postgres database, configured via `SIGNAL_HARVESTER_DATABASE_URL`.
+The harvester owns ingestion, backfill, gap detection, and repair; the trading
+platform only queries the candles it needs for charts, backtests, and bot runs.
+
+Because of this, the `dataCollection.backfill` and `dataCollection.detectGaps`
+endpoints intentionally return `{ disabled: true }` — those responsibilities
+live in Signal Harvester, not here. The remaining `dataCollection` endpoints
+(`status`, `getConfig`, `getQualityMetrics`, `events`, `queueStats`) are
+read/monitoring only.
+
+```
+Signal Harvester DB  ──(read-only)──▶  MarketDataReader  ──▶  charts / backtests / bots
+   (market_data_points)                 (HarvesterPostgresMarketDataReader)
+```
+
+### Local development without a harvester
+
+For tests and local fixtures you can fall back to candles stored in the
+platform's own `ohlcv` table by setting `MARKET_DATA_ALLOW_LOCAL_FALLBACK=true`
+(automatically enabled when `NODE_ENV=test`). In that mode the platform reads
+from `LocalDrizzleMarketDataReader` instead of the harvester. This is for
+development only — production runs should always point at a real harvester DB.
+
+## Background Workers
+
+The API ships a separate worker process (`pnpm --filter api dev:workers`, or the
+`workers` Docker service) that runs BullMQ-backed jobs. It does **not** collect
+market data. It runs:
+
+| Worker          | Responsibility                                          |
+| --------------- | ------------------------------------------------------- |
+| Bot executor    | Drives running paper/live bots tick by tick.            |
+| Backtest runner | Executes queued backtests against historical candles.   |
+| Research runner | Runs strategy parameter sweeps and promotion workflows. |
+| Data export     | Generates CSV/SQLite exports of stored data.            |
+| Data retention  | Purges old `bot_logs` and `ohlcv` rows on a schedule.   |
+
+A minimal worker health server listens on `:3002` (`GET /health`).
+
+To run the workers detached in Docker:
+
+```bash
+pnpm docker:ingest:up    # build + start the bootstrap and workers containers
+pnpm docker:ingest:logs  # tail their logs
+pnpm docker:ingest:down  # stop them
+```
 
 ## Scripts
 
-| Command                   | Description                                   |
-| ------------------------- | --------------------------------------------- |
-| `pnpm dev`                | Start all apps in development mode            |
-| `pnpm build`              | Build all packages and apps                   |
-| `pnpm lint`               | Lint all packages                             |
-| `pnpm type-check`         | TypeScript type checking                      |
-| `pnpm test`               | Run all tests                                 |
-| `pnpm format`             | Format all files with Prettier                |
-| `pnpm docker:up`          | Start infrastructure (Postgres, Redis)        |
-| `pnpm docker:down`        | Stop infrastructure                           |
-| `pnpm docker:reset`       | Reset infrastructure (nuke volumes)           |
-| `pnpm docker:ingest:up`   | Build and start bootstrap + workers in Docker |
-| `pnpm docker:ingest:logs` | Tail bootstrap + worker logs                  |
-| `pnpm docker:ingest:down` | Stop the detached worker container            |
-| `pnpm db:seed`            | Seed default collection config                |
+| Command             | Description                            |
+| ------------------- | -------------------------------------- |
+| `pnpm dev`          | Start all apps in development mode     |
+| `pnpm build`        | Build all packages and apps            |
+| `pnpm lint`         | Lint all packages                      |
+| `pnpm type-check`   | TypeScript type checking               |
+| `pnpm test`         | Run all tests                          |
+| `pnpm format`       | Format all files with Prettier         |
+| `pnpm db:migrate`   | Run database migrations                |
+| `pnpm db:seed`      | Seed default settings                  |
+| `pnpm docker:up`    | Start infrastructure (Postgres, Redis) |
+| `pnpm docker:down`  | Stop infrastructure                    |
+| `pnpm docker:reset` | Reset infrastructure (nuke volumes)    |
 
----
-
-## Data Ingestion Guide
-
-Charts and dashboards start empty because market data must be collected from exchanges. The platform handles this automatically once set up.
-
-### How it works
-
-The platform collects OHLCV (Open/High/Low/Close/Volume) candlestick data from cryptocurrency exchanges via the [CCXT](https://github.com/ccxt/ccxt) library. The pipeline is:
-
-```
-Worker startup → reads settings table → registers BullMQ repeatable jobs
-  → OHLCVCollector fetches candles from exchange REST API (CCXT)
-    → CandleValidator validates each candle (8 rules)
-      → Drizzle UPSERT into TimescaleDB ohlcv hypertable
-        → Redis pub/sub event → WebSocket → dashboard updates
-```
-
-Data is stored in a TimescaleDB hypertable keyed by `(exchange, symbol, timeframe, time)`. The collector works incrementally — it finds the latest candle already stored and only fetches newer data.
-
-### Step-by-step: Getting data flowing
-
-#### 1. Prerequisites
+## Testing
 
 ```bash
-cp .env.example .env
-
-# Generate an encryption key and add it to .env:
-node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-# Then set ENCRYPTION_KEY=<output> in .env
-
-pnpm install
-pnpm docker:up
-pnpm db:migrate
+pnpm test         # full suite across the workspace
+pnpm test:ci      # CI variant (requires Postgres + Redis services)
 ```
 
-#### 2. Seed the database
+Most unit tests run without external services. Integration tests that need a
+database or Redis are skipped unless those services are available (see the CI
+workflow in `.github/workflows/ci.yml`).
 
-```bash
-pnpm db:seed
-```
+UI changes should be verified with screenshots — see [AGENTS.md](AGENTS.md) for
+the `pnpm --filter web ui:verify` workflow.
 
-This inserts default collection configuration into the `settings` table:
+## License
 
-| Key                     | Default value                                                                                                                                                                                                |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `collection.pairs`      | BTC/USDT, ETH/USDT, BNB/USDT, SOL/USDT, XRP/USDT, ADA/USDT, DOGE/USDT, AVAX/USDT, DOT/USDT, MATIC/USDT, LINK/USDT, UNI/USDT, ATOM/USDT, LTC/USDT, FIL/USDT, NEAR/USDT, APT/USDT, ARB/USDT, OP/USDT, SUI/USDT |
-| `collection.timeframes` | 1m, 5m, 15m, 1h, 4h, 1d                                                                                                                                                                                      |
-| `collection.exchanges`  | binance                                                                                                                                                                                                      |
-
-#### 3. Start the workers
-
-Preferred detached option:
-
-```bash
-pnpm docker:ingest:up
-```
-
-This starts two Compose services under the `ingest` profile:
-
-1. `bootstrap` runs database migrations and seeds the default collection config if it is missing
-2. `workers` starts the BullMQ worker process in a long-running container with `restart: unless-stopped`
-
-Useful commands:
-
-```bash
-pnpm docker:ingest:logs
-pnpm docker:ingest:down
-```
-
-Host-based option:
-
-```bash
-pnpm --filter api dev:workers
-```
-
-On startup, the workers automatically:
-
-1. Read `collection.pairs`, `collection.timeframes`, and `collection.exchanges` from the `settings` table
-2. Register repeatable BullMQ jobs for each exchange/pair combination
-3. Schedule gap detection jobs for every exchange/pair/timeframe combination
-4. Begin processing collection jobs immediately
-
-You should see log lines like:
-
-```
-Scheduling collection: 1 exchange(s), 20 pair(s), 6 timeframe(s)
-Repeatable data-collection jobs registered.
-{"name":"data-collector","exchange":"binance","symbol":"BTC/USDT","timeframe":"1m","inserted":500,"msg":"OHLCV data collected"}
-```
-
-| Job                | Schedule         | What it does                                    |
-| ------------------ | ---------------- | ----------------------------------------------- |
-| `collect-ohlcv-1m` | Every 60 seconds | Fetches latest 1-minute candles for each pair   |
-| `collect-ohlcv-1h` | Every hour       | Fetches latest 1h, 4h, 1d candles for each pair |
-| `detect-gaps`      | Every 6 hours    | Finds missing candles and reports gap count     |
-
-#### 4. (Optional) Backfill historical data
-
-The recurring jobs only collect **new** candles going forward. To fill in historical data for backtesting, use the `dataCollection.backfill` tRPC endpoint or submit directly via the API:
-
-```bash
-# Via curl against the running API server (default port 3001):
-curl -X POST http://localhost:3001/trpc/dataCollection.backfill \
-  -H "Content-Type: application/json" \
-  -d '{"json":{"exchange":"binance","symbol":"BTC/USDT","timeframe":"1h","startTime":"2024-01-01T00:00:00Z","endTime":"2025-12-31T23:59:59Z"}}'
-```
-
-Backfill fetches candles in batches (up to 1000 per request for Binance) and respects rate limits. A full year of 1h data takes under a minute.
-
-### API endpoints for data collection
-
-The `dataCollection` tRPC router provides these endpoints:
-
-| Endpoint                    | Type     | Description                                     |
-| --------------------------- | -------- | ----------------------------------------------- |
-| `dataCollection.status`     | query    | Get collection status for all or specific pairs |
-| `dataCollection.getConfig`  | query    | Get current collection config from settings     |
-| `dataCollection.backfill`   | mutation | Queue a historical backfill job                 |
-| `dataCollection.detectGaps` | mutation | Trigger gap detection for a specific pair       |
-| `dataCollection.queueStats` | query    | Get BullMQ queue job counts for monitoring      |
-
-### Architecture summary
-
-```
-┌─────────────────────────────────────────────────────────┐
-│ settings table                                          │
-│  collection.pairs / collection.timeframes / exchanges   │
-└────────────────────────────┬────────────────────────────┘
-                             │ (read on worker startup)
-                             ▼
-┌─────────────────────────────────────────────────────────┐
-│ BullMQ Repeatable Jobs (stored in Redis)                │
-│  collect-ohlcv-1m  (every 60s per exchange/pair)        │
-│  collect-ohlcv-1h  (every 1h for 1h/4h/1d)             │
-│  detect-gaps       (every 6h)                           │
-└────────────────────────────┬────────────────────────────┘
-                             │ (triggers workers)
-                             ▼
-┌─────────────────────────────────────────────────────────┐
-│ Workers  (pnpm --filter api dev:workers)                │
-│  collectionWorker → OHLCVCollector → CCXT fetchOHLCV()  │
-│  backfillWorker   → BackfillManager → historical fetch  │
-│  exportWorker     → CSV/Parquet/SQLite generation       │
-└────────────────────────────┬────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────┐
-│ TimescaleDB  (ohlcv hypertable)                         │
-│  UPSERT on (exchange, symbol, timeframe, time)          │
-│  → Compression policies, automatic partitioning         │
-└─────────────────────────────────────────────────────────┘
-```
-
-### What's not yet implemented
-
-| Gap                 | Details                                                                                               |
-| ------------------- | ----------------------------------------------------------------------------------------------------- |
-| WebSocket streaming | `WebSocketManager` code exists in the data-pipeline package but isn't integrated with the workers yet |
-
-### Options for getting data faster
-
-1. **Smallest footprint** — Edit `collection.pairs` in the settings table to 1–3 pairs. Workers will only collect those.
-2. **Backfill for backtesting** — Use `dataCollection.backfill` for the pairs/timeframes/date ranges you want. A year of 1h data for one pair takes under a minute.
-3. **Full collection** — The default seed has 20 pairs across all 6 timeframes. Workers schedule all of them automatically and handle rate limits.
+MIT — see [LICENSE](LICENSE).

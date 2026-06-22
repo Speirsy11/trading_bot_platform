@@ -2,6 +2,23 @@
 
 _Generated: 2026-04-12 — assessment of the trading-bot-platform against planning documents in `docs/plans/`._
 
+> **⚠️ Update 2026-06-22 — much of this is now stale.** The sections below
+> understate the current state. Since this was written:
+>
+> - **Market data moved to an external Signal Harvester.** The platform no longer
+>   collects OHLCV; it reads canonical candles read-only from a harvester Postgres
+>   (`SIGNAL_HARVESTER_DATABASE_URL`). All "WebSocket streaming / collector" gaps
+>   below are obsolete — collection is out of scope for this repo. See the README.
+> - **Completed since this doc:** CF-1 `/health`, CF-2 `RecentTrades`,
+>   LT-2 notional cap (`notionalCap.ts`), LT-3 daily-loss check (`dailyLossCheck.ts`),
+>   LT-4 kill-switch (`POST /emergency-stop`), LT-6 order reconciliation
+>   (`reconcileOrders.ts`), LT-8 audit log (`orderAuditLog`), API-4 env validation,
+>   BE-16 data retention worker.
+> - **Strategies:** 11 are now registered in the catalog (this doc says 2).
+>
+> Treat the §4 task list as a backlog to re-triage, and the §5–§6 hosting /
+> external-account / safeguard guidance as still-useful forward-looking notes.
+
 ## 1. Executive Summary
 
 The platform is **~70% implemented against the original plan**. The monorepo, database schemas, core trading engine, data collection pipeline, and most frontend pages are in place and functional. The remaining ~30% is a mix of (a) wiring gaps that stop specific UI flows from working end-to-end, (b) production-hardening work (auth, observability, hosting, safeguards for live trading), and (c) polish that separates a demo from a product.

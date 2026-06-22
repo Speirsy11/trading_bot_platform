@@ -272,51 +272,24 @@ importers:
 
   packages/data-pipeline:
     dependencies:
-      '@tb/config':
-        specifier: workspace:^
-        version: link:../config
       '@tb/db':
         specifier: workspace:^
         version: link:../db
       '@tb/types':
         specifier: workspace:*
         version: link:../types
-      '@tb/utils':
-        specifier: workspace:*
-        version: link:../utils
       better-sqlite3:
         specifier: ^12.8.0
         version: 12.8.0
-      bullmq:
-        specifier: ^5.71.1
-        version: 5.71.1
-      ccxt:
-        specifier: ^4.5.45
-        version: 4.5.45
       csv-stringify:
         specifier: ^6.7.0
         version: 6.7.0
-      date-fns:
-        specifier: ^4.1.0
-        version: 4.1.0
       drizzle-orm:
         specifier: ^0.38.3
         version: 0.38.4(@types/better-sqlite3@7.6.13)(@types/react@19.2.14)(better-sqlite3@12.8.0)(postgres@3.4.8)(react@19.2.4)
-      ioredis:
-        specifier: ^5.10.1
-        version: 5.10.1
-      p-limit:
-        specifier: ^7.3.0
-        version: 7.3.0
       parquetjs-lite:
         specifier: ^0.8.7
         version: 0.8.7
-      pino:
-        specifier: ^9.6.0
-        version: 9.14.0
-      zod:
-        specifier: ^3.24.1
-        version: 3.25.76
     devDependencies:
       '@tb/eslint-config':
         specifier: workspace:*
@@ -4004,10 +3977,6 @@ packages:
     resolution: {integrity: sha512-TYOanM3wGwNGsZN2cVTYPArw454xnXj5qmWF1bEoAc4+cU/ol7GVh7odevjp1FNHduHc3KZMcFduxU5Xc6uJRQ==}
     engines: {node: '>=10'}
 
-  p-limit@7.3.0:
-    resolution: {integrity: sha512-7cIXg/Z0M5WZRblrsOla88S4wAK+zOQQWeBYfV3qJuJXMr+LnbYjaadrFaS0JILfEDPVqHyKnZ1Z/1d6J9VVUw==}
-    engines: {node: '>=20'}
-
   p-locate@5.0.0:
     resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
     engines: {node: '>=10'}
@@ -5117,10 +5086,6 @@ packages:
   yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
-
-  yocto-queue@1.2.2:
-    resolution: {integrity: sha512-4LCcse/U2MHZ63HAJVE+v71o7yOdIe4cZ70Wpf8D/IyjDKYQLV5GD46B+hSTjJsvV5PztjvHoU580EftxjDZFQ==}
-    engines: {node: '>=12.20'}
 
   zip-stream@6.0.1:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
@@ -8498,10 +8463,6 @@ snapshots:
     dependencies:
       yocto-queue: 0.1.0
 
-  p-limit@7.3.0:
-    dependencies:
-      yocto-queue: 1.2.2
-
   p-locate@5.0.0:
     dependencies:
       p-limit: 3.1.0
@@ -9853,8 +9814,6 @@ snapshots:
       yargs-parser: 21.1.1
 
   yocto-queue@0.1.0: {}
-
-  yocto-queue@1.2.2: {}
 
   zip-stream@6.0.1:
     dependencies:

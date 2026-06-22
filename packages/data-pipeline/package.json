@@ -19,21 +19,12 @@
     "clean": "rm -rf dist .turbo"
   },
   "dependencies": {
-    "@tb/config": "workspace:^",
     "@tb/db": "workspace:^",
     "@tb/types": "workspace:*",
-    "@tb/utils": "workspace:*",
     "better-sqlite3": "^12.8.0",
-    "bullmq": "^5.71.1",
-    "ccxt": "^4.5.45",
     "csv-stringify": "^6.7.0",
-    "date-fns": "^4.1.0",
     "drizzle-orm": "^0.38.3",
-    "ioredis": "^5.10.1",
-    "p-limit": "^7.3.0",
-    "parquetjs-lite": "^0.8.7",
-    "pino": "^9.6.0",
-    "zod": "^3.24.1"
+    "parquetjs-lite": "^0.8.7"
   },
   "devDependencies": {
     "@tb/eslint-config": "workspace:*",

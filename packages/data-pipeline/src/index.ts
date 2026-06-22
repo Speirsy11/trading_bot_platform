@@ -1,81 +1,11 @@
-// Validation
-export { CandleValidator } from "./validation/CandleValidator";
-export { Deduplicator } from "./validation/Deduplicator";
-export { GapDetector, type Gap } from "./validation/GapDetector";
+// Data export utilities used by the API's export worker. Market-data ingestion
+// (collection, backfill, streaming, gap detection) is owned by Signal Harvester
+// and is no longer part of this package.
 
-// Collection
-export { OHLCVCollector } from "./collection/OHLCVCollector";
-export { DataCollector } from "./collection/DataCollector";
-export { CandleBuilder } from "./collection/CandleBuilder";
-
-// Backfill
-export { BackfillJob, type BackfillJobConfig } from "./backfill/BackfillJob";
-export { BackfillManager } from "./backfill/BackfillManager";
-export { planHistoricalBackfill } from "./backfill/HistoricalBackfillPlanner";
-export type {
-  HistoricalBackfillPlanInput,
-  HistoricalBackfillPlanResult,
-} from "./backfill/HistoricalBackfillPlanner";
-export { scheduleBackfill, backfillChunkPriority } from "./backfill/backfillScheduler";
-
-// Streaming
-export { WebSocketManager } from "./streaming/WebSocketManager";
-export { StreamProcessor } from "./streaming/StreamProcessor";
-export { ReconnectHandler } from "./streaming/ReconnectHandler";
-
-// Export
 export { CSVExporter } from "./export/CSVExporter";
-export { ParquetExporter } from "./export/ParquetExporter";
 export { SQLiteExporter } from "./export/SQLiteExporter";
+export { ParquetExporter, exportParquet } from "./export/ParquetExporter";
 export { CompressionHelper } from "./export/CompressionHelper";
-export { ExportManager, type ExportRequest } from "./export/ExportManager";
 
-// Rate Limiting
-export { ExchangeRateLimiter } from "./rateLimit/ExchangeRateLimiter";
-export { RATE_LIMIT_DEFAULTS, type RateLimitOptions } from "./rateLimit/RateLimitConfig";
-export { AdaptiveRateLimiter } from "./rateLimiter";
-
-// Repair
-export { RepairManager } from "./repair/RepairManager";
-
-// Gap Detection
-export { detectGaps, detectAllGaps, type OhlcvGap } from "./gapDetector";
-export {
-  createGapDetectorWorker,
-  GAP_DETECTION_QUEUE,
-  GAP_DETECTION_REPEAT_PATTERN,
-} from "./gapDetectorWorker";
-
-// Jobs
-export { QUEUE_NAMES, JOB_NAMES, DEFAULT_JOB_OPTIONS } from "./jobs/types";
-export type {
-  CollectOHLCVJobData,
-  BackfillJobData,
-  DetectGapsJobData,
-  HistoricalBackfillJobData,
-  RepairJobData,
-  ExportJobData,
-} from "./jobs/types";
-export {
-  createQueues,
-  setupRepeatableJobs,
-  setupGapDetectionJob,
-  addDetectGapsJob,
-  setupHistoricalBackfillJob,
-  addBackfillJob,
-  addExportJob,
-} from "./jobs/scheduler";
-export { createCollectionWorker, createBackfillWorker, createExportWorker } from "./jobs/workers";
-
-// Metadata
-export { CoinGeckoClient, SYMBOL_TO_COINGECKO_ID } from "./metadata/CoinGeckoClient";
-export type { CoinMarketData } from "./metadata/CoinGeckoClient";
-export {
-  createCoinMetadataWorker,
-  COIN_METADATA_QUEUE,
-  COIN_METADATA_REPEAT_PATTERN,
-  COIN_METADATA_CHANNEL,
-} from "./metadata/coinMetadataWorker";
-
-// Types
-export type { PipelineConfig, CollectionResult } from "./types";
+export { QUEUE_NAMES } from "./jobs/types";
+export type { ExportJobData } from "./jobs/types";

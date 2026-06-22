@@ -24,7 +24,6 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 
 import { CSVExporter } from "../export/CSVExporter";
 import { SQLiteExporter } from "../export/SQLiteExporter";
-import { GapDetector } from "../validation/GapDetector";
 
 import { generateRealisticCandles } from "./fixtures";
 
@@ -191,46 +190,6 @@ describe.skipIf(!runIntegrationTests || !hasDocker)("Data Pipeline Integration T
       expect(result).toHaveLength(1);
       expect(result[0]!.open).toBe("3010.00000000");
       expect(result[0]!.volume).toBe("200.00000000");
-    });
-  });
-
-  describe("gap detection", () => {
-    it("detects missing candles", async () => {
-      // Insert candles with intentional gap (skip hour 3 and 4)
-      const exchange = "binance";
-      const symbol = "SOL/USDT";
-      const timeframe = "1h";
-      const baseTime = new Date("2025-02-01T00:00:00Z");
-
-      const rows: OHLCVInsert[] = [];
-      for (let i = 0; i < 10; i++) {
-        if (i === 3 || i === 4) continue; // Gap
-        rows.push({
-          time: new Date(baseTime.getTime() + i * 3_600_000),
-          exchange,
-          symbol,
-          timeframe,
-          open: "100.00000000",
-          high: "110.00000000",
-          low: "90.00000000",
-          close: "105.00000000",
-          volume: "500.00000000",
-        });
-      }
-
-      await upsertOHLCV(db, rows);
-
-      const detector = new GapDetector(db);
-      const gaps = await detector.detectGaps(
-        exchange,
-        symbol,
-        timeframe,
-        baseTime,
-        new Date(baseTime.getTime() + 9 * 3_600_000)
-      );
-
-      expect(gaps.length).toBe(1);
-      expect(gaps[0]!.missingCount).toBe(2);
     });
   });
 

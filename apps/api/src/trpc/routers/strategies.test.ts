@@ -23,10 +23,13 @@ describe("strategies router", () => {
     const catalog = await caller.strategies.catalog();
     const researchStrategyKeys = new Set([
       "sma-crossover",
+      "sma-chandelier-trend",
       "rsi-mean-reversion",
       "bollinger-long-bounce",
       "donchian-breakout",
       "ema-atr-trend",
+      "macd-momentum",
+      "chandelier-trend",
     ]);
 
     for (const preset of catalog.presets) {
@@ -45,7 +48,19 @@ describe("strategies router", () => {
     expect(catalog.strategies).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: "bollinger-long-bounce",
+          key: "macd-momentum",
+          visibility: "launchable",
+          marketMode: "spot",
+          researchBacked: true,
+        }),
+        expect.objectContaining({
+          key: "chandelier-trend",
+          visibility: "launchable",
+          marketMode: "spot",
+          researchBacked: true,
+        }),
+        expect.objectContaining({
+          key: "sma-chandelier-trend",
           visibility: "launchable",
           marketMode: "spot",
           researchBacked: true,

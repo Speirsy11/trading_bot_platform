@@ -93,7 +93,7 @@ function botControlRow(status: string, extra: Record<string, unknown> = {}) {
 }
 
 describe("bots router", () => {
-  it("stores promotion evidence when creating a historically profitable research paper bot", async () => {
+  it("stores promotion evidence when creating an alpha-qualified research paper bot", async () => {
     const previousAuthToken = process.env["API_AUTH_TOKEN"];
     process.env["API_AUTH_TOKEN"] = "test-token";
 
@@ -115,13 +115,13 @@ describe("bots router", () => {
       sourceId,
       sourceSweepId,
       sourceLabel: "SMA Crossover · 1h",
-      benchmarkStatus: "profit-only",
-      alphaQualified: false,
+      benchmarkStatus: "alpha-qualified",
+      alphaQualified: true,
       paperBotEligible: true,
       executionAssumptions,
       outOfSampleReturn: 12.5,
       benchmarkReturn: 9.1,
-      excessReturn: -3.2,
+      excessReturn: 3.4,
       maxDrawdown: 9.4,
       sharpeRatio: 1.7,
       profitFactor: 1.3,
@@ -142,7 +142,7 @@ describe("bots router", () => {
             qualified: true,
             testMetrics: {
               benchmark: { totalReturn: 9.1 },
-              excessReturn: -3.2,
+              excessReturn: 3.4,
               executionAssumptions,
             },
             outOfSampleReturn: "12.5",
@@ -622,6 +622,89 @@ describe("bots router", () => {
           },
         })
       ).rejects.toThrow(/not historically profitable/);
+
+      expect(insert).not.toHaveBeenCalled();
+    } finally {
+      if (previousAuthToken === undefined) {
+        delete process.env["API_AUTH_TOKEN"];
+      } else {
+        process.env["API_AUTH_TOKEN"] = previousAuthToken;
+      }
+    }
+  });
+
+  it("rejects profit-only research promotion evidence until it beats benchmark", async () => {
+    const previousAuthToken = process.env["API_AUTH_TOKEN"];
+    process.env["API_AUTH_TOKEN"] = "test-token";
+
+    const insert = vi.fn();
+    const sourceId = "6f615fb0-a36c-4cfe-8d90-95bdfaa0f72f";
+    const db = {
+      select: vi.fn(() =>
+        createQueryBuilder([
+          {
+            id: sourceId,
+            strategy: "sma-crossover",
+            strategyName: "SMA Crossover",
+            strategyParams: { fastPeriod: 9, slowPeriod: 21 },
+            timeframe: "1h",
+            symbols: ["BTC/USDT"],
+            qualified: true,
+            testMetrics: {
+              benchmark: { totalReturn: 120 },
+              excessReturn: -30,
+            },
+          },
+        ])
+      ),
+      insert,
+    };
+
+    try {
+      const caller = createCaller(
+        createTrpcContext(
+          {
+            db: db as never,
+            redis: {} as never,
+            queues: {} as never,
+            exchangeManager: {} as never,
+            marketData: {} as never,
+            keyVault: {} as never,
+            exportsDir: "/tmp/exports",
+          },
+          {
+            headers: {
+              authorization: "Bearer test-token",
+            },
+          } as never
+        )
+      );
+
+      await expect(
+        caller.bots.create({
+          name: "Profit Only Research Paper Bot",
+          strategy: "sma-crossover",
+          strategyParams: { fastPeriod: 9, slowPeriod: 21 },
+          exchange: "binance",
+          symbol: "BTC/USDT",
+          timeframe: "1h",
+          mode: "paper",
+          riskConfig: {
+            maxPositionSizePercent: 10,
+            maxDrawdownPercent: 20,
+            riskPerTradePercent: 2,
+            maxConcurrentPositions: 5,
+            maxDailyLossPercent: 5,
+            trailingStopEnabled: false,
+            trailingStopPercent: 5,
+          },
+          currentBalance: 10000,
+          promotionEvidence: {
+            sourceType: "research",
+            sourceId,
+          },
+        })
+      ).rejects.toThrow(/benchmark-alpha/);
 
       expect(insert).not.toHaveBeenCalled();
     } finally {

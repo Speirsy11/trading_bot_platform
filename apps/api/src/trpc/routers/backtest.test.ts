@@ -204,7 +204,7 @@ describe("backtest router", () => {
             sourceLabel: "SMA Crossover · 15m",
             benchmarkStatus: "profit-only",
             qualified: true,
-            paperBotEligible: true,
+            paperBotEligible: false,
             outOfSampleReturn: 88.29,
             benchmarkReturn: 127.6,
             excessReturn: -39.3,

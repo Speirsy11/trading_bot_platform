@@ -191,6 +191,46 @@ const FALLBACK_STRATEGIES: StrategyOption[] = [
       { name: "atrStop", inputType: "number", defaultValue: 2, min: 0.1, max: 10 },
     ],
   },
+  {
+    key: "macd-momentum",
+    name: "MACD Momentum",
+    params: [
+      {
+        name: "fastPeriod",
+        inputType: "number",
+        defaultValue: 12,
+        min: 2,
+        max: 100,
+        integer: true,
+      },
+      {
+        name: "slowPeriod",
+        inputType: "number",
+        defaultValue: 26,
+        min: 5,
+        max: 200,
+        integer: true,
+      },
+      {
+        name: "signalPeriod",
+        inputType: "number",
+        defaultValue: 9,
+        min: 2,
+        max: 50,
+        integer: true,
+      },
+      {
+        name: "trendPeriod",
+        inputType: "number",
+        defaultValue: 100,
+        min: 20,
+        max: 300,
+        integer: true,
+      },
+      { name: "atrPeriod", inputType: "number", defaultValue: 14, min: 2, max: 100, integer: true },
+      { name: "atrStop", inputType: "number", defaultValue: 2, min: 0, max: 10 },
+    ],
+  },
 ];
 
 const FALLBACK_EXCHANGES: ExchangeOption[] = [
@@ -380,17 +420,22 @@ export default function CreateBotPage() {
 
   const selectedStrategyKey = form.watch("strategy");
   const selectedStrategy = strategyOptions.find((strategy) => strategy.key === selectedStrategyKey);
+  const promotionEvidence = form.watch("promotionEvidence");
+  const researchPromotionBlocked = Boolean(
+    sourceResearch && promotionEvidence?.paperBotEligible !== true
+  );
+  const researchPromotionLocked = Boolean(
+    sourceResearch && promotionEvidence?.paperBotEligible === false
+  );
 
   // Load draft on mount. Promoted research/backtests intentionally bypass stale drafts.
   useEffect(() => {
     if (hasPromotionSource) {
       localStorage.removeItem(draftKey);
       form.setValue("mode", "paper", { shouldValidate: true });
-      toast.info(
-        sourceBacktest
-          ? "Backtest config loaded into a paper bot draft"
-          : "Research config loaded into a paper bot draft"
-      );
+      if (sourceBacktest) {
+        toast.info("Backtest config loaded into a paper bot draft");
+      }
       return;
     }
 
@@ -436,6 +481,11 @@ export default function CreateBotPage() {
         verifiedAt: Date.now(),
       },
       { shouldValidate: true }
+    );
+    toast.info(
+      result.paperBotEligible
+        ? "Research config loaded into a paper bot draft"
+        : "Research alpha gate locked; config is review-only"
     );
   }, [form, researchSourceQuery.data, sourceResearch]);
 
@@ -529,6 +579,11 @@ export default function CreateBotPage() {
   });
 
   const onSubmit = async (data: BotFormData) => {
+    if (sourceResearch && data.promotionEvidence?.paperBotEligible !== true) {
+      toast.error("Research paper-bot creation is locked until benchmark-alpha gates pass.");
+      return;
+    }
+
     await createBot.mutateAsync(data);
     localStorage.removeItem(draftKey);
   };
@@ -563,13 +618,22 @@ export default function CreateBotPage() {
         </Link>
         <div>
           <h1 className="text-2xl" style={{ color: "var(--text-primary)" }}>
-            {hasPromotionSource ? "Create Paper Bot" : "Create Bot"}
+            {researchPromotionLocked
+              ? "Research Promotion Locked"
+              : hasPromotionSource
+                ? "Create Paper Bot"
+                : "Create Bot"}
           </h1>
           {hasPromotionSource && (
             <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-              Prefilled from {sourceBacktest ? "backtest" : "research"}{" "}
-              {(sourceBacktest ?? sourceResearch)?.slice(0, 8)}. Review the config, then run it
-              safely in paper mode.
+              {researchPromotionLocked
+                ? `Research ${(sourceResearch ?? "").slice(
+                    0,
+                    8
+                  )} has not passed benchmark-alpha gates. Review only.`
+                : `Prefilled from ${sourceBacktest ? "backtest" : "research"} ${(
+                    sourceBacktest ?? sourceResearch
+                  )?.slice(0, 8)}. Review the config, then run it safely in paper mode.`}
             </p>
           )}
         </div>
@@ -578,15 +642,21 @@ export default function CreateBotPage() {
       {hasPromotionSource && (
         <div
           className="space-y-2 rounded-xl p-4 text-sm"
-          style={{ background: "var(--accent-dim)", color: "var(--text-primary)" }}
+          style={{
+            background: researchPromotionLocked ? "rgba(248, 113, 113, 0.08)" : "var(--accent-dim)",
+            border: researchPromotionLocked ? "1px solid rgba(248, 113, 113, 0.22)" : undefined,
+            color: "var(--text-primary)",
+          }}
         >
           <div>
-            This bot draft inherits the strategy, market, risk settings and starting balance from
-            the {sourceBacktest ? "backtest" : "qualified research result"}. Keep it in{" "}
-            <strong>paper mode</strong> until it behaves well on live data.
+            {researchPromotionLocked
+              ? "This research result is historically profitable, but it has not passed benchmark-alpha promotion. The evidence remains visible for review; paper bot creation is locked."
+              : `This bot draft inherits the strategy, market, risk settings and starting balance from the ${
+                  sourceBacktest ? "backtest" : "benchmark-alpha research result"
+                }. Keep it in paper mode until it behaves well on live data.`}
           </div>
           <PromotionEvidenceLine
-            evidence={form.watch("promotionEvidence")}
+            evidence={promotionEvidence}
             loading={researchSourceQuery.isLoading || backtestSourceQuery.isLoading}
           />
         </div>
@@ -711,11 +781,16 @@ export default function CreateBotPage() {
           ) : (
             <button
               type="submit"
-              disabled={createBot.isPending}
+              disabled={createBot.isPending || researchPromotionBlocked}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm transition-colors disabled:opacity-60"
               style={{ background: "var(--accent)", color: "var(--primary-foreground)" }}
             >
-              <Check size={14} /> {createBot.isPending ? "Creating…" : "Create Bot"}
+              <Check size={14} />{" "}
+              {createBot.isPending
+                ? "Creating..."
+                : researchPromotionBlocked
+                  ? "Alpha gate locked"
+                  : "Create Bot"}
             </button>
           )}
         </div>
@@ -1360,7 +1435,7 @@ function buildEvidenceQualityCheck(
   if (sourceType === "research") {
     if (!evidence?.sourceId || evidence.paperBotEligible === undefined) {
       return {
-        label: "Historical-profit gate",
+        label: "Research alpha gate",
         detail: "Waiting for the research result evidence to load.",
         status: "watch",
       };
@@ -1368,15 +1443,15 @@ function buildEvidenceQualityCheck(
 
     if (!evidence.paperBotEligible) {
       return {
-        label: "Historical-profit gate",
-        detail: "This research result did not pass the paper-bot eligibility gate.",
+        label: "Research alpha gate",
+        detail: "This research result has not passed benchmark-alpha promotion.",
         status: "fail",
       };
     }
 
     const benchmarkStatus = formatBenchmarkStatus(evidence.benchmarkStatus);
     return {
-      label: "Historical-profit gate",
+      label: "Research alpha gate",
       detail: `${benchmarkStatus} · paper trading allowed`,
       status: "pass",
     };

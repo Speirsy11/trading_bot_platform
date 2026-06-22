@@ -98,6 +98,7 @@ const STRATEGY_FILTER_OPTIONS = [
   { value: "bollinger-long-bounce", label: "Bollinger bounce" },
   { value: "donchian-breakout", label: "Donchian breakout" },
   { value: "ema-atr-trend", label: "EMA/ATR trend" },
+  { value: "macd-momentum", label: "MACD momentum" },
 ];
 
 const TIMEFRAME_FILTER_OPTIONS = [
@@ -118,6 +119,7 @@ type ResearchSweepRequest = {
     | "bollinger-long-bounce"
     | "donchian-breakout"
     | "ema-atr-trend"
+    | "macd-momentum"
   >;
   allowFallbackRollups: boolean;
 };
@@ -197,7 +199,7 @@ export default function ResearchPage() {
   const archivedSweep = leaderboard.data?.latestArchivedSweep;
   const archivedSweepCount = leaderboard.data?.archivedSweepCount ?? 0;
   const currentEngineVersion =
-    leaderboard.data?.currentEngineVersion ?? "research-lab-v1.3.4-time-aligned-portfolio";
+    leaderboard.data?.currentEngineVersion ?? "research-lab-v1.3.5-macd-momentum";
   const latestResultCount = sweep.data?.resultCount ?? items.length;
   const latestProgress =
     sweep.data?.progress ??
@@ -616,8 +618,8 @@ export default function ResearchPage() {
                   border: "1px solid rgba(251, 191, 36, 0.24)",
                 }}
               >
-                No historically profitable row currently clears benchmark-alpha. Qualified rows can
-                still be paper-tested; benchmark lag stays visible in the evidence.
+                No historically profitable row currently clears benchmark-alpha. Qualified rows stay
+                in research review until they beat buy-and-hold.
               </div>
             )}
             <div className="overflow-x-auto">

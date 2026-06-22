@@ -37,6 +37,30 @@ const STRATEGY_PRESETS = [
     recommendedTimeframes: ["1h", "4h", "1d"],
   },
   {
+    id: "sma-chandelier-paper-first",
+    name: "SMA Chandelier Paper-first",
+    strategy: "sma-chandelier-trend",
+    description:
+      "Spot long-only SMA trend template with ATR chandelier exits for drawdown-controlled trend following.",
+    strategyParams: {
+      fastPeriod: 50,
+      slowPeriod: 200,
+      exitPeriod: 22,
+      atrPeriod: 14,
+      atrStop: 3,
+    },
+    riskConfig: {
+      maxPositionSizePercent: 5,
+      maxDrawdownPercent: 12,
+      riskPerTradePercent: 1,
+      maxConcurrentPositions: 1,
+      maxDailyLossPercent: 3,
+      trailingStopEnabled: true,
+      trailingStopPercent: 3,
+    },
+    recommendedTimeframes: ["1h", "4h", "1d"],
+  },
+  {
     id: "balanced-rsi-reversion",
     name: "Balanced RSI Reversion",
     strategy: "rsi-mean-reversion",
@@ -70,6 +94,55 @@ const STRATEGY_PRESETS = [
       trailingStopPercent: 2,
     },
     recommendedTimeframes: ["5m", "15m", "1h"],
+  },
+  {
+    id: "macd-momentum-paper-first",
+    name: "MACD Momentum Paper-first",
+    strategy: "macd-momentum",
+    description:
+      "Spot long-only momentum template that enters when MACD recovers above trend and exits on momentum failure.",
+    strategyParams: {
+      fastPeriod: 12,
+      slowPeriod: 26,
+      signalPeriod: 9,
+      trendPeriod: 100,
+      atrPeriod: 14,
+      atrStop: 2,
+    },
+    riskConfig: {
+      maxPositionSizePercent: 5,
+      maxDrawdownPercent: 12,
+      riskPerTradePercent: 1,
+      maxConcurrentPositions: 1,
+      maxDailyLossPercent: 3,
+      trailingStopEnabled: true,
+      trailingStopPercent: 3,
+    },
+    recommendedTimeframes: ["1h", "4h", "1d"],
+  },
+  {
+    id: "chandelier-trend-paper-first",
+    name: "Chandelier Trend Paper-first",
+    strategy: "chandelier-trend",
+    description:
+      "Spot long-only breakout template that follows trend highs and exits on ATR chandelier breakdowns.",
+    strategyParams: {
+      entryPeriod: 55,
+      exitPeriod: 22,
+      trendPeriod: 200,
+      atrPeriod: 14,
+      atrStop: 3,
+    },
+    riskConfig: {
+      maxPositionSizePercent: 5,
+      maxDrawdownPercent: 12,
+      riskPerTradePercent: 1,
+      maxConcurrentPositions: 1,
+      maxDailyLossPercent: 3,
+      trailingStopEnabled: true,
+      trailingStopPercent: 3,
+    },
+    recommendedTimeframes: ["1h", "4h", "1d"],
   },
 ] as const;
 

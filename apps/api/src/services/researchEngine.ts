@@ -22,12 +22,15 @@ export const RESEARCH_SYMBOLS = [
 export const RESEARCH_TIMEFRAMES = ["15m", "1h", "4h"] as const;
 export const RESEARCH_STRATEGY_KEYS = [
   "sma-crossover",
+  "sma-chandelier-trend",
   "rsi-mean-reversion",
   "bollinger-long-bounce",
   "donchian-breakout",
   "ema-atr-trend",
+  "macd-momentum",
+  "chandelier-trend",
 ] as const;
-export const RESEARCH_ENGINE_VERSION = "research-lab-v1.3.4-time-aligned-portfolio";
+export const RESEARCH_ENGINE_VERSION = "research-lab-v1.3.8-stop-guard";
 export const RESEARCH_EXECUTION_DEFAULTS = {
   initialBalance: 10_000,
   fees: { maker: 0.001, taker: 0.001 },
@@ -45,6 +48,8 @@ const MIN_TRADES_PER_PARTICIPATING_SYMBOL = 3;
 const REQUIRED_RESEARCH_SYMBOL_COUNT = RESEARCH_SYMBOLS.length;
 const MIN_PARTICIPATING_SYMBOLS = 6;
 const DATASET_LOAD_CONCURRENCY = 3;
+const MIN_VALIDATION_TRADES = 10;
+const MIN_VALIDATION_PARTICIPATING_SYMBOLS = 4;
 
 export type ResearchSplitName = "train" | "validation" | "test";
 
@@ -173,6 +178,11 @@ export function buildResearchCandidates(options: ResearchSweepOptions = {}): Res
         candidates.push(makeCandidate(catalogByKey, "sma-crossover", params, timeframe));
       }
     }
+    for (const params of buildSmaChandelierParams()) {
+      if (strategyKeys.has("sma-chandelier-trend")) {
+        candidates.push(makeCandidate(catalogByKey, "sma-chandelier-trend", params, timeframe));
+      }
+    }
     for (const params of buildRsiParams()) {
       if (strategyKeys.has("rsi-mean-reversion")) {
         candidates.push(makeCandidate(catalogByKey, "rsi-mean-reversion", params, timeframe));
@@ -191,6 +201,16 @@ export function buildResearchCandidates(options: ResearchSweepOptions = {}): Res
     for (const params of buildEmaAtrParams()) {
       if (strategyKeys.has("ema-atr-trend")) {
         candidates.push(makeCandidate(catalogByKey, "ema-atr-trend", params, timeframe));
+      }
+    }
+    for (const params of buildMacdMomentumParams()) {
+      if (strategyKeys.has("macd-momentum")) {
+        candidates.push(makeCandidate(catalogByKey, "macd-momentum", params, timeframe));
+      }
+    }
+    for (const params of buildChandelierTrendParams()) {
+      if (strategyKeys.has("chandelier-trend")) {
+        candidates.push(makeCandidate(catalogByKey, "chandelier-trend", params, timeframe));
       }
     }
   }
@@ -399,7 +419,7 @@ export function buildResearchCandidateResult(
         }
       : undefined
   );
-  const qualification = qualifyResearchResult(testMetrics);
+  const qualification = qualifyResearchResult(testMetrics, { validationMetrics });
 
   return {
     candidate,
@@ -444,7 +464,12 @@ export function buildSplitBenchmarks(split: {
   };
 }
 
-export function qualifyResearchResult(metrics: AggregateMetrics) {
+export function qualifyResearchResult(
+  metrics: AggregateMetrics,
+  robustness: {
+    validationMetrics?: AggregateMetrics;
+  } = {}
+) {
   const reasons: string[] = [];
   if (metrics.symbolCount < REQUIRED_RESEARCH_SYMBOL_COUNT) {
     reasons.push(`Fewer than ${REQUIRED_RESEARCH_SYMBOL_COUNT} symbols had complete test coverage`);
@@ -457,9 +482,23 @@ export function qualifyResearchResult(metrics: AggregateMetrics) {
     reasons.push("Fewer than 6 symbols had non-trivial trade participation");
   }
 
+  if (robustness.validationMetrics) {
+    const validation = robustness.validationMetrics;
+    if (validation.totalReturn <= 0) reasons.push("Validation return is not positive");
+    if (validation.profitFactor <= 1) reasons.push("Validation profit factor is not above 1.00");
+    if (validation.maxDrawdown > 35) reasons.push("Validation max drawdown is above 35%");
+    if (validation.totalTrades < MIN_VALIDATION_TRADES) {
+      reasons.push(`Fewer than ${MIN_VALIDATION_TRADES} validation trades`);
+    }
+    if (validation.participatingSymbols < MIN_VALIDATION_PARTICIPATING_SYMBOLS) {
+      reasons.push("Fewer than 4 symbols had validation trade participation");
+    }
+  }
+
   return {
     qualified: reasons.length === 0,
-    reasons: reasons.length > 0 ? reasons : ["Passed out-of-sample robustness gates"],
+    reasons:
+      reasons.length > 0 ? reasons : ["Passed validation and out-of-sample robustness gates"],
   };
 }
 
@@ -630,6 +669,10 @@ type IndicatorSeries = {
   bbMiddle?: number[];
   bbLower?: number[];
   atr?: number[];
+  macd?: number[];
+  macdSignal?: number[];
+  macdHistogram?: number[];
+  trendEma?: number[];
 };
 
 function buildIndicatorSeries(candidate: ResearchCandidate, candles: Candle[]): IndicatorSeries {
@@ -640,12 +683,17 @@ function buildIndicatorSeries(candidate: ResearchCandidate, candles: Candle[]): 
 
   switch (candidate.strategy) {
     case "sma-crossover":
+    case "sma-chandelier-trend":
       return {
         close,
         high,
         low,
         smaFast: smaAligned(close, numberParam(params, "fastPeriod")),
         smaSlow: smaAligned(close, numberParam(params, "slowPeriod")),
+        atr:
+          candidate.strategy === "sma-chandelier-trend"
+            ? atrAligned(candles, numberParam(params, "atrPeriod", 14))
+            : undefined,
       };
     case "rsi-mean-reversion":
       return {
@@ -686,6 +734,32 @@ function buildIndicatorSeries(candidate: ResearchCandidate, candles: Candle[]): 
         emaSlow: emaAligned(close, numberParam(params, "slowPeriod")),
         atr: atrAligned(candles, numberParam(params, "atrPeriod", 14)),
       };
+    case "macd-momentum": {
+      const macd = macdAligned(
+        close,
+        numberParam(params, "fastPeriod"),
+        numberParam(params, "slowPeriod"),
+        numberParam(params, "signalPeriod")
+      );
+      return {
+        close,
+        high,
+        low,
+        macd: macd.macd,
+        macdSignal: macd.signal,
+        macdHistogram: macd.histogram,
+        trendEma: emaAligned(close, numberParam(params, "trendPeriod")),
+        atr: atrAligned(candles, numberParam(params, "atrPeriod", 14)),
+      };
+    }
+    case "chandelier-trend":
+      return {
+        close,
+        high,
+        low,
+        trendEma: emaAligned(close, numberParam(params, "trendPeriod")),
+        atr: atrAligned(candles, numberParam(params, "atrPeriod", 14)),
+      };
     default:
       throw new Error(`Unsupported research strategy: ${candidate.strategy}`);
   }
@@ -709,6 +783,38 @@ function getResearchSignal(
       if (![fast, slow, prevFast, prevSlow].every(Number.isFinite)) return { reason: "warmup" };
       if (prevFast <= prevSlow && fast > slow) return { action: "buy", reason: "sma-cross-up" };
       if (prevFast >= prevSlow && fast < slow) return { action: "sell", reason: "sma-cross-down" };
+      return { reason: "hold" };
+    }
+    case "sma-chandelier-trend": {
+      const fast = indicators.smaFast?.[index] ?? Number.NaN;
+      const slow = indicators.smaSlow?.[index] ?? Number.NaN;
+      const prevFast = indicators.smaFast?.[index - 1] ?? Number.NaN;
+      const prevSlow = indicators.smaSlow?.[index - 1] ?? Number.NaN;
+      const prevClose = indicators.close[index - 1] ?? Number.NaN;
+      const atr = indicators.atr?.[index] ?? Number.NaN;
+      const exitPeriod = numberParam(params, "exitPeriod");
+      if (![fast, slow, prevFast, prevSlow, prevClose, atr].every(Number.isFinite) || atr <= 0) {
+        return { reason: "warmup" };
+      }
+
+      const chandelierHigh = maxWindow(indicators.high, index - exitPeriod + 1, index);
+      const chandelierStop = chandelierHigh - atr * numberParam(params, "atrStop");
+      const crossedUp = prevFast <= prevSlow && fast > slow;
+      const reclaimedFast = fast > slow && prevClose <= fast && candle.close > fast;
+
+      if ((crossedUp || reclaimedFast) && candle.close > slow && chandelierStop < candle.close) {
+        return {
+          action: "buy",
+          stopLoss: chandelierStop,
+          reason: crossedUp ? "sma-chandelier-cross-up" : "sma-chandelier-reclaim",
+        };
+      }
+      if (candle.close < chandelierStop) {
+        return { action: "sell", reason: "sma-chandelier-exit" };
+      }
+      if (fast < slow || candle.close < slow) {
+        return { action: "sell", reason: "sma-chandelier-trend-filter-exit" };
+      }
       return { reason: "hold" };
     }
     case "rsi-mean-reversion": {
@@ -790,6 +896,52 @@ function getResearchSignal(
         };
       }
       if (prevFast >= prevSlow && fast < slow) return { action: "sell", reason: "ema-cross-down" };
+      return { reason: "hold" };
+    }
+    case "macd-momentum": {
+      const histogram = indicators.macdHistogram?.[index] ?? Number.NaN;
+      const prevHistogram = indicators.macdHistogram?.[index - 1] ?? Number.NaN;
+      const trend = indicators.trendEma?.[index] ?? Number.NaN;
+      if (![histogram, prevHistogram, trend].every(Number.isFinite)) return { reason: "warmup" };
+      if (prevHistogram <= 0 && histogram > 0 && candle.close > trend) {
+        const atr = indicators.atr?.[index] ?? 0;
+        const atrStop = numberParam(params, "atrStop");
+        return {
+          action: "buy",
+          stopLoss: atr > 0 && atrStop > 0 ? candle.close - atr * atrStop : undefined,
+          reason: "macd-positive-momentum",
+        };
+      }
+      if (prevHistogram >= 0 && histogram < 0) {
+        return { action: "sell", reason: "macd-negative-momentum" };
+      }
+      if (candle.close < trend) return { action: "sell", reason: "macd-trend-filter-exit" };
+      return { reason: "hold" };
+    }
+    case "chandelier-trend": {
+      const entryPeriod = numberParam(params, "entryPeriod");
+      const exitPeriod = numberParam(params, "exitPeriod");
+      const trend = indicators.trendEma?.[index] ?? Number.NaN;
+      const atr = indicators.atr?.[index] ?? Number.NaN;
+      if (index < Math.max(entryPeriod, exitPeriod, numberParam(params, "trendPeriod"))) {
+        return { reason: "warmup" };
+      }
+      if (![trend, atr].every(Number.isFinite) || atr <= 0) return { reason: "warmup" };
+
+      const entryHigh = maxWindow(indicators.high, index - entryPeriod, index - 1);
+      const chandelierHigh = maxWindow(indicators.high, index - exitPeriod + 1, index);
+      const chandelierStop = chandelierHigh - atr * numberParam(params, "atrStop");
+      if (candle.close > entryHigh && candle.close > trend && chandelierStop < candle.close) {
+        return {
+          action: "buy",
+          stopLoss: chandelierStop,
+          reason: "chandelier-breakout",
+        };
+      }
+      if (candle.close < chandelierStop) {
+        return { action: "sell", reason: "chandelier-exit" };
+      }
+      if (candle.close < trend) return { action: "sell", reason: "chandelier-trend-filter-exit" };
       return { reason: "hold" };
     }
     default:
@@ -1053,6 +1205,22 @@ function buildSmaParams() {
   return params;
 }
 
+function buildSmaChandelierParams() {
+  const params: Record<string, unknown>[] = [];
+  for (const fastPeriod of [20, 50]) {
+    for (const slowPeriod of [100, 200]) {
+      for (const exitPeriod of [22, 55]) {
+        for (const atrStop of [2, 3]) {
+          if (fastPeriod < slowPeriod) {
+            params.push({ fastPeriod, slowPeriod, exitPeriod, atrPeriod: 14, atrStop });
+          }
+        }
+      }
+    }
+  }
+  return params;
+}
+
 function buildRsiParams() {
   const params: Record<string, unknown>[] = [];
   for (const rsiPeriod of [14, 21]) {
@@ -1103,6 +1271,38 @@ function buildEmaAtrParams() {
   return params;
 }
 
+function buildMacdMomentumParams() {
+  const params: Record<string, unknown>[] = [];
+  for (const [fastPeriod, slowPeriod] of [
+    [8, 21],
+    [12, 26],
+    [12, 35],
+  ]) {
+    for (const signalPeriod of [5, 9]) {
+      for (const trendPeriod of [50, 100]) {
+        for (const atrStop of [0, 2]) {
+          params.push({ fastPeriod, slowPeriod, signalPeriod, trendPeriod, atrStop });
+        }
+      }
+    }
+  }
+  return params;
+}
+
+function buildChandelierTrendParams() {
+  const params: Record<string, unknown>[] = [];
+  for (const entryPeriod of [20, 55, 100]) {
+    for (const exitPeriod of [10, 22]) {
+      for (const trendPeriod of [100, 200]) {
+        for (const atrStop of [2, 3]) {
+          params.push({ entryPeriod, exitPeriod, trendPeriod, atrPeriod: 14, atrStop });
+        }
+      }
+    }
+  }
+  return params;
+}
+
 function makeCandidate(
   catalogByKey: Map<string, { key: string; name: string }>,
   strategy: string,
@@ -1118,10 +1318,18 @@ function makeCandidate(
   };
 }
 
+// Coverage timestamps are typed as Date, but some database drivers hand back
+// timestamp columns as strings. Coerce defensively so serialization never throws.
+function coverageTimeToIso(value: Date | string | null | undefined): string | null {
+  if (value == null) return null;
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
 function serializeCoverage(coverage: MarketCoverage) {
   return {
-    earliest: coverage.earliest?.toISOString() ?? null,
-    latest: coverage.latest?.toISOString() ?? null,
+    earliest: coverageTimeToIso(coverage.earliest),
+    latest: coverageTimeToIso(coverage.latest),
     totalCandles: coverage.totalCandles,
     gapCount: coverage.gapCount,
   };
@@ -1293,6 +1501,39 @@ function atrAligned(candles: Candle[], period: number): number[] {
   }
 
   return result;
+}
+
+function macdAligned(
+  values: number[],
+  fastPeriod: number,
+  slowPeriod: number,
+  signalPeriod: number
+) {
+  const macdLine = Array(values.length).fill(Number.NaN) as number[];
+  const signalLine = Array(values.length).fill(Number.NaN) as number[];
+  const histogram = Array(values.length).fill(Number.NaN) as number[];
+  if (values.length < slowPeriod + signalPeriod - 1) {
+    return { macd: macdLine, signal: signalLine, histogram };
+  }
+
+  const fast = emaAligned(values, fastPeriod);
+  const slow = emaAligned(values, slowPeriod);
+  const compactMacd: number[] = [];
+  for (let index = slowPeriod - 1; index < values.length; index++) {
+    const value = fast[index]! - slow[index]!;
+    macdLine[index] = value;
+    compactMacd.push(value);
+  }
+
+  const compactSignal = emaAligned(compactMacd, signalPeriod).filter(Number.isFinite);
+  const signalStartIndex = slowPeriod + signalPeriod - 2;
+  for (let offset = 0; offset < compactSignal.length; offset++) {
+    const index = signalStartIndex + offset;
+    signalLine[index] = compactSignal[offset]!;
+    histogram[index] = macdLine[index]! - signalLine[index]!;
+  }
+
+  return { macd: macdLine, signal: signalLine, histogram };
 }
 
 function maxWindow(values: number[], start: number, end: number) {

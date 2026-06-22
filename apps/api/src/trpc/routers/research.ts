@@ -530,7 +530,7 @@ export function summarizeBenchmarkEvidence(input: { qualified: boolean; testMetr
     drawdownAdvantage,
     benchmarkBeat,
     alphaQualified,
-    paperBotEligible: input.qualified,
+    paperBotEligible: alphaQualified,
     benchmarkStatus: alphaQualified
       ? "alpha-qualified"
       : input.qualified

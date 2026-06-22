@@ -56,7 +56,7 @@ describe("research evidence audit", () => {
       qualified: true,
       alphaQualified: true,
       paperBotEligible: true,
-      qualificationReasons: ["Passed out-of-sample robustness gates"],
+      qualificationReasons: ["Passed validation and out-of-sample robustness gates"],
     });
 
     expect(audit.gateStatus).toBe("passed");

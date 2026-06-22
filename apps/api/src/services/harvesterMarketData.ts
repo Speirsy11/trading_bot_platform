@@ -227,10 +227,14 @@ class HarvesterPostgresMarketDataReader implements MarketDataReader {
 
   async getCoverage(exchange: string, symbol: string, timeframe: string): Promise<MarketCoverage> {
     if (timeframe !== "1m") {
+      const native = await this.getNativeCoverage(exchange, symbol, timeframe);
+      if (native.earliest && native.latest && native.totalCandles > 0) {
+        return native;
+      }
+
       const oneMinute = await this.getCoverage(exchange, symbol, "1m");
       if (!oneMinute.earliest || !oneMinute.latest) return oneMinute;
 
-      const native = await this.getNativeCoverage(exchange, symbol, timeframe);
       if (
         nativeCoversRange(native, {
           exchange,
@@ -327,24 +331,14 @@ class HarvesterPostgresMarketDataReader implements MarketDataReader {
         s.symbol,
         s.interval AS timeframe,
         s.status,
-        point_stats.earliest,
-        point_stats.latest,
-        COALESCE(point_stats.total_candles, s.total_inserted) AS total_candles,
+        s.start_time AS earliest,
+        s.next_start_time AS latest,
+        s.total_inserted AS total_candles,
         s.start_time,
         s.next_start_time,
         s.latest_available_time,
         s.updated_at
       FROM states s
-      LEFT JOIN LATERAL (
-        SELECT
-          MIN(timestamp) AS earliest,
-          MAX(timestamp) AS latest,
-          COUNT(*) AS total_candles
-        FROM market_data_points p
-        WHERE p.provider = s.provider
-          AND p.symbol = s.symbol
-          AND p.interval = s.interval
-      ) point_stats ON true
       ${where}
       ORDER BY s.provider, s.symbol, s.interval
     `;
@@ -366,7 +360,7 @@ class HarvesterPostgresMarketDataReader implements MarketDataReader {
     const interval = toHarvesterInterval(timeframe);
 
     if (interval !== "1m") {
-      const rollupRows = await this.sql<
+      const rollupStateRows = await this.sql<
         Array<{
           earliest: Date | null;
           latest: Date | null;
@@ -374,16 +368,17 @@ class HarvesterPostgresMarketDataReader implements MarketDataReader {
         }>
       >`
         SELECT
-          MIN(timestamp) AS earliest,
-          MAX(timestamp) AS latest,
-          COUNT(*) AS total_candles
-        FROM market_data_points
+          start_time AS earliest,
+          next_start_time AS latest,
+          total_inserted AS total_candles
+        FROM market_rollup_backfills
         WHERE provider = ${provider}
           AND symbol = ${harvesterSymbol}
           AND interval = ${interval}
+        LIMIT 1
       `;
 
-      const rollupRow = rollupRows[0];
+      const rollupRow = rollupStateRows[0];
       if (rollupRow?.earliest && rollupRow.latest) {
         return {
           earliest: rollupRow.earliest,

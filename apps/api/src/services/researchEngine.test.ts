@@ -56,12 +56,15 @@ describe("researchEngine", () => {
     const candidates = buildResearchCandidates({ timeframes: ["4h"] });
     const counts = countByStrategy(candidates);
 
-    expect(candidates).toHaveLength(61);
+    expect(candidates).toHaveLength(125);
     expect(counts).toEqual({
       "bollinger-long-bounce": 16,
+      "chandelier-trend": 24,
       "donchian-breakout": 9,
       "ema-atr-trend": 8,
+      "macd-momentum": 24,
       "rsi-mean-reversion": 18,
+      "sma-chandelier-trend": 16,
       "sma-crossover": 10,
     });
     expect(
@@ -77,6 +80,30 @@ describe("researchEngine", () => {
           candidate.strategy === "donchian-breakout" && candidate.strategyParams.atrStop === 0
       )
     ).toHaveLength(3);
+    expect(
+      candidates.filter(
+        (candidate) =>
+          candidate.strategy === "macd-momentum" &&
+          candidate.strategyParams.fastPeriod === 12 &&
+          candidate.strategyParams.slowPeriod === 26
+      )
+    ).toHaveLength(8);
+    expect(
+      candidates.filter(
+        (candidate) =>
+          candidate.strategy === "chandelier-trend" &&
+          candidate.strategyParams.entryPeriod === 55 &&
+          candidate.strategyParams.trendPeriod === 200
+      )
+    ).toHaveLength(4);
+    expect(
+      candidates.filter(
+        (candidate) =>
+          candidate.strategy === "sma-chandelier-trend" &&
+          candidate.strategyParams.fastPeriod === 50 &&
+          candidate.strategyParams.slowPeriod === 200
+      )
+    ).toHaveLength(4);
 
     for (const candidate of candidates) {
       const strategy = StrategyRegistry.create(candidate.strategy);
@@ -119,6 +146,21 @@ describe("researchEngine", () => {
     };
 
     expect(qualifyResearchResult(passing).qualified).toBe(true);
+    expect(
+      qualifyResearchResult(passing, {
+        validationMetrics: {
+          ...passing,
+          totalReturn: 4,
+          profitFactor: 1.1,
+          maxDrawdown: 20,
+          totalTrades: 20,
+          participatingSymbols: 5,
+        },
+      })
+    ).toMatchObject({
+      qualified: true,
+      reasons: ["Passed validation and out-of-sample robustness gates"],
+    });
     expect(qualifyResearchResult({ ...passing, maxDrawdown: 35, totalTrades: 12 })).toMatchObject({
       qualified: false,
       reasons: expect.arrayContaining([
@@ -133,6 +175,43 @@ describe("researchEngine", () => {
       reasons: expect.arrayContaining([
         "Fewer than 10 symbols had complete test coverage",
         "Fewer than 6 symbols had non-trivial trade participation",
+      ]),
+    });
+  });
+
+  it("requires validation robustness before a candidate can enter the production catalog", () => {
+    const passingTest: AggregateMetrics = {
+      totalReturn: 12,
+      netProfit: 12_000,
+      maxDrawdown: 18,
+      sharpeRatio: 1.4,
+      profitFactor: 1.3,
+      winRate: 54,
+      totalTrades: 80,
+      positiveSymbols: 7,
+      participatingSymbols: 8,
+      symbolCount: 10,
+    };
+
+    expect(
+      qualifyResearchResult(passingTest, {
+        validationMetrics: {
+          ...passingTest,
+          totalReturn: -1,
+          profitFactor: 0.95,
+          maxDrawdown: 38,
+          totalTrades: 8,
+          participatingSymbols: 3,
+        },
+      })
+    ).toMatchObject({
+      qualified: false,
+      reasons: expect.arrayContaining([
+        "Validation return is not positive",
+        "Validation profit factor is not above 1.00",
+        "Validation max drawdown is above 35%",
+        "Fewer than 10 validation trades",
+        "Fewer than 4 symbols had validation trade participation",
       ]),
     });
   });

@@ -61,7 +61,7 @@ describe("harvester market data helpers", () => {
     expect(queries[0]).not.toContain("FROM market_data_backfills b");
   });
 
-  it("uses market_data_points counts for quality metrics instead of backfill counters", async () => {
+  it("uses backfill metadata for quality metrics without scanning market_data_points", async () => {
     const queries: string[] = [];
     const sql = ((strings: TemplateStringsArray) => {
       queries.push(strings.join("?"));
@@ -92,8 +92,35 @@ describe("harvester market data helpers", () => {
       totalCandles: 4,
       status: "complete",
     });
-    expect(queries.some((query) => query.includes("point_stats.total_candles"))).toBe(true);
-    expect(queries.some((query) => query.includes("COUNT(*) AS total_candles"))).toBe(true);
+    expect(queries.some((query) => query.includes("point_stats"))).toBe(false);
+    expect(queries.some((query) => query.includes("COUNT(*) AS total_candles"))).toBe(false);
+  });
+
+  it("uses native rollup metadata for higher-timeframe coverage before 1m fallback", async () => {
+    const queries: string[] = [];
+    const sql = ((strings: TemplateStringsArray) => {
+      queries.push(strings.join("?"));
+      return Promise.resolve([
+        {
+          earliest: new Date("2026-01-01T00:00:00.000Z"),
+          latest: new Date("2026-01-31T20:00:00.000Z"),
+          total_candles: "186",
+        },
+      ]);
+    }) as never;
+    const reader = createHarvesterMarketDataReaderFromSql(sql);
+
+    const coverage = await reader.getCoverage("binance", "BTC/USDT", "4h");
+
+    expect(coverage).toEqual({
+      earliest: new Date("2026-01-01T00:00:00.000Z"),
+      latest: new Date("2026-01-31T20:00:00.000Z"),
+      totalCandles: 186,
+      gapCount: 0,
+    });
+    expect(queries).toHaveLength(1);
+    expect(queries[0]).toContain("FROM market_rollup_backfills");
+    expect(queries[0]).not.toContain("interval = '1m'");
   });
 
   it("normalizes symbols between platform and Signal Harvester formats", () => {

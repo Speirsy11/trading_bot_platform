@@ -273,7 +273,7 @@ async function buildResearchSourceEvidence(
     paramHash: row.paramHash,
     qualified: row.qualified,
     alphaQualified,
-    paperBotEligible: row.qualified,
+    paperBotEligible: alphaQualified,
     benchmarkStatus: alphaQualified
       ? "alpha-qualified"
       : row.qualified

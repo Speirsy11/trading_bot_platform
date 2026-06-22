@@ -628,6 +628,13 @@ async function resolvePromotionEvidence(
         message: "Research result is not historically profitable enough for paper bot promotion",
       });
     }
+    if (!researchResultBeatsBenchmark(row)) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Research result must pass benchmark-alpha before paper bot promotion; keep profit-only rows in research review",
+      });
+    }
     assertResearchReplayConfigMatches(row, config);
     return buildResearchPromotionEvidence(row);
   }
@@ -676,7 +683,7 @@ function buildResearchPromotionEvidence(row: typeof researchResults.$inferSelect
           ? "benchmark-beater"
           : "research",
     alphaQualified,
-    paperBotEligible: row.qualified,
+    paperBotEligible: alphaQualified,
     executionAssumptions,
     outOfSampleReturn: toNumber(row.outOfSampleReturn),
     benchmarkReturn: benchmarkReturn ?? undefined,
@@ -687,6 +694,12 @@ function buildResearchPromotionEvidence(row: typeof researchResults.$inferSelect
     totalTrades: toNumber(row.totalTrades),
     verifiedAt: Date.now(),
   };
+}
+
+function researchResultBeatsBenchmark(row: typeof researchResults.$inferSelect) {
+  const testMetrics = parseJsonValue<Record<string, unknown>>(row.testMetrics, {});
+  const excessReturn = numberMetric(testMetrics["excessReturn"]);
+  return excessReturn !== null && excessReturn > 0;
 }
 
 function buildBacktestPromotionEvidence(row: typeof backtests.$inferSelect) {

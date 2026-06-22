@@ -251,8 +251,8 @@ export default function ResearchResultPage({ params }: { params: Promise<{ resul
           }}
         >
           This result passes the historical-profit gates, but it underperforms equal-weight
-          buy-and-hold on the same out-of-sample window. Paper mode remains available for forward
-          observation, and the benchmark lag is attached to promotion evidence.
+          buy-and-hold on the same out-of-sample window. Paper-bot promotion stays locked until the
+          result passes benchmark-alpha gates; the benchmark lag is attached to the audit evidence.
         </div>
       )}
 
@@ -332,7 +332,7 @@ export default function ResearchResultPage({ params }: { params: Promise<{ resul
               ? "Paper bot promotion locked"
               : evidenceAudit.promotionStatus === "alpha-qualified"
                 ? "Paper eligible with benchmark alpha"
-                : "Paper eligible, benchmark lag visible"
+                : "Research review, benchmark lag visible"
           }
           tone={evidenceAudit.gateStatus === "passed" ? "pass" : "fail"}
         />
@@ -519,7 +519,7 @@ export default function ResearchResultPage({ params }: { params: Promise<{ resul
               },
               paperBotPromotion: paperBotEligible
                 ? "eligible"
-                : "locked until historical-profit gates pass",
+                : "locked until benchmark-alpha gates pass",
             },
             null,
             2

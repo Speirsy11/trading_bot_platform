@@ -80,10 +80,11 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ## Market Data
 
 The platform is **read-only for market data**. It does not collect or own OHLCV
-candles itself — it reads canonical candle data from an external **Signal
-Harvester** Postgres database, configured via `SIGNAL_HARVESTER_DATABASE_URL`.
-The harvester owns ingestion, backfill, gap detection, and repair; the trading
-platform only queries the candles it needs for charts, backtests, and bot runs.
+candles itself — it reads canonical candle data from an external
+[Signal Harvester](https://github.com/Speirsy11/signal-harvester) Postgres
+database, configured via `SIGNAL_HARVESTER_DATABASE_URL`. The harvester owns
+ingestion, backfill, gap detection, and repair; the trading platform only
+queries the candles it needs for charts, backtests, and bot runs.
 
 Because of this, the `dataCollection.backfill` and `dataCollection.detectGaps`
 endpoints intentionally return `{ disabled: true }` — those responsibilities

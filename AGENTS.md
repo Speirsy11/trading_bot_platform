@@ -1,9 +1,5 @@
 # Agents
 
-## Skills
-
-This repository contains a `skills/` folder with specialized skill definitions. When performing work that relates to any of these skills, you **must** read the corresponding `SKILL.md` file before proceeding and follow its instructions.
-
 ## UI Verification
 
 When you change any rendered UI in `apps/web` or another browser-visible surface, the work is not complete until you verify the result visually.

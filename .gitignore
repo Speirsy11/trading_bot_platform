@@ -12,3 +12,10 @@ coverage/
 exports/
 *.db
 apps/web/.artifacts/
+
+# Claude Code agent skills bundle — not part of the product
+/skills/
+# Local-only prototype/experiment tests
+*.local.test.ts
+# npm lockfile (this repo is pnpm-only)
+package-lock.json

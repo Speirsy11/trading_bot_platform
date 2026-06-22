@@ -1,3 +1,4 @@
-pnpm format:fix
-pnpm turbo type-check lint test build
+# Fast, staged-only checks. lint-staged runs eslint --fix + prettier --write on
+# the files being committed. Type-check and tests run on push (.husky/pre-push)
+# and the full type-check/lint/test/build matrix runs in CI — not on every commit.
 pnpm lint-staged

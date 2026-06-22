@@ -1,0 +1,3 @@
+# Catch type errors and failing tests before sharing. The full build runs in CI
+# (and is the slowest step), so it is intentionally left out here.
+pnpm turbo type-check test

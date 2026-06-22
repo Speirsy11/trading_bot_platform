@@ -5,7 +5,6 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/api/package.json ./apps/api/
-COPY apps/db-ui/package.json ./apps/db-ui/
 COPY packages/types/package.json ./packages/types/
 COPY packages/utils/package.json ./packages/utils/
 COPY packages/db/package.json ./packages/db/
@@ -23,7 +22,6 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/apps/api/node_modules ./apps/api/node_modules
-COPY --from=deps /app/apps/db-ui/node_modules ./apps/db-ui/node_modules
 COPY . .
 
 RUN pnpm turbo build --filter=api...

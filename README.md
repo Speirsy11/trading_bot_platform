@@ -32,12 +32,11 @@ A pnpm + Turborepo monorepo.
 apps/
   web        Next.js dashboard (strategies, backtests, bots, research, market data)
   api        Fastify + tRPC API and BullMQ worker process
-  db-ui      Lightweight database inspector
 
 packages/
   trading-core   Strategies, backtest engine, bot runtime, risk + order management
   indicators     Technical indicators (SMA/EMA/RSI/MACD/ATR/Bollinger/…) with fixtures
-  data-pipeline  Market-data validation, export (CSV/SQLite), repair utilities
+  data-pipeline  Data export utilities (CSV / SQLite / Parquet) used by the export worker
   db             Drizzle schema, migrations, seeds, queries (TimescaleDB hypertables)
   types          Shared domain types
   utils          Shared utilities
@@ -124,9 +123,9 @@ A minimal worker health server listens on `:3002` (`GET /health`).
 To run the workers detached in Docker:
 
 ```bash
-pnpm docker:ingest:up    # build + start the bootstrap and workers containers
-pnpm docker:ingest:logs  # tail their logs
-pnpm docker:ingest:down  # stop them
+pnpm docker:workers:up    # build + start the bootstrap and workers containers
+pnpm docker:workers:logs  # tail their logs
+pnpm docker:workers:down  # stop them
 ```
 
 ## Scripts

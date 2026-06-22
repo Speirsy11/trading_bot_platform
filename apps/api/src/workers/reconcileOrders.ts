@@ -99,6 +99,7 @@ export async function reconcileOpenOrders(
     // If still "open" / "partial" — genuinely still live, leave alone
   }
 
+  // eslint-disable-next-line no-console -- deliberate run summary for the standalone reconcile worker
   console.info(`[reconcileOrders] checked=${candidates.length} stuck=${stuck} updated=${updated}`);
 
   return { checked: candidates.length, stuck, updated };

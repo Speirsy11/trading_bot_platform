@@ -24,4 +24,9 @@ export default [
       ],
     },
   },
+  {
+    // Tests legitimately spy on and assert against console output.
+    files: ["**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
+    rules: { "no-console": "off" },
+  },
 ];

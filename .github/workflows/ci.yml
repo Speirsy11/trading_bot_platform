@@ -1,8 +1,9 @@
 name: CI
 
 on:
+  # Gate every pull request, regardless of source or target branch.
   pull_request:
-    branches: [main]
+  # Run on direct pushes to long-lived branches.
   push:
     branches: [main]
 

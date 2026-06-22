@@ -15,6 +15,7 @@ export function startHealthServer(port = 3002): void {
     }
   });
   server.listen(port, () => {
+    // eslint-disable-next-line no-console -- deliberate startup line for the standalone worker process
     console.info(`Worker health server listening on :${port}`);
   });
 }

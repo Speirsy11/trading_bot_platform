@@ -40,6 +40,7 @@ async function start() {
       throw new Error(`API_PORT must be an integer between 1 and 65535; received ${rawPort}`);
     }
 
+    // eslint-disable-next-line no-console -- deliberate startup line before the logger is constructed
     console.info(`API startup configuration: redisUrl=${redisUrl}, host=${host}`);
 
     const encryptionKey = assertEncryptionSecret(process.env["ENCRYPTION_KEY"]);

@@ -102,9 +102,12 @@ export function validateAndPrintEnv(): void {
   const { rows, missingRequired } = buildRows();
   const table = buildTable(rows);
 
+  // Deliberate human-facing startup banner printed to stdout, not app logging.
+  /* eslint-disable no-console */
   console.info("\nEnvironment configuration:\n");
   console.info(table);
   console.info("");
+  /* eslint-enable no-console */
 
   if (missingRequired.length > 0) {
     throw new Error(`Missing required environment variable(s): ${missingRequired.join(", ")}`);
